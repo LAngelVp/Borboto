@@ -1,0 +1,117 @@
+-- ============================================================================
+-- BASE DE DATOS: BORBOTO POS (Restaurantes & Gastronomía)
+-- Engine: PostgreSQL 14+
+-- ============================================================================
+
+-- Configuración de zona horaria por defecto
+SET timezone = 'America/Mexico_City';
+
+-- ----------------------------------------------------------------------------
+-- 1. TIPOS ENUMERADOS (Enums para consistencia de estados)
+-- ----------------------------------------------------------------------------
+CREATE TYPE estado_mesa_enum AS ENUM ('LIBRE', 'PENDIENTE', 'COCINANDO', 'LISTO', 'POR_COBRAR');
+CREATE TYPE estado_comanda_enum AS ENUM ('ABIERTA', 'CERRADA', 'CANCELADA');
+CREATE TYPE estado_item_kds_enum AS ENUM ('PENDIENTE', 'PREPARANDO', 'LISTO');
+CREATE TYPE metodo_pago_enum AS ENUM ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA');
+CREATE TYPE rol_usuario_enum AS ENUM ('ADMIN', 'MESERO', 'COCINERO', 'CAJERO');
+
+-- ----------------------------------------------------------------------------
+-- 2. USUARIOS Y PERSONAL DE ROLES
+-- ----------------------------------------------------------------------------
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    pin VARCHAR(6) NOT NULL UNIQUE, -- PIN de acceso rápido táctil
+    rol rol_usuario_enum NOT NULL DEFAULT 'MESERO',
+    activo BOOLEAN DEFAULT TRUE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- 3. ZONAS Y MAPA DE MESAS
+-- ----------------------------------------------------------------------------
+CREATE TABLE zonas (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE -- Ej. 'Terraza', 'Salón Principal', 'Barra'
+);
+
+CREATE TABLE mesas (
+    id SERIAL PRIMARY KEY,
+    numero VARCHAR(10) NOT NULL,
+    zona_id INT NOT NULL REFERENCES zonas(id) ON DELETE RESTRICT,
+    capacidad INT DEFAULT 4,
+    estado estado_mesa_enum DEFAULT 'LIBRE',
+    comensales INT DEFAULT 0,
+    minutos_abierta INT DEFAULT 0,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_mesa_zona UNIQUE(numero, zona_id)
+);
+
+-- ----------------------------------------------------------------------------
+-- 4. MENÚ Y CATÁLOGO DE PRODUCTOS
+-- ----------------------------------------------------------------------------
+CREATE TABLE categorias (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE, -- Ej. 'Tacos', 'Antojitos', 'Bebidas'
+    icono VARCHAR(30) DEFAULT 'restaurant',
+    orden INT DEFAULT 0
+);
+
+CREATE TABLE productos (
+    id SERIAL PRIMARY KEY,
+    categoria_id INT NOT NULL REFERENCES categorias(id) ON DELETE RESTRICT,
+    nombre VARCHAR(100) NOT NULL,
+    precio DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
+    disponible BOOLEAN DEFAULT TRUE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- 5. COMANDAS Y DETALLE DE ORDEN (CONEXIÓN SALÓN <-> COCINA)
+-- ----------------------------------------------------------------------------
+CREATE TABLE comandas (
+    id SERIAL PRIMARY KEY,
+    mesa_id INT NOT NULL REFERENCES mesas(id) ON DELETE RESTRICT,
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT, -- Mesero
+    estado estado_comanda_enum DEFAULT 'ABIERTA',
+    total DECIMAL(10,2) DEFAULT 0.00,
+    fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_cierre TIMESTAMP
+);
+
+CREATE TABLE comanda_items (
+    id SERIAL PRIMARY KEY,
+    comanda_id INT NOT NULL REFERENCES comandas(id) ON DELETE CASCADE,
+    producto_id INT NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
+    cantidad INT NOT NULL CHECK (cantidad > 0),
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(10,2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED,
+    notas TEXT, -- Ej. 'Sin cebolla', 'Término medio'
+    estado_kds estado_item_kds_enum DEFAULT 'PENDIENTE',
+    completado BOOLEAN DEFAULT FALSE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- 6. CAJA Y REGISTRO DE TRANSACCIONES / COBROS
+-- ----------------------------------------------------------------------------
+CREATE TABLE pagos (
+    id SERIAL PRIMARY KEY,
+    comanda_id INT NOT NULL REFERENCES comandas(id) ON DELETE RESTRICT,
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT, -- Cajero
+    metodo_pago metodo_pago_enum NOT NULL,
+    total_cuenta DECIMAL(10,2) NOT NULL,
+    monto_recibido DECIMAL(10,2) NOT NULL,
+    cambio DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    dividir_cuenta BOOLEAN DEFAULT FALSE,
+    partes_iguales INT DEFAULT 1,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- 7. ÍNDICES DE RENDIMIENTO (OPTIMIZACIÓN CONSULTAS POS)
+-- ----------------------------------------------------------------------------
+CREATE INDEX idx_mesas_estado ON mesas(estado);
+CREATE INDEX idx_comandas_mesa ON comandas(mesa_id) WHERE estado = 'ABIERTA';
+CREATE INDEX idx_comanda_items_kds ON comanda_items(completado) WHERE completado = FALSE;
+CREATE INDEX idx_productos_categoria ON productos(categoria_id);
