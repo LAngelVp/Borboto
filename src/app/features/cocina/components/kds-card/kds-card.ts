@@ -18,6 +18,11 @@ export class KdsCardComponent {
   readonly toggleItem = output<number>();
   readonly ticketListo = output<void>();
 
+  todosCompletados(): boolean {
+    const list = this.ticket()?.items || [];
+    return list.length > 0 && list.every(item => item.completado);
+  }
+
   // Semáforo de urgencia según los minutos transcurridos
   getUrgenciaClass(minutos: number): string {
     if (minutos >= 20) return 'urgente-critico'; // Rojo

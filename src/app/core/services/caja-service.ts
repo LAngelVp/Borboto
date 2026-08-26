@@ -25,6 +25,18 @@ export class CajaService {
   readonly items = signal<ItemComanda[]>([]);
   readonly itemsComanda = this.items;
 
+  // Datos del Cliente y Puntos de Lealtad
+  readonly clienteId = signal<number | null>(null);
+  readonly clienteNombre = signal<string>('');
+  readonly clientePuntos = signal<number>(0);
+  readonly clienteEsFrecuente = signal<boolean>(false);
+  readonly clienteVisitas = signal<number>(0);
+  readonly puntosCanjeados = signal<number>(0);
+
+  readonly puntosPorGanar = computed(() => {
+    return Math.floor(this.totalCuenta() / 10);
+  });
+
   readonly metodoPago = signal<MetodoPago>('EFECTIVO');
   readonly montoRecibido = signal<number>(0);
   readonly numeroPartes = signal<number>(1);
@@ -69,14 +81,37 @@ export class CajaService {
     this.descuentoAplicado.set(0);
     this.promocionIdAplicada.set(null);
     this.promocionNombreAplicada.set('');
+    this.clienteId.set(null);
+    this.clienteNombre.set('');
+    this.clientePuntos.set(0);
+    this.clienteEsFrecuente.set(false);
+    this.clienteVisitas.set(0);
+    this.puntosCanjeados.set(0);
 
-    this.http.get<{ comandaId: number; mesaNumero: string; total: number }>(`${this.apiUrl}/caja/mesa/${mesaId}`).subscribe({
+    this.http.get<{
+      comandaId: number;
+      mesaNumero: string;
+      total: number;
+      clienteId?: number | null;
+      clienteNombre?: string;
+      clientePuntos?: number;
+      clienteEsFrecuente?: boolean;
+      clienteVisitas?: number;
+    }>(`${this.apiUrl}/caja/mesa/${mesaId}`).subscribe({
       next: (res) => {
         this.comandaId.set(res.comandaId);
         this.numeroMesa.set(String(res.mesaNumero));
         this.totalCuentaOriginal.set(Number(res.total));
         this.totalCuenta.set(Number(res.total));
         this.montoRecibido.set(Number(res.total));
+
+        if (res.clienteId) {
+          this.clienteId.set(res.clienteId);
+          this.clienteNombre.set(res.clienteNombre || '');
+          this.clientePuntos.set(res.clientePuntos || 0);
+          this.clienteEsFrecuente.set(!!res.clienteEsFrecuente);
+          this.clienteVisitas.set(res.clienteVisitas || 0);
+        }
       },
       error: (err) => console.error('Error al obtener cuenta de caja:', err)
     });
@@ -99,10 +134,24 @@ export class CajaService {
       dividirCuenta: this.numeroPartes() > 1,
       partesIguales: this.numeroPartes(),
       descuento: this.descuentoAplicado(),
-      promocionId: this.promocionIdAplicada()
+      promocionId: this.promocionIdAplicada(),
+      puntosCanjeados: this.puntosCanjeados()
     };
 
     return this.http.post<{ ok: boolean }>(`${this.apiUrl}/caja/cobrar`, payload);
+  }
+
+  vincularClienteAComanda(comandaId: number, clienteId: number | null) {
+    return this.http.patch<{
+      ok: boolean;
+      cliente: {
+        id: number;
+        nombre: string;
+        clientePuntos: number;
+        clienteEsFrecuente: boolean;
+        clienteVisitas: number;
+      } | null;
+    }>(`${this.apiUrl}/comandas/${comandaId}/cliente`, { clienteId });
   }
 
   validarCupon(codigo: string) {
@@ -136,6 +185,23 @@ export class CajaService {
     this.montoRecibido.set(subtotal - desc);
   }
 
+  canjearPuntosLealtad(puntos: number) {
+    if (puntos > this.clientePuntos()) {
+      puntos = this.clientePuntos();
+    }
+    this.puntosCanjeados.set(puntos);
+    // 1 punto = $1 peso de descuento
+    const descPuntos = puntos;
+    const subtotalActual = this.totalCuentaOriginal();
+
+    this.descuentoAplicado.set(descPuntos);
+    const nuevoTotal = subtotalActual - descPuntos > 0 ? subtotalActual - descPuntos : 0;
+    this.totalCuenta.set(nuevoTotal);
+    this.montoRecibido.set(nuevoTotal);
+    this.promocionIdAplicada.set(null);
+    this.promocionNombreAplicada.set(`Canje de ${puntos} pts`);
+  }
+
   limpiarSeleccion() {
     this.mesaId.set(0);
     this.comandaId.set(0);
@@ -145,6 +211,12 @@ export class CajaService {
     this.descuentoAplicado.set(0);
     this.promocionIdAplicada.set(null);
     this.promocionNombreAplicada.set('');
+    this.clienteId.set(null);
+    this.clienteNombre.set('');
+    this.clientePuntos.set(0);
+    this.clienteEsFrecuente.set(false);
+    this.clienteVisitas.set(0);
+    this.puntosCanjeados.set(0);
     this.items.set([]);
     this.metodoPago.set('EFECTIVO');
     this.montoRecibido.set(0);

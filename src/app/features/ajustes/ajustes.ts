@@ -75,7 +75,10 @@ export class AjustesComponent implements OnInit {
     telefono: '',
     direccion: '',
     email: '',
-    mensaje_recibo: ''
+    mensaje_recibo: '',
+    visitas_requeridas_frecuente: 5,
+    puntos_por_cada_diez_pesos: 1,
+    pesos_por_punto: 10
   };
 
   datosTransferencia: DatosTransferencia = {

@@ -39,6 +39,9 @@ export interface DatosNegocio {
   direccion?: string;
   email?: string;
   mensaje_recibo?: string;
+  visitas_requeridas_frecuente?: number;
+  puntos_por_cada_diez_pesos?: number;
+  pesos_por_punto?: number;
 }
 
 export interface DatosTransferencia {

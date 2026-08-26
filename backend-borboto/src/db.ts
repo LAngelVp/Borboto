@@ -37,14 +37,17 @@ async function inicializarTablasAdicionales() {
         telefono VARCHAR(20),
         direccion TEXT,
         email VARCHAR(100),
-        mensaje_recibo TEXT
+        mensaje_recibo TEXT,
+        visitas_requeridas_frecuente INT DEFAULT 5,
+        puntos_por_cada_diez_pesos INT DEFAULT 1,
+        pesos_por_punto DECIMAL(10,2) DEFAULT 1.00
       );
     `);
 
     // Insertar datos del negocio iniciales
     await client.query(`
-      INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo)
-      VALUES (1, 'Borboto Taquería', 'XAXX010101000', '5512345678', 'Av. Principal 123, CDMX', 'contacto@borboto.com', '¡Gracias por su preferencia!')
+      INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto)
+      VALUES (1, 'Borboto Taquería', 'XAXX010101000', '5512345678', 'Av. Principal 123, CDMX', 'contacto@borboto.com', '¡Gracias por su preferencia!', 5, 1, 1.00)
       ON CONFLICT (id) DO NOTHING;
     `);
 
@@ -132,6 +135,20 @@ async function inicializarTablasAdicionales() {
     // Agregar columna cliente_id a comandas si no existe
     await client.query(`
       ALTER TABLE comandas ADD COLUMN IF NOT EXISTS cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL;
+    `);
+
+    // Agregar campos de cliente frecuente y lealtad
+    await client.query(`
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS puntos_acumulados INT DEFAULT 0;
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS es_frecuente BOOLEAN DEFAULT FALSE;
+      ALTER TABLE clientes ADD COLUMN IF NOT EXISTS visitas_count INT DEFAULT 0;
+    `);
+
+    // Asegurar que las columnas visitas_requeridas_frecuente y puntos_por_cada_diez_pesos existan en datos_negocio
+    await client.query(`
+      ALTER TABLE datos_negocio ADD COLUMN IF NOT EXISTS visitas_requeridas_frecuente INT DEFAULT 5;
+      ALTER TABLE datos_negocio ADD COLUMN IF NOT EXISTS puntos_por_cada_diez_pesos INT DEFAULT 1;
+      ALTER TABLE datos_negocio ADD COLUMN IF NOT EXISTS pesos_por_punto DECIMAL(10,2) DEFAULT 1.00;
     `);
 
     // Agregar descuento y promocion_id de auditoría a la tabla de pagos

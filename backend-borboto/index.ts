@@ -499,6 +499,37 @@ app.post('/api/comandas/:comandaId/cancelar', async (req, res) => {
   }
 });
 
+// Asociar cliente a una comanda activa
+app.patch('/api/comandas/:comandaId/cliente', async (req, res) => {
+  const { comandaId } = req.params;
+  const { clienteId } = req.body;
+  try {
+    const { rows: comandaCheck } = await pool.query('SELECT estado FROM comandas WHERE id = $1', [comandaId]);
+    if (comandaCheck.length === 0) {
+      return res.status(404).json({ error: 'La comanda especificada no existe.' });
+    }
+    if (comandaCheck[0].estado !== 'ABIERTA') {
+      return res.status(400).json({ error: 'Solo se puede asociar cliente a comandas abiertas.' });
+    }
+
+    await pool.query('UPDATE comandas SET cliente_id = $1 WHERE id = $2', [clienteId || null, comandaId]);
+
+    // Obtener los datos del cliente
+    let clientInfo = null;
+    if (clienteId) {
+      const { rows: cli } = await pool.query('SELECT id, nombre, puntos_acumulados AS "clientePuntos", es_frecuente AS "clienteEsFrecuente", visitas_count AS "clienteVisitas" FROM clientes WHERE id = $1', [clienteId]);
+      if (cli.length > 0) {
+        clientInfo = cli[0];
+      }
+    }
+
+    emitirCambioGlobal('actualizar_mesas');
+    res.json({ ok: true, cliente: clientInfo });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* ==========================================================================
    3. ENDPOINTS DE COCINA (KDS)
    ========================================================================== */
@@ -601,9 +632,15 @@ app.get('/api/caja/mesa/:mesaId', async (req, res) => {
   try {
     const query = `
       SELECT c.id AS "comandaId", m.id AS "mesaId", m.numero AS "mesaNumero",
-             m.comensales, COALESCE(c.total, 0.00) AS total
+             m.comensales, COALESCE(c.total, 0.00) AS total,
+             c.cliente_id AS "clienteId",
+             cli.nombre AS "clienteNombre",
+             COALESCE(cli.puntos_acumulados, 0) AS "clientePuntos",
+             COALESCE(cli.es_frecuente, false) AS "clienteEsFrecuente",
+             COALESCE(cli.visitas_count, 0) AS "clienteVisitas"
       FROM comandas c
       JOIN mesas m ON c.mesa_id = m.id
+      LEFT JOIN clientes cli ON c.cliente_id = cli.id
       WHERE m.id = $1 AND c.estado != 'CERRADA'
       LIMIT 1;
     `;
@@ -619,7 +656,7 @@ app.get('/api/caja/mesa/:mesaId', async (req, res) => {
 
 // Procesar Pago y Liberar Mesa (Pasa a 'DISPONIBLE')
 app.post('/api/caja/cobrar', async (req, res) => {
-  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales, descuento, promocionId } = req.body;
+  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales, descuento, promocionId, puntosCanjeados } = req.body;
 
   const client = await pool.connect();
   try {
@@ -630,6 +667,29 @@ app.post('/api/caja/cobrar', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
       [comandaId, usuarioId || 1, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta || false, partesIguales || 1, descuento || 0.00, promocionId || null]
     );
+
+    // Actualizar puntos de lealtad y visitas del cliente
+    const comandaInfo = await client.query('SELECT cliente_id FROM comandas WHERE id = $1', [comandaId]);
+    const clienteId = comandaInfo.rows[0]?.cliente_id;
+    if (clienteId) {
+      // Obtener el factor de puntos y visitas de datos_negocio
+      const negocioInfo = await client.query('SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1');
+      const visitasRequeridas = negocioInfo.rows[0]?.visitas_requeridas_frecuente || 5;
+      const factorPuntos = negocioInfo.rows[0]?.puntos_por_cada_diez_pesos || 1;
+      const pesosPorPunto = Number(negocioInfo.rows[0]?.pesos_por_punto) || 10.00; // Valor configurable por el usuario
+
+      const puntosNuevos = Math.floor(Number(totalCuenta) / pesosPorPunto) * factorPuntos; // Ganancia de puntos ajustable según configuración
+      const ptsCanjeados = Number(puntosCanjeados) || 0;
+
+      await client.query(
+        `UPDATE clientes
+         SET visitas_count = COALESCE(visitas_count, 0) + 1,
+             puntos_acumulados = GREATEST(0, COALESCE(puntos_acumulados, 0) - $1::integer) + $2::integer,
+             es_frecuente = CASE WHEN (COALESCE(visitas_count, 0) + 1) >= $3::integer THEN TRUE ELSE COALESCE(es_frecuente, FALSE) END
+         WHERE id = $4`,
+        [ptsCanjeados, puntosNuevos, visitasRequeridas, clienteId]
+      );
+    }
 
     await client.query(
       `UPDATE comandas SET estado = 'CERRADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
@@ -851,20 +911,33 @@ app.get('/api/ajustes/negocio', async (_req, res) => {
 });
 
 app.post('/api/ajustes/negocio', async (req, res) => {
-  const { nombre, rfc, telefono, direccion, email, mensaje_recibo } = req.body;
+  const { nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo)
-       VALUES (1, $1, $2, $3, $4, $5, $6)
+      `INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto)
+       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO UPDATE SET
          nombre = EXCLUDED.nombre,
          rfc = EXCLUDED.rfc,
          telefono = EXCLUDED.telefono,
          direccion = EXCLUDED.direccion,
          email = EXCLUDED.email,
-         mensaje_recibo = EXCLUDED.mensaje_recibo
+         mensaje_recibo = EXCLUDED.mensaje_recibo,
+         visitas_requeridas_frecuente = EXCLUDED.visitas_requeridas_frecuente,
+         puntos_por_cada_diez_pesos = EXCLUDED.puntos_por_cada_diez_pesos,
+         pesos_por_punto = EXCLUDED.pesos_por_punto
        RETURNING *`,
-      [nombre, rfc, telefono, direccion, email, mensaje_recibo]
+      [
+        nombre,
+        rfc,
+        telefono,
+        direccion,
+        email,
+        mensaje_recibo,
+        Number(visitas_requeridas_frecuente) || 5,
+        Number(puntos_por_cada_diez_pesos) || 1,
+        Number(pesos_por_punto) || 1.00
+      ]
     );
     res.json(rows[0]);
   } catch (err: any) {

@@ -445,8 +445,36 @@
               <textarea matInput [(ngModel)]="datosNegocio.mensaje_recibo" name="negMsg" rows="3" placeholder="Disfrute de su comida... ¡Vuelva pronto!"></textarea>
             </mat-form-field>
 
+            <div class="grid-span-2" style="border-top: 1px dashed #ccc; padding-top: 16px; margin-top: 12px;">
+              <h3 style="margin: 0 0 8px 0; color: #1e88e5; font-size: 1.1rem; display: flex; align-items: center; gap: 6px;">
+                <mat-icon>stars</mat-icon> Configuración de Clientes Frecuentes y Lealtad
+              </h3>
+              <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #666;">Ajusta los criterios exigidos para determinar que un solicitante califique en el grupo de clientes de fidelidad constante, así como sus beneficios de puntos de lealtad.</p>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <mat-form-field appearance="outline">
+                  <mat-label>Visitas para "Frecuente"</mat-label>
+                  <input matInput type="number" [(ngModel)]="datosNegocio.visitas_requeridas_frecuente" name="negVisitasReq" min="1" required>
+                  <span matSuffix style="padding-right: 8px;">visitas</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Equivalencia Puntos (Pesos por Punto)</mat-label>
+                  <input matInput type="number" [(ngModel)]="datosNegocio.pesos_por_punto" name="negPesosPorPto" min="1" required>
+                  <span matPrefix>$&nbsp;</span>
+                  <span matSuffix style="padding-right: 8px;">/pt</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Multiplicador de Puntos</mat-label>
+                  <input matInput type="number" [(ngModel)]="datosNegocio.puntos_por_cada_diez_pesos" name="negPuntosFactor" min="1" required>
+                  <span matSuffix style="padding-right: 8px;">pts</span>
+                </mat-form-field>
+              </div>
+            </div>
+
             <div class="grid-span-2 form-actions">
-              <button mat-flat-button color="primary" type="submit" [disabled]="!datosNegocio.nombre">
+              <button mat-flat-button color="primary" type="submit" [disabled]="!datosNegocio.nombre || !datosNegocio.visitas_requeridas_frecuente || !datosNegocio.puntos_por_cada_diez_pesos || !datosNegocio.pesos_por_punto">
                 <mat-icon>save</mat-icon> Guardar Cambios Comerciales
               </button>
             </div>

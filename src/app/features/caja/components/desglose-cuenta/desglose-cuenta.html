@@ -22,7 +22,70 @@
     <!-- Sección de Cupones / Promociones de Descuento -->
     @if (cajaService.mesaId() > 0) {
       <div class="promocion-section">
-        @if (cajaService.promocionIdAplicada()) {
+        @if (cajaService.clienteId()) {
+          <!-- Panel de Cliente Frecuente / Lealtad -->
+          <div class="cliente-lealtad-box" style="margin-bottom: 12px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 12px; text-align: left; position: relative;">
+            <mat-icon style="position: absolute; right: 10px; top: 10px; color: #1e88e5; font-size: 20px;">stars</mat-icon>
+
+            <button mat-icon-button color="warn" style="position: absolute; right: 30px; top: -1px; width: 32px; height: 32px;" (click)="quitarCliente()" title="Quitar o cambiar cliente">
+              <mat-icon style="font-size: 18px;">person_remove</mat-icon>
+            </button>
+
+            <h4 style="margin: 0 0 4px 0; color: #0d47a1; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 4px; padding-right: 48px;">
+              Cliente Frecuente
+              @if (cajaService.clienteEsFrecuente()) {
+                <span style="background: #1e88e5; color: white; font-size: 10px; padding: 1px 6px; border-radius: 12px; font-weight: normal; margin-left: 4px;">VIP Frecuente</span>
+              }
+            </h4>
+            <p style="margin: 0 0 8px 0; color: #1565c0; font-size: 13px;"><strong>{{ cajaService.clienteNombre() }}</strong></p>
+
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #555; margin-bottom: 8px; border-bottom: 1px dashed #bbdefb; padding-bottom: 6px;">
+              <span>Visitas: <strong>{{ cajaService.clienteVisitas() }}</strong></span>
+              <span>Puntos: <strong style="color: #2e7d32; font-size: 13px;">{{ cajaService.clientePuntos() }} pts</strong></span>
+            </div>
+
+            @if (cajaService.clientePuntos() >= 10 && !cajaService.promocionIdAplicada() && !cajaService.puntosCanjeados()) {
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 11px; color: #555;">Canjear pts ($1/pt):</span>
+                <button mat-flat-button color="accent" size="small" style="height: 30px; font-size: 11px; padding: 0 12px; border-radius: 6px; background-color: #f57c00 !important; color: white !important;" (click)="canjearPuntos()">
+                  Canjear {{ cajaService.clientePuntos() }} Puntos
+                </button>
+              </div>
+            }
+
+            @if (cajaService.puntosCanjeados() > 0) {
+              <div style="display: flex; justify-content: space-between; align-items: center; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 6px 10px; border-radius: 6px; margin-top: 6px;">
+                <span style="color: #2e7d32; font-size: 11px; font-weight: bold;">Canjeados: -${{ cajaService.puntosCanjeados() | number:'1.2-2' }}</span>
+                <button mat-icon-button color="warn" style="width: 24px; height: 24px; line-height: 24px;" (click)="quitarDescuento()">
+                  <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin: 0;">cancel</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        } @else {
+          <!-- Asistencia para Asociar Cliente -->
+          <div class="cliente-vincular-box">
+            <span class="vincular-title"><mat-icon>person_add</mat-icon> ¿Asociar Cliente Frecuente?</span>
+
+            <div class="vincular-actions">
+              <mat-form-field appearance="outline" class="cliente-select-form">
+                <mat-label>Selecciona un cliente</mat-label>
+                <!-- Usando selectionChange nativo con mat-select -->
+                <mat-select (selectionChange)="onVincularCliente($event.value)">
+                  @for (c of clientes(); track c.id) {
+                    <mat-option [value]="c.id">{{ c.nombre }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <button mat-icon-button color="accent" (click)="registrarRapido()" title="Registrar Cliente Nuevo">
+                <mat-icon style="color: #1e88e5;">add_circle</mat-icon>
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (cajaService.promocionIdAplicada() || (cajaService.puntosCanjeados() > 0 && !cajaService.clienteId())) {
           <div class="cupon-aplicado-box">
             <span class="cupon-text">
               <mat-icon class="promo-icon">local_offer</mat-icon>
@@ -32,7 +95,7 @@
               <mat-icon>cancel</mat-icon>
             </button>
           </div>
-        } @else {
+        } @else if (!cajaService.puntosCanjeados() && !cajaService.promocionIdAplicada()) {
           <div class="cupon-input-box">
             <mat-form-field appearance="outline" class="cupon-field">
               <mat-label>Código de Cupón</mat-label>

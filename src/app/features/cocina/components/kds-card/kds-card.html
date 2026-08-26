@@ -35,7 +35,7 @@
 
   <!-- Botón Final: Marcar Despachado -->
   <mat-card-actions class="kds-actions">
-    <button mat-flat-button color="accent" class="btn-listo" (click)="ticketListo.emit()">
+    <button mat-flat-button color="accent" class="btn-listo" (click)="ticketListo.emit()" [disabled]="!todosCompletados()">
       <mat-icon>check_circle</mat-icon> ¡DESPACHAR!
     </button>
   </mat-card-actions>
