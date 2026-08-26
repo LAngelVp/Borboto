@@ -1,59 +1,58 @@
-# Borboto
+readme_content = """# Borboto POS & KDS 🍽️⚡
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.21.
+[![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green?logo=nodedotjs)](https://nodejs.org/)
+[![Express.js](https://img.shields.io/badge/Express-v4.18-lightgrey?logo=express)](https://expressjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-v15%2B-blue?logo=postgresql)](https://www.postgresql.org/)
+[![Angular](https://img.shields.io/badge/Angular-v16%2B-red?logo=angular)](https://angular.io/)
+[![WebSockets](https://img.shields.io/badge/Socket.io-v4.6-black?logo=socketdotio)](https://socket.io/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Development server
+**Borboto POS & KDS** es una solución web integral diseñada para la gestión operativa y comercial de restaurantes en tiempo real. Combina un **Punto de Venta (POS)** ágil e intuitivo con un **Sistema de Pantalla de Cocina (KDS)** dinámico, garantizando la sincronización instantánea entre la sala y la cocina para optimizar los tiempos de respuesta y eliminar errores en el comandeo.
 
-To start a local development server, run:
+---
 
-```bash
-ng serve
-```
+## 📋 Tabla de Contenidos
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- [Características Principales](#-características-principales)
+- [Arquitectura y Stack Tecnológico](#-arquitectura-y-stack-tecnológico)
+- [Requisitos Previos](#-requisitos-previos)
+- [Instalación y Configuración](#-instalación-y-configuración)
+- [Variables de Entorno](#-variables-de-entorno)
+- [Modelado de Base de Datos](#-modelado-de-base-de-datos)
+- [Uso y Flujo de Trabajo](#-uso-y-flujo-de-trabajo)
+- [Contribución](#-contribución)
+- [Licencia](#-licencia)
 
-## Code scaffolding
+---
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## ✨ Características Principales
 
-```bash
-ng generate component component-name
-```
+### 🛒 Punto de Venta (POS)
+* **Comandas Ágiles:** Interfaz optimizada para pantallas táctiles, selección rápida de platillos y modificadores de orden (sin cebolla, término de carne, etc.).
+* **Gestión de Mesas:** Mapa interactivo del salón con control de estados en tiempo real (libre, ocupada, reservada, por limpiar).
+* **Catálogo de Productos:** Administración dinámica de menú, categorías, precios e inventario de insumos.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+### 👨‍🍳 Monitor de Cocina en Tiempo Real (KDS)
+* **Sincronización Inmediata:** Recepción de comandas al instante vía WebSockets sin necesidad de refrescar la pantalla.
+* **Control de Tiempos:** Indicadores visuales de tiempo de espera por pedido con alertas por código de colores (verde, amarillo, rojo).
+* **Gestión de Estados:** Actualización simple del flujo de preparación (*Pendiente ➔ En Preparación ➔ Listo ➔ Entregado*).
 
-```bash
-ng generate --help
-```
+### 🚴 Pedidos a Domicilio (Delivery)
+* **Módulo de Delivery:** Registro de órdenes telefónicas o en línea con asignación y seguimiento de repartidores.
+* **Historial de Entregas:** Control del estado del envío y tiempos de entrega.
 
-## Building
+### 🎟️ Clientes, Fidelización y Promociones
+* **Base de Clientes:** Perfil detallado de clientes con registro de preferencias e historial de consumos.
+* **Programa de Fidelización:** Sistema de acumulación y canje de puntos por compras realizadas.
+* **Cupones y Descuentos:** Configuración de códigos promocionales, descuentos por porcentaje o monto fijo y promociones programadas.
 
-To build the project run:
+### 📊 Gestión y Analítica
+* **Dashboard Analítico:** Gráficos interactivos con métricas de ventas en tiempo real, horas pico y productos más vendidos.
+* **Control de Empleados:** Sistema de autenticación JWT y control de acceso basado en roles (Admin, Mesero, Cocinero, Cajero, Repartidor).
 
-```bash
-ng build
-```
+---
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## 🛠️ Arquitectura y Stack Tecnológico
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+```text
+[ Cliente Angular (POS / KDS) ] <--- WebSockets / REST API ---> [ Server Node.js + Express ] <---> [ Base de Datos PostgreSQL ]
