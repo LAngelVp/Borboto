@@ -1,0 +1,102 @@
+.calculadora-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.metodos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+
+  .btn-metodo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 64px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    background-color: #ffffff;
+    cursor: pointer;
+    font-weight: 700;
+    color: #5f6368;
+
+    mat-icon { font-size: 24px; width: 24px; height: 24px; margin-bottom: 4px; }
+
+    &.active {
+      background-color: #fff3e0;
+      border-color: var(--color-primary, #e65100);
+      color: var(--color-primary, #e65100);
+    }
+  }
+}
+
+.display-cobro {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  .display-box {
+    background-color: #f4f6f8;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+
+    .label { font-size: 11px; font-weight: 700; color: #757575; text-transform: uppercase; }
+    .valor { font-size: 24px; font-weight: 800; color: #1a1a1a; }
+
+    &.cambio.suficiente {
+      background-color: #e8f5e9;
+      .valor { color: #2e7d32; }
+    }
+  }
+}
+
+.billetes-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+
+  .btn-billete {
+    height: 40px;
+    border: 1px solid #c8e6c9;
+    background-color: #f1f8e9;
+    color: #33691e;
+    font-weight: 800;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+}
+
+.teclado-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+
+  .btn-key {
+    height: 52px;
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+    font-size: 20px;
+    font-weight: 800;
+    border-radius: 8px;
+    cursor: pointer;
+
+    &.action { background-color: #f5f5f5; color: #d32f2f; }
+  }
+}
+
+.terminal-msg {
+  text-align: center;
+  padding: 48px 16px;
+  color: #455a64;
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 12px; color: var(--color-primary, #e65100); }
+  p { font-size: 16px; margin: 0; }
+}

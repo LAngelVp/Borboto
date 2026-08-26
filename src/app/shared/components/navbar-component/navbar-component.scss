@@ -1,0 +1,155 @@
+/* ==========================================================================
+   NAVBAR CON ESTILOS NATIVOS MATERIAL DESIGN 3 (M3)
+   ========================================================================== */
+
+.navbar-borboto.mat-toolbar {
+  background-color: var(--mat-sys-surface, #ffffff);
+  color: var(--mat-sys-on-surface, #1c1b1f);
+  height: 64px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
+  box-shadow: var(--mat-sys-level0, none);
+  display: flex;
+  align-items: center;
+
+  .spacer {
+    flex: 1 1 auto;
+  }
+}
+
+/* 1. BRANDING Y LOGO */
+.brand-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .brand-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--mat-sys-corner-medium, 12px);
+    background-color: var(--mat-sys-primary-container, #ffe0b2);
+    color: var(--mat-sys-on-primary-container, #e65100);
+
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--mat-sys-on-surface, #1c1b1f);
+  }
+
+  .brand-tag {
+    font-size: 11px;
+    font-weight: 700;
+    background-color: var(--mat-sys-surface-variant, #f4f6f8);
+    color: var(--mat-sys-on-surface-variant, #49454f);
+    padding: 2px 8px;
+    border-radius: var(--mat-sys-corner-small, 6px);
+    letter-spacing: 0.5px;
+  }
+}
+
+/* 2. ESTADO DE RED LOCAL */
+.network-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding: 4px 12px;
+  background-color: var(--mat-sys-surface-container-low, #f7f2fa);
+  border: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
+  border-radius: var(--mat-sys-corner-full, 50px);
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+
+    &.online {
+      background-color: #4caf50;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.25);
+    }
+  }
+
+  .status-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface-variant, #49454f);
+  }
+}
+
+/* 3. NAVEGACIÓN (BOTONES DE MATERIAL CON ESTADO ACTIVO) */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .nav-btn {
+    border-radius: var(--mat-sys-corner-medium, 12px) !important;
+    height: 44px !important;
+    padding: 0 16px !important;
+
+    /* Integración de icono y texto */
+    mat-icon {
+      margin-right: 8px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Estilo por defecto (Inactivo) */
+    color: var(--mat-sys-on-surface-variant, #49454f) !important;
+
+    /* Estado ACTIVO con tonalidades M3 (Naranja Primario) */
+    &.active {
+      background-color: var(--mat-sys-primary-container, #fff3e0) !important;
+      color: var(--mat-sys-on-primary-container, #e65100) !important;
+      font-weight: 700 !important;
+
+      mat-icon {
+        color: var(--mat-sys-on-primary-container, #e65100) !important;
+      }
+    }
+  }
+}
+
+/* 4. PERFIL DE USUARIO */
+.user-zone {
+  .user-btn {
+    border-radius: var(--mat-sys-corner-medium, 12px) !important;
+    height: 44px !important;
+    color: var(--mat-sys-on-surface, #1c1b1f) !important;
+
+    .avatar-icon {
+      margin-right: 6px;
+      color: var(--mat-sys-outline, #79747e);
+    }
+
+    .user-name {
+      font-weight: 600;
+    }
+
+    .dropdown-icon {
+      margin-left: 4px;
+      color: var(--mat-sys-outline, #79747e);
+    }
+  }
+}
+
+/* Opciones del menú flotante Material */
+.logout-item {
+  color: var(--mat-sys-error, #ba1a1a) !important;
+
+  mat-icon {
+    color: var(--mat-sys-error, #ba1a1a) !important;
+  }
+}

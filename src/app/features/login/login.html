@@ -1,0 +1,108 @@
+<div class="login-wrapper">
+
+  <mat-card class="login-card">
+    <!-- Encabezado de la marca -->
+    <header class="login-header">
+      <div class="brand">
+        <mat-icon class="brand-icon">restaurant</mat-icon>
+        <span class="brand-name">borboto</span>
+      </div>
+      <p class="brand-tag">Punto de Venta Profesional Gastronómico</p>
+    </header>
+
+    @if (hasUsers() === null) {
+      <div class="checking-state">
+        <p>Verificando estado del POS en el restaurante...</p>
+      </div>
+    } @else {
+      <!-- MODO REGISTRO DEL PRIMER ADMINISTRADOR (No hay usuarios en la DB) -->
+      @if (registerMode()) {
+        <section class="form-section animate-fade">
+          <div class="section-title">
+            <mat-icon color="accent">lock_person</mat-icon>
+            <h2>CREAR PRIMER ADMINISTRADOR</h2>
+          </div>
+          <p class="section-info">No se detectó ningún empleado en la base de datos local. Por favor registre a la persona que administrará el establecimiento.</p>
+
+          <form (submit)="onSubmitRegister(); $event.preventDefault()" class="login-form">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Nombre Completo del Admin</mat-label>
+              <input matInput [(ngModel)]="regNombre" name="regNombre" placeholder="Ej. Sofía Administradora" required autocomplete="off">
+              <mat-icon matSuffix>badge</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>PIN / NIP de Acceso (4-6 dígitos)</mat-label>
+              <input matInput type="password" [(ngModel)]="regPin" name="regPin" placeholder="••••" required readonly>
+              <mat-icon matSuffix class="orange-icon">pin</mat-icon>
+            </mat-form-field>
+
+            <!-- Visualizador táctil del PIN -->
+            <div class="pin-bullets margin-bottom-16">
+              <span class="bullet" [class.filled]="regPin.length >= 1"></span>
+              <span class="bullet" [class.filled]="regPin.length >= 2"></span>
+              <span class="bullet" [class.filled]="regPin.length >= 3"></span>
+              <span class="bullet" [class.filled]="regPin.length >= 4"></span>
+              <span class="bullet" [class.filled]="regPin.length >= 5"></span>
+              <span class="bullet" [class.filled]="regPin.length >= 6"></span>
+            </div>
+
+            <!-- Botón de guardado -->
+            <button mat-flat-button color="primary" class="btn-submit" type="submit" [disabled]="!regNombre || regPin.length < 4">
+              <mat-icon>verified_user</mat-icon> REGISTRAR ADMINISTRADOR E INGRESAR
+            </button>
+          </form>
+        </section>
+      } @else {
+        <!-- MODO INICIO DE SESIÓN COBRE / LOGIN COMPONENTE -->
+        <section class="form-section animate-fade">
+          <div class="section-title">
+            <mat-icon>vpn_key</mat-icon>
+            <h2>INICIO DE SESIÓN</h2>
+          </div>
+          <p class="section-info font-variant-numeric: tabular-nums">Ingrese su clave secreta (PIN) para ingresar a reportes, mesas y comanda activa.</p>
+
+          <form (submit)="onSubmitLogin(); $event.preventDefault()" class="login-form">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>PIN de Seguridad</mat-label>
+              <input matInput type="password" [(ngModel)]="pin" name="pin" placeholder="••••" required readonly>
+              <mat-icon matSuffix>lock</mat-icon>
+            </mat-form-field>
+
+            <!-- Visualizador táctil del PIN -->
+            <div class="pin-bullets margin-bottom-16">
+              <span class="bullet" [class.filled]="pin.length >= 1"></span>
+              <span class="bullet" [class.filled]="pin.length >= 2"></span>
+              <span class="bullet" [class.filled]="pin.length >= 3"></span>
+              <span class="bullet" [class.filled]="pin.length >= 4"></span>
+              <span class="bullet" [class.filled]="pin.length >= 5"></span>
+              <span class="bullet" [class.filled]="pin.length >= 6"></span>
+            </div>
+
+            <button mat-flat-button color="primary" class="btn-submit" type="submit" [disabled]="pin.length < 4">
+              <mat-icon>login</mat-icon> INGRESAR AL TABLERO
+            </button>
+          </form>
+        </section>
+      }
+
+      <!-- Teclado Numérico Compartido Táctil para PINs -->
+      <footer class="numeric-keypad">
+        <div class="calculator-grid">
+          @for (d of tecladoDigitos; track d) {
+            <button mat-stroked-button class="calc-btn" (click)="agregarDigito(d)">{{ d }}</button>
+          }
+          <button mat-stroked-button class="calc-btn clear-btn" (click)="limpiarPin()">
+            <mat-icon>delete_forever</mat-icon>
+          </button>
+          <button mat-stroked-button class="calc-btn" (click)="agregarDigito('0')">0</button>
+          <button mat-stroked-button class="calc-btn back-btn" (click)="borrarDigito()">
+            <mat-icon>backspace</mat-icon>
+          </button>
+        </div>
+      </footer>
+    }
+
+  </mat-card>
+
+</div>

@@ -1,0 +1,15 @@
+.comanda-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  padding: 20px;
+  height: calc(100vh - 84px);
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.seccion-menu { height: 100%; overflow: hidden; }
+.seccion-ticket { height: 100%; }

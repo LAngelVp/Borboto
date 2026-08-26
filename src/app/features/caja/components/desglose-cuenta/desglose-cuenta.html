@@ -1,0 +1,90 @@
+<mat-card class="ticket-card">
+  <mat-card-header class="ticket-header">
+    <mat-icon>receipt</mat-icon>
+    <div>
+      <mat-card-title>Cuenta Mesa {{ cajaService.mesaNumero() }}</mat-card-title>
+      <mat-card-subtitle>Detalle de consumo</mat-card-subtitle>
+    </div>
+  </mat-card-header>
+
+  <mat-card-content class="ticket-body">
+    <!-- Lista de Items Consumidos (Corregido: items en lugar de itemsComanda) -->
+    <div class="items-list">
+      @for (item of cajaService.items(); track item.producto.id) {
+        <div class="item-row">
+          <span class="cant">{{ item.cantidad }}x</span>
+          <span class="nombre">{{ item.producto.nombre }}</span>
+          <span class="precio">${{ item.subtotal | number:'1.2-2' }}</span>
+        </div>
+      }
+    </div>
+
+    <!-- Sección de Cupones / Promociones de Descuento -->
+    @if (cajaService.mesaId() > 0) {
+      <div class="promocion-section">
+        @if (cajaService.promocionIdAplicada()) {
+          <div class="cupon-aplicado-box">
+            <span class="cupon-text">
+              <mat-icon class="promo-icon">local_offer</mat-icon>
+              <strong>{{ cajaService.promocionNombreAplicada() }}</strong>
+            </span>
+            <button mat-icon-button color="warn" (click)="quitarDescuento()" title="Quitar cupón">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </div>
+        } @else {
+          <div class="cupon-input-box">
+            <mat-form-field appearance="outline" class="cupon-field">
+              <mat-label>Código de Cupón</mat-label>
+              <!-- Usando un standard input con (input) para Angular Standalone compatible binding con signal -->
+              <input matInput [value]="codigoPromo()" (input)="codigoPromo.set($any($event.target).value)" placeholder="Ej. APERTURA10" style="text-transform: uppercase;">
+            </mat-form-field>
+            <button mat-flat-button color="primary" class="btn-aplicar-cupon" (click)="aplicarCodigo()" [disabled]="!codigoPromo()">
+              Aplicar
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Divisor de Cuenta (Split Bill) -->
+    <div class="split-section">
+      <span class="split-label">Dividir entre:</span>
+      <div class="split-controls">
+        <button mat-icon-button (click)="decrementarPartes()" [disabled]="cajaService.numeroPartes() <= 1">
+          <mat-icon>remove</mat-icon>
+        </button>
+        <span class="partes-num">{{ cajaService.numeroPartes() }} pers.</span>
+        <button mat-icon-button (click)="incrementarPartes()">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Totales -->
+    <div class="totales-container">
+      @if (cajaService.descuentoAplicado() > 0) {
+        <div class="total-row subtotal">
+          <span>Subtotal:</span>
+          <span>${{ cajaService.totalCuentaOriginal() | number:'1.2-2' }}</span>
+        </div>
+        <div class="total-row descuento">
+          <span>Descuento:</span>
+          <span>-${{ cajaService.descuentoAplicado() | number:'1.2-2' }}</span>
+        </div>
+      }
+
+      <div class="total-row">
+        <span>Total Mesa:</span>
+        <span class="monto-total">${{ cajaService.totalCuenta() | number:'1.2-2' }}</span>
+      </div>
+
+      @if (cajaService.numeroPartes() > 1) {
+        <div class="total-row highlight">
+          <span>Cobro por persona:</span>
+          <span class="monto-persona">${{ cajaService.totalPorPersona() | number:'1.2-2' }}</span>
+        </div>
+      }
+    </div>
+  </mat-card-content>
+</mat-card>

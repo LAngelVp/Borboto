@@ -1,0 +1,86 @@
+<mat-card class="mesa-card" [ngClass]="'estado-' + (mesa().estado || '').toLowerCase().replace(' ', '-')" (click)="emitirAccion('VER_DETALLE')">
+  <!-- Cabecera de la Mesa -->
+  <mat-card-header>
+    <div class="header-content">
+      <div class="mesa-titulo">
+        <span class="numero">Mesa {{ mesa().numero }}</span>
+        <span class="zona">{{ mesa().zona }}</span>
+      </div>
+      @if (mesa().minutosAbierta) {
+        <span class="tiempo">
+          <mat-icon>schedule</mat-icon> {{ mesa().minutosAbierta }}m
+        </span>
+      }
+    </div>
+  </mat-card-header>
+
+  <!-- Contenido Principal -->
+  <mat-card-content class="card-body">
+    <div class="badge-row">
+      <span class="badge" [ngClass]="getBadgeInfo(mesa().estado).class">
+        {{ getBadgeInfo(mesa().estado).label }}
+      </span>
+
+      @if (mesa().comensales) {
+        <span class="comensales">
+          <mat-icon>person</mat-icon> {{ mesa().comensales }}
+        </span>
+      }
+    </div>
+
+    @if (mesa().mesero) {
+      <div class="mesero-info">
+        <mat-icon>room_service</mat-icon> {{ mesa().mesero }}
+      </div>
+    }
+
+    <div class="monto-container">
+      <span class="monto-label">Total</span>
+      <span class="monto-valor">${{ mesa().total | number:'1.2-2' }}</span>
+    </div>
+  </mat-card-content>
+
+  <!-- Acciones Contextuales -->
+  <mat-card-actions align="end" (click)="$event.stopPropagation()">
+    <!-- Evaluación corregida para tipos estrictos -->
+    @if (mesa().estado === 'DISPONIBLE') {
+      <button mat-flat-button color="primary" class="btn-action" (click)="emitirAccion('ABRIR')">
+        <mat-icon>add</mat-icon> Abrir Mesa
+      </button>
+    } @else {
+      <!-- Botón desplegable para Mesas Ocupadas -->
+      <button mat-flat-button color="primary" class="btn-action" [matMenuTriggerFor]="menuMesa">
+        <mat-icon>edit_note</mat-icon> Ver Comanda <mat-icon>expand_more</mat-icon>
+      </button>
+
+      <mat-menu #menuMesa="matMenu" xPosition="before">
+        <button mat-menu-item (click)="emitirAccion('AGREGAR_COMANDA')">
+          <mat-icon color="primary">add_circle</mat-icon>
+          <span>Agregar Mas Productos</span>
+        </button>
+
+        <button mat-menu-item (click)="emitirAccion('VER_DETALLE')">
+          <mat-icon>receipt_long</mat-icon>
+          <span>Ver Desglose de Cuenta</span>
+        </button>
+
+        <button mat-menu-item (click)="emitirAccion('IMPRIMIR_PRECUENTA')">
+          <mat-icon>print</mat-icon>
+          <span>Imprimir Precuenta (Ticket)</span>
+        </button>
+
+        <button mat-menu-item (click)="emitirAccion('MOVER_MESA')">
+          <mat-icon>sync_alt</mat-icon>
+          <span>Mover / Transferir Mesa</span>
+        </button>
+
+        <mat-divider></mat-divider>
+
+        <button mat-menu-item (click)="emitirAccion('COBRAR')">
+          <mat-icon color="accent">point_of_sale</mat-icon>
+          <span>Ir a Cobrar ($)</span>
+        </button>
+      </mat-menu>
+    }
+  </mat-card-actions>
+</mat-card>

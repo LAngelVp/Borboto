@@ -1,0 +1,26 @@
+<div class="menu-container">
+  <mat-chip-listbox
+    [value]="comandaService.categoriaSeleccionada()"
+    (selectionChange)="onCategoriaChange($event)"
+    class="categorias-bar">
+    @for (cat of comandaService.categoriasDisponibles(); track cat) {
+      <mat-chip-option
+        [value]="cat"
+        [selected]="comandaService.categoriaSeleccionada() === cat"
+        (click)="seleccionarCategoria(cat)">
+        {{ cat }}
+      </mat-chip-option>
+    }
+  </mat-chip-listbox>
+
+  <!-- Cuadrícula de productos filtrados -->
+  <div class="productos-grid">
+    @for (p of comandaService.productosFiltrados(); track p.id) {
+      <div class="producto-btn" (click)="onAgregar(p)">
+        <mat-icon class="prod-icon">{{ p.icono || 'restaurant' }}</mat-icon>
+        <span class="prod-nombre">{{ p.nombre }}</span>
+        <span class="prod-precio">${{ p.precio | number:'1.2-2' }}</span>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,228 @@
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #d32f2f; /* Red-accent theme for Borboto */
+  color: white;
+  padding: 16px;
+  margin: 0;
+  font-size: 1.25rem;
+
+  mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.dialog-content {
+  padding: 24px !important;
+  max-width: 550px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 150px;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.resumen-container {
+  margin-bottom: 24px;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 1.15rem;
+    color: #333;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 6px;
+  }
+
+  .apertura-info {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 16px;
+  }
+
+  .grid-metodos {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .metodo-card {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: #f7f9fa;
+    border: 1px solid #e1e4e6;
+    position: relative;
+
+    mat-icon {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      color: #999;
+    }
+
+    .label {
+      font-size: 0.8rem;
+      color: #777;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .monto {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #333;
+      margin-top: 4px;
+    }
+
+    .monto-tot {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #2e7d32;
+      margin-top: 4px;
+    }
+
+    &.cash {
+      border-left: 4px solid #4caf50;
+    }
+
+    &.card {
+      border-left: 4px solid #2196f3;
+    }
+
+    &.transfer {
+      border-left: 4px solid #ff9800;
+    }
+
+    &.total {
+      background-color: #e8f5e9;
+      border: 1px solid #c8e6c9;
+      border-left: 4px solid #2e7d32;
+    }
+  }
+
+  .transacciones-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #555;
+    background-color: #f1f3f4;
+    padding: 8px 12px;
+    border-radius: 6px;
+
+    mat-icon {
+      color: #666;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
+.conciliacion-container {
+  h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 1.15rem;
+    color: #333;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 6px;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .full-width {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .calculos-conciliacion {
+    background-color: #fcfcfc;
+    border: 1px dashed #ccc;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .diferencia-row {
+      border-top: 1px solid #eee;
+      padding-top: 8px;
+      margin-top: 8px;
+      font-weight: bold;
+
+      .dif-monto {
+        font-size: 1.1rem;
+      }
+
+      &.negativa {
+        color: #c62828 !important;
+      }
+
+      &.positiva {
+        color: #2e7d32 !important;
+      }
+    }
+  }
+
+  .alerta-diferencia {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &.error {
+      background-color: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+    }
+
+    &.warning {
+      background-color: #fff8e1;
+      color: #f57f17;
+      border: 1px solid #ffe082;
+    }
+  }
+}
+
+mat-dialog-actions {
+  border-top: 1px solid #f1f3f4;
+  padding: 12px 24px !important;
+  display: flex !important;
+  gap: 12px !important;
+}

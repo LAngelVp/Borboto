@@ -1,0 +1,22 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { MesasComponent } from './mesas';
+
+describe('MesasComponent', () => {
+  let component: MesasComponent;
+  let fixture: ComponentFixture<MesasComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [MesasComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MesasComponent);
+    component = fixture.componentInstance;
+    await fixture.whenStable();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});

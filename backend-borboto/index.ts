@@ -2,12 +2,36 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { pool } from './src/db.ts';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { pool, sincronizarCombosComoProductos } from './src/db.ts';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Servidor HTTP y Socket.IO
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS']
+  }
+});
+
+// Función helper reusable para emitir eventos de sockets
+export function emitirCambioGlobal(evento: string, data?: any) {
+  io.emit(evento, data);
+}
+
+// Log de conexiones
+io.on('connection', (socket) => {
+  console.log(`🔌 Cliente conectado por WebSockets: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`🔌 Cliente desconectado: ${socket.id}`);
+  });
+});
 
 // Middlewares
 app.use(cors()); // Permite peticiones desde Angular (http://127.0.0.1:4200)
@@ -23,10 +47,18 @@ app.get('/api/mesas', async (_req, res) => {
     const query = `
       SELECT m.id, m.numero, z.nombre AS zona, m.capacidad, m.estado,
              m.comensales, m.minutos_abierta AS "minutosAbierta",
-             COALESCE(c.total, 0.00) AS total
+             COALESCE(c.total, 0.00) AS total,
+             c.id AS "comandaId",
+             c.cliente_id AS "clienteId",
+             cli.nombre AS "clienteNombre",
+             cli.direccion AS "clienteDireccion",
+             u.nombre AS mesero,
+             m.creado_en AS "creadoEn"
       FROM mesas m
       JOIN zonas z ON m.zona_id = z.id
       LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado != 'CERRADA'
+      LEFT JOIN clientes cli ON c.cliente_id = cli.id
+      LEFT JOIN usuarios u ON c.usuario_id = u.id
       ORDER BY m.id ASC;
     `;
     const { rows } = await pool.query(query);
@@ -59,6 +91,7 @@ app.post('/api/mesas/:id/abrir', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
     res.json({ ok: true, comandaId: comandaRes.rows[0].id });
   } catch (err: any) {
     await client.query('ROLLBACK');
@@ -115,6 +148,7 @@ app.post('/api/mesas/:origenId/mover', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
     res.json({ ok: true, mensaje: 'Mesa movida exitosamente' });
   } catch (err: any) {
     await client.query('ROLLBACK');
@@ -187,11 +221,165 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
   }
 });
 
+// Obtener todos los usuarios activos (para cambiar turno)
+app.get('/api/usuarios', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, nombre, rol, pin, activo FROM usuarios ORDER BY nombre');
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear primer usuario como administrador si no existe ningún usuario
+app.post('/api/auth/register-first-admin', async (req, res) => {
+  const { nombre, pin } = req.body;
+  if (!nombre || !pin) {
+    return res.status(400).json({ error: 'Faltan parámetros: nombre y pin son requeridos.' });
+  }
+  try {
+    const checkCount = await pool.query('SELECT COUNT(*) FROM usuarios');
+    if (parseInt(checkCount.rows[0].count) > 0) {
+      return res.status(403).json({ error: 'Ya existen usuarios registrados en el sistema.' });
+    }
+
+    const { rows } = await pool.query(
+      "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, 'ADMIN', TRUE) RETURNING id, nombre, rol",
+      [nombre, pin]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear Empleado (Admin panel)
+app.post('/api/usuarios', async (req, res) => {
+  const { nombre, pin, rol, activo } = req.body;
+  if (!nombre || !pin || !rol) {
+    return res.status(400).json({ error: 'Faltan parámetros: nombre, pin y rol son requeridos.' });
+  }
+  try {
+    const { rows } = await pool.query(
+      'INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING *',
+      [nombre, pin, rol, activo !== false]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Editar Empleado (Admin panel)
+app.put('/api/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, pin, rol, activo } = req.body;
+  try {
+    const { rows } = await pool.query(
+      'UPDATE usuarios SET nombre = $1, pin = $2, rol = $3, activo = $4 WHERE id = $5 RETURNING *',
+      [nombre, pin, rol, activo !== false, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Empleado no encontrado' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar Empleado (Marcar como inactivo o eliminar de forma segura)
+app.delete('/api/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Verificamos si tiene comandas asociadas
+    const { rows: comandas } = await pool.query('SELECT COUNT(*)::int AS count FROM comandas WHERE usuario_id = $1', [id]);
+
+    if (comandas[0].count > 0) {
+      // Si tiene transacciones u órdenes previas, simplemente lo marcamos como inactivo (soft delete)
+      await pool.query('UPDATE usuarios SET activo = FALSE WHERE id = $1', [id]);
+      return res.json({ ok: true, mensaje: 'El colaborador cuenta con historial operativo. Se ha inhabilitado y marcado como inactivo.' });
+    }
+
+    // Si no tiene registros vinculados, lo removemos de forma definitiva
+    await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
+    res.json({ ok: true, mensaje: 'Empleado eliminado exitosamente de la base de datos' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Validar inicio de sesión / turno mediante PIN
+app.post('/api/auth/login', async (req, res) => {
+  const { pin } = req.body;
+  try {
+    const { rows } = await pool.query('SELECT id, nombre, rol FROM usuarios WHERE pin = $1 AND activo = TRUE', [pin]);
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'PIN incorrecto o usuario inactivo' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear y abrir un nuevo envío a domicilio (No requiere mesa preseleccionada)
+app.post('/api/envios/crear', async (req, res) => {
+  const { usuarioId, clienteId } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Asegurar la zona "Domicilio"
+    let zonaId;
+    const zonaRes = await client.query("SELECT id FROM zonas WHERE nombre = 'Domicilio' LIMIT 1");
+    if (zonaRes.rows.length === 0) {
+      const nuevaZona = await client.query("INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id");
+      zonaId = nuevaZona.rows[0].id;
+    } else {
+      zonaId = zonaRes.rows[0].id;
+    }
+
+    // 2. Determinar el siguiente número de envío
+    const numRes = await client.query(`
+      SELECT COALESCE(MAX(SUBSTRING(numero FROM '[0-9]+')::integer), 0) + 1 AS proximo
+      FROM mesas
+      WHERE zona_id = $1 AND numero LIKE 'Envío %'
+    `, [zonaId]);
+    const proximoNum = numRes.rows[0].proximo;
+    const nombreEnvio = `Envío #${proximoNum}`;
+
+    // 3. Crear el registro en mesas representando el envío
+    const mesaRes = await client.query(`
+      INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
+      VALUES ($1, $2, 1, 'PENDIENTE', 1, 1) RETURNING id
+    `, [nombreEnvio, zonaId]);
+
+    const mesaId = mesaRes.rows[0].id;
+
+    // 4. Crear comanda ABIERTA para este envío con cliente opcional
+    const comandaRes = await client.query(`
+      INSERT INTO comandas (mesa_id, usuario_id, estado, total, cliente_id)
+      VALUES ($1, $2, 'ABIERTA', 0.00, $3) RETURNING id
+    `, [mesaId, usuarioId || 1, clienteId || null]);
+
+    await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
+    res.status(201).json({ ok: true, mesaId, comandaId: comandaRes.rows[0].id, numero: nombreEnvio });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // Marcar la mesa como SERVIDO (Al entregar la comida)
 app.post('/api/mesas/:mesaId/servir', async (req, res) => {
   const { mesaId } = req.params;
   try {
     await pool.query(`UPDATE mesas SET estado = 'SERVIDO' WHERE id = $1`, [mesaId]);
+    emitirCambioGlobal('actualizar_mesas');
     res.json({ ok: true, mensaje: 'Mesa marcada como servida' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -200,7 +388,7 @@ app.post('/api/mesas/:mesaId/servir', async (req, res) => {
 
 // Acumular o guardar nuevos productos en la comanda (Pasa mesa a 'EN COCINA')
 app.post('/api/comandas', async (req, res) => {
-  const { comandaId, mesaId, items } = req.body;
+  const { comandaId, mesaId, items, usuarioId } = req.body;
 
   if (!mesaId || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Faltan parámetros: mesaId e items son requeridos.' });
@@ -222,8 +410,8 @@ app.post('/api/comandas', async (req, res) => {
         idComandaActual = comandaExistente.rows[0].id;
       } else {
         const nuevaComanda = await client.query(
-          `INSERT INTO comandas (mesa_id, usuario_id, estado, total) VALUES ($1, 1, 'ABIERTA', 0.00) RETURNING id`,
-          [mesaId]
+          `INSERT INTO comandas (mesa_id, usuario_id, estado, total) VALUES ($1, $2, 'ABIERTA', 0.00) RETURNING id`,
+          [mesaId, usuarioId || 1]
         );
         idComandaActual = nuevaComanda.rows[0].id;
       }
@@ -250,7 +438,59 @@ app.post('/api/comandas', async (req, res) => {
     await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [mesaId]);
 
     await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
+    emitirCambioGlobal('actualizar_cocina');
     res.json({ ok: true, totalAdicional, comandaId: idComandaActual });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Cancelar una comanda abierta y liberar la mesa correspondiente
+app.post('/api/comandas/:comandaId/cancelar', async (req, res) => {
+  const { comandaId } = req.params;
+  const { usuarioId, notas } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verificar si la comanda existe y no está cerrada
+    const comandaRes = await client.query('SELECT mesa_id, estado FROM comandas WHERE id = $1', [comandaId]);
+    if (comandaRes.rows.length === 0) {
+      return res.status(404).json({ error: 'La comanda especificada no existe.' });
+    }
+
+    const { mesa_id, estado } = comandaRes.rows[0];
+    if (estado !== 'ABIERTA') {
+      return res.status(400).json({ error: 'Solo se pueden cancelar comandas abiertas.' });
+    }
+
+    // 2. Cambiar estado de la comanda a CANCELADA
+    await client.query(
+      `UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
+      [comandaId]
+    );
+
+    // 3. Liberar la mesa correspondiente
+    await client.query(
+      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
+      [mesa_id]
+    );
+
+    // 4. Marcar todos los ítems como completados para KDS
+    await client.query(
+      `UPDATE comanda_items SET completado = TRUE, notas = COALESCE($1 || ' - ', '') || COALESCE(notas, '') WHERE comanda_id = $2`,
+      [notas || 'CANCELADO POR USUARIO', comandaId]
+    );
+
+    await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
+    emitirCambioGlobal('actualizar_cocina');
+    res.json({ ok: true, mensaje: 'Comanda cancelada y mesa liberada' });
   } catch (err: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -316,6 +556,7 @@ app.patch('/api/cocina/items/:itemId/toggle', async (req, res) => {
       `UPDATE comanda_items SET completado = NOT COALESCE(completado, false) WHERE id = $1`,
       [itemId]
     );
+    emitirCambioGlobal('actualizar_cocina');
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -340,6 +581,8 @@ app.post('/api/cocina/tickets/:comandaId/despachar', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
+    emitirCambioGlobal('actualizar_cocina');
     res.json({ ok: true });
   } catch (err: any) {
     await client.query('ROLLBACK');
@@ -376,16 +619,16 @@ app.get('/api/caja/mesa/:mesaId', async (req, res) => {
 
 // Procesar Pago y Liberar Mesa (Pasa a 'DISPONIBLE')
 app.post('/api/caja/cobrar', async (req, res) => {
-  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales } = req.body;
+  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales, descuento, promocionId } = req.body;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     const pagoRes = await client.query(
-      `INSERT INTO pagos (comanda_id, usuario_id, metodo_pago, total_cuenta, monto_recibido, cambio, dividir_cuenta, partes_iguales)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-      [comandaId, usuarioId || 1, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta || false, partesIguales || 1]
+      `INSERT INTO pagos (comanda_id, usuario_id, metodo_pago, total_cuenta, monto_recibido, cambio, dividir_cuenta, partes_iguales, descuento, promocion_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      [comandaId, usuarioId || 1, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta || false, partesIguales || 1, descuento || 0.00, promocionId || null]
     );
 
     await client.query(
@@ -399,6 +642,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
     );
 
     await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
     res.json({ ok: true, ticketId: pagoRes.rows[0].id });
   } catch (err: any) {
     await client.query('ROLLBACK');
@@ -408,6 +652,637 @@ app.post('/api/caja/cobrar', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+// Obtener información del corte de caja actual para un usuario
+app.get('/api/caja/corte/actual/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  try {
+    // 1. Encontrar la fecha del último corte de caja
+    const lastCorteQuery = `
+      SELECT fecha_cierre FROM cortes_caja
+      WHERE usuario_id = $1
+      ORDER BY fecha_cierre DESC
+      LIMIT 1;
+    `;
+    const lastCorteRes = await pool.query(lastCorteQuery, [usuarioId]);
+    const lastCorteFecha = lastCorteRes.rows.length > 0 ? lastCorteRes.rows[0].fecha_cierre : null;
+
+    // 2. Traer todos los pagos hechos por este usuario después de su último corte (o todos si no tiene)
+    let pagosQuery = `
+      SELECT p.id, p.total_cuenta AS total, p.metodo_pago AS metodo, p.fecha, m.numero AS mesa
+      FROM pagos p
+      JOIN comandas c ON p.comanda_id = c.id
+      JOIN mesas m ON c.mesa_id = m.id
+      WHERE p.usuario_id = $1
+    `;
+    const queryParams: any[] = [usuarioId];
+
+    if (lastCorteFecha) {
+      pagosQuery += ' AND p.fecha > $2';
+      queryParams.push(lastCorteFecha);
+    }
+
+    pagosQuery += ' ORDER BY p.fecha ASC';
+    const { rows: pagos } = await pool.query(pagosQuery, queryParams);
+
+    // 3. Calcular totales
+    let efectivo = 0;
+    let tarjeta = 0;
+    let transferencia = 0;
+    let ventasTotales = 0;
+
+    pagos.forEach(pago => {
+      const tot = parseFloat(pago.total);
+      if (pago.metodo === 'EFECTIVO') efectivo += tot;
+      else if (pago.metodo === 'TARJETA') tarjeta += tot;
+      else if (pago.metodo === 'TRANSFERENCIA') transferencia += tot;
+      ventasTotales += tot;
+    });
+
+    res.json({
+      ok: true,
+      fechaUltimoCorte: lastCorteFecha,
+      pagosCount: pagos.length,
+      efectivoCalculado: efectivo,
+      tarjetaCalculado: tarjeta,
+      transferenciaCalculado: transferencia,
+      ventasTotales,
+      pagos
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Guardar un nuevo corte de caja
+app.post('/api/caja/corte', async (req, res) => {
+  const {
+    usuarioId,
+    fechaApertura,
+    fondoApertura,
+    efectivoReal,
+    efectivoCalculado,
+    tarjetaCalculado,
+    transferenciaCalculado,
+    ventasTotales,
+    diferencia,
+    notas
+  } = req.body;
+
+  try {
+    const query = `
+      INSERT INTO cortes_caja (
+        usuario_id, fecha_apertura, fecha_cierre, fondo_apertura,
+        efectivo_real, efectivo_calculado, tarjeta_calculado,
+        transferencia_calculado, ventas_totales, diferencia, notas
+      )
+      VALUES ($1, COALESCE($2, CURRENT_TIMESTAMP - INTERVAL '1 day'), CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id;
+    `;
+    const { rows } = await pool.query(query, [
+      usuarioId,
+      fechaApertura || null,
+      fondoApertura || 0.00,
+      efectivoReal || 0.00,
+      efectivoCalculado || 0.00,
+      tarjetaCalculado || 0.00,
+      transferenciaCalculado || 0.00,
+      ventasTotales || 0.00,
+      diferencia || 0.00,
+      notas || ''
+    ]);
+
+    res.json({ ok: true, corteId: rows[0].id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Obtener el historial de cortes de caja
+app.get('/api/caja/cortes/historial', async (_req, res) => {
+  try {
+    const query = `
+      SELECT c.*, u.nombre AS "usuarioNombre"
+      FROM cortes_caja c
+      JOIN usuarios u ON c.usuario_id = u.id
+      ORDER BY c.fecha_cierre DESC;
+    `;
+    const { rows } = await pool.query(query);
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==========================================================================
+   5. ENDPOINTS ADMINISTRATIVOS (AJUSTES POS, CLIENTES, CONFIGURACIÓN)
+   ========================================================================== */
+
+// Categorías
+app.get('/api/categorias', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM categorias ORDER BY orden, nombre');
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/categorias', async (req, res) => {
+  const { nombre, icono, orden } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, $3) RETURNING *`,
+      [nombre, icono || 'restaurant', Number(orden) || 0]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear Producto
+app.post('/api/productos', async (req, res) => {
+  const { categoria_id, nombre, precio, disponible } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO productos (categoria_id, nombre, precio, disponible) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [Number(categoria_id), nombre, Number(precio), disponible !== false]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Zonas
+app.get('/api/zonas', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM zonas ORDER BY id');
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Crear Mesa
+app.post('/api/mesas', async (req, res) => {
+  const { numero, zona_id, capacidad } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
+       VALUES ($1, $2, $3, 'DISPONIBLE', 0, 0) RETURNING *`,
+      [numero, Number(zona_id), Number(capacidad) || 4]
+    );
+    emitirCambioGlobal('actualizar_mesas');
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Datos de Negocio
+app.get('/api/ajustes/negocio', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM datos_negocio WHERE id = 1');
+    res.json(rows[0] || {});
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/ajustes/negocio', async (req, res) => {
+  const { nombre, rfc, telefono, direccion, email, mensaje_recibo } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo)
+       VALUES (1, $1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO UPDATE SET
+         nombre = EXCLUDED.nombre,
+         rfc = EXCLUDED.rfc,
+         telefono = EXCLUDED.telefono,
+         direccion = EXCLUDED.direccion,
+         email = EXCLUDED.email,
+         mensaje_recibo = EXCLUDED.mensaje_recibo
+       RETURNING *`,
+      [nombre, rfc, telefono, direccion, email, mensaje_recibo]
+    );
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Datos de Transferencia Bancaria
+app.get('/api/ajustes/transferencia', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM datos_transferencia WHERE id = 1');
+    res.json(rows[0] || {});
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/ajustes/transferencia', async (req, res) => {
+  const { banco, titular, clabe, email } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO datos_transferencia (id, banco, titular, clabe, email)
+       VALUES (1, $1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET
+         banco = EXCLUDED.banco,
+         titular = EXCLUDED.titular,
+         clabe = EXCLUDED.clabe,
+         email = EXCLUDED.email
+       RETURNING *`,
+      [banco, titular, clabe, email]
+    );
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clientes (Envío, Clientes de Confianza)
+app.get('/api/clientes', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM clientes ORDER BY nombre ASC');
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/clientes', async (req, res) => {
+  const { nombre, telefono, direccion, email, notas } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO clientes (nombre, telefono, direccion, email, notas)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [nombre, telefono, direccion, email, notas]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==========================================================================
+   6. ENDPOINTS COMPLETOS CON SOPORTE CRUD PARA EL PANEL ADMINISTRATIVO
+   ========================================================================== */
+
+// Admin - Obtener TODOS los productos (disponibles e indisponibles)
+app.get('/api/admin/productos', async (_req, res) => {
+  try {
+    const query = `
+      SELECT p.id, p.nombre, p.precio, p.disponible, p.categoria_id,
+             c.nombre AS "categoriaNombre"
+      FROM productos p
+      JOIN categorias c ON p.categoria_id = c.id
+      ORDER BY c.orden, p.nombre;
+    `;
+    const { rows } = await pool.query(query);
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Modificar Categoría
+app.put('/api/categorias/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, icono, orden } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE categorias SET nombre = $1, icono = $2, orden = $3 WHERE id = $4 RETURNING *`,
+      [nombre, icono || 'restaurant', Number(orden) || 0, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Categoría no encontrada' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar Categoría
+app.delete('/api/categorias/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Verificar si tiene productos asociados
+    const countRes = await pool.query('SELECT COUNT(*) FROM productos WHERE categoria_id = $1', [id]);
+    if (parseInt(countRes.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'No es posible eliminar la categoría porque contiene productos activos.' });
+    }
+    await pool.query('DELETE FROM categorias WHERE id = $1', [id]);
+    res.json({ ok: true, mensaje: 'Categoría eliminada exitosamente' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Modificar Producto
+app.put('/api/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { categoria_id, nombre, precio, disponible } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE productos SET categoria_id = $1, nombre = $2, precio = $3, disponible = $4 WHERE id = $5 RETURNING *`,
+      [Number(categoria_id), nombre, Number(precio), disponible !== false, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar Producto
+app.delete('/api/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Ojo: si ya está en una comanda, es mejor marcar disponible = false para no romper integridad.
+    // Pero si quieren borrarlo totalmente o el sistema lo permite física/lógicamente:
+    const { rows } = await pool.query('DELETE FROM productos WHERE id = $1 RETURNING *', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    res.json({ ok: true, mensaje: 'Producto removido exitosamente' });
+  } catch (err: any) {
+    // Si truena por llave foránea, el plan B es desactivarlo lógicamente
+    try {
+      await pool.query('UPDATE productos SET disponible = FALSE WHERE id = $1', [id]);
+      res.json({ ok: true, mensaje: 'Producto desactivado lógicamente por contener historial de comanda.' });
+    } catch (err2: any) {
+      res.status(500).json({ error: err2.message });
+    }
+  }
+});
+
+// Crear Zona (Salón)
+app.post('/api/zonas', async (req, res) => {
+  const { nombre } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO zonas (nombre) VALUES ($1) RETURNING *`,
+      [nombre]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Modificar Zona
+app.put('/api/zonas/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE zonas SET nombre = $1 WHERE id = $2 RETURNING *`,
+      [nombre, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Zona no encontrada' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar Zona
+app.delete('/api/zonas/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const countRes = await pool.query('SELECT COUNT(*) FROM mesas WHERE zona_id = $1', [id]);
+    if (parseInt(countRes.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'No es posible eliminar la zona porque contiene mesas asociadas.' });
+    }
+    await pool.query('DELETE FROM zonas WHERE id = $1', [id]);
+    res.json({ ok: true, mensaje: 'Zona eliminada exitosamente' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Modificar Mesa
+app.put('/api/mesas/:id', async (req, res) => {
+  const { id } = req.params;
+  const { numero, zona_id, capacidad } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE mesas SET numero = $1, zona_id = $2, capacidad = $3 WHERE id = $4 RETURNING *`,
+      [numero, Number(zona_id), Number(capacidad) || 4, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Mesa no encontrada' });
+    }
+    emitirCambioGlobal('actualizar_mesas');
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar Mesa
+app.delete('/api/mesas/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Si tiene comandas activas o registradas, ON DELETE RESTRICT rebotará.
+    await pool.query('DELETE FROM mesas WHERE id = $1', [id]);
+    emitirCambioGlobal('actualizar_mesas');
+    res.json({ ok: true, mensaje: 'Mesa eliminada' });
+  } catch (err: any) {
+    res.status(400).json({ error: 'La mesa tiene historial de comandas y no puede borrarse físicamente. Se recomienda dejarla intacta.' });
+  }
+});
+
+// Modificar Cliente
+app.put('/api/clientes/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, telefono, direccion, email, notas } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE clientes SET nombre = $1, telefono = $2, direccion = $3, email = $4, notas = $5 WHERE id = $6 RETURNING *`,
+      [nombre, telefono, direccion, email, notas, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Eliminar Cliente
+app.delete('/api/clientes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
+    res.json({ ok: true, mensaje: 'Cliente eliminado correctamente' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==========================================================================
+   7. ENDPOINTS DE PROMOCIONES Y COMBOS
+   ========================================================================== */
+
+app.get('/api/promociones/validar/:codigo', async (req, res) => {
+  const { codigo } = req.params;
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, nombre, codigo, tipo, valor, descripcion FROM promociones WHERE UPPER(codigo) = UPPER($1) AND activo = TRUE LIMIT 1',
+      [codigo]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Código de promoción inválido o inactivo' });
+    }
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/promociones', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM promociones ORDER BY creado_en DESC');
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/promociones', async (req, res) => {
+  const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO promociones (nombre, codigo, tipo, valor, descripcion, activo)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false]
+    );
+    await sincronizarCombosComoProductos();
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/promociones/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE promociones
+       SET nombre = $1, codigo = $2, tipo = $3, valor = $4, descripcion = $5, activo = $6
+       WHERE id = $7 RETURNING *`,
+      [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false, id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Promoción no encontrada' });
+    }
+    await sincronizarCombosComoProductos();
+    res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/promociones/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await pool.query('DELETE FROM promociones WHERE id = $1 RETURNING *', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Promoción no encontrada' });
+    }
+    await sincronizarCombosComoProductos();
+    res.json({ ok: true, mensaje: 'Promoción eliminada exitosamente' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==========================================================================
+   8. ENDPOINT DE DASHBOARD & ESTADÍSTICAS DE VENTAS EN TIEMPO REAL
+   ========================================================================== */
+
+app.get('/api/dashboard/stats', async (req, res) => {
+  const { fechaInicio, fechaFin } = req.query;
+  try {
+    let dateFilter = 'DATE(fecha) = CURRENT_DATE';
+    let params: any[] = [];
+
+    if (fechaInicio && !fechaFin) {
+      dateFilter = 'DATE(fecha) >= $1';
+      params.push(fechaInicio);
+    } else if (fechaInicio && fechaFin) {
+      dateFilter = 'DATE(fecha) BETWEEN $1 AND $2';
+      params.push(fechaInicio, fechaFin);
+    }
+
+    // 1. Resumen de Ventas
+    const totalVentasRes = await pool.query(`
+      SELECT
+        COALESCE(SUM(total_cuenta), 0)::float AS "totalVentas",
+        COUNT(*)::int AS "totalOrdenes",
+        COALESCE(AVG(total_cuenta), 0)::float AS "ticketPromedio"
+      FROM pagos
+      WHERE ${dateFilter}
+    `, params);
+
+    // 2. Ventas por método de pago
+    const metodoPagoRes = await pool.query(`
+      SELECT metodo_pago AS metodo, COALESCE(SUM(total_cuenta), 0)::float AS total, COUNT(*)::int as cantidad
+      FROM pagos
+      WHERE ${dateFilter}
+      GROUP BY metodo_pago
+    `, params);
+
+    // 3. Ventas por Categoría
+    const ventasCatRes = await pool.query(`
+      SELECT c.nombre AS categoria, COALESCE(SUM(ci.cantidad * ci.precio_unitario), 0)::float AS total
+      FROM pagos pa
+      JOIN comanda_items ci ON pa.comanda_id = ci.comanda_id
+      JOIN productos p ON ci.producto_id = p.id
+      JOIN categorias c ON p.categoria_id = c.id
+      WHERE DATE(pa.fecha) ${fechaInicio ? (fechaFin ? 'BETWEEN $1 AND $2' : '>= $1') : '= CURRENT_DATE'}
+      GROUP BY c.nombre
+      ORDER BY total DESC
+    `, params);
+
+    // 4. Últimos tickets pagados de ese periodo
+    const ultimosTicketsRes = await pool.query(`
+      SELECT
+        pa.id,
+        pa.total_cuenta::float AS total,
+        pa.metodo_pago AS metodo,
+        COALESCE(EXTRACT(EPOCH FROM (co.fecha_cierre - co.fecha_apertura))/60, 0)::int AS "duracionMinutos",
+        m.numero AS "mesaNombre",
+        TO_CHAR(pa.fecha, 'DD/MM HH24:MI') AS hora
+      FROM pagos pa
+      JOIN comandas co ON pa.comanda_id = co.id
+      JOIN mesas m ON co.mesa_id = m.id
+      WHERE DATE(pa.fecha) ${fechaInicio ? (fechaFin ? 'BETWEEN $1 AND $2' : '>= $1') : '= CURRENT_DATE'}
+      ORDER BY pa.fecha DESC
+      LIMIT 15
+    `, params);
+
+    res.json({
+      resumen: totalVentasRes.rows[0],
+      pagosMetodo: metodoPagoRes.rows,
+      categorias: ventasCatRes.rows,
+      tickets: ultimosTicketsRes.rows
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+server.listen(PORT, () => {
   console.log(`🚀 Servidor Borboto POS activo en: http://127.0.0.1:${PORT}`);
 });

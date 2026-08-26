@@ -1,0 +1,91 @@
+<mat-toolbar color="surface" class="navbar-borboto">
+  <!-- Marca / Logo -->
+  <div class="brand-zone">
+    <div class="brand-icon">
+      <mat-icon>restaurant</mat-icon>
+    </div>
+    <span class="brand-name">borboto</span>
+    <span class="brand-tag">POS</span>
+  </div>
+
+  <!-- Estado Red In-House -->
+  <div class="network-status" title="Conectado al servidor local">
+    <span class="status-dot online"></span>
+    <span class="status-text">Red Local</span>
+  </div>
+
+  <span class="spacer"></span>
+
+  <!-- Selector de Módulo utilizando RouterLink y Atributos de Material -->
+  <nav class="nav-links">
+    <!-- Botón Mesas -->
+    <a mat-button
+       routerLink="/mesas"
+       routerLinkActive="active"
+       class="nav-btn">
+      <mat-icon>grid_view</mat-icon>
+      <span>Mesas</span>
+    </a>
+
+    <!-- Botón Cocina / KDS -->
+    <a mat-button
+       routerLink="/cocina"
+       routerLinkActive="active"
+       class="nav-btn">
+      <mat-icon>soup_kitchen</mat-icon>
+      <span>Cocina</span>
+    </a>
+
+    <!-- Botón Caja -->
+    <a mat-button
+       routerLink="/caja"
+       routerLinkActive="active"
+       class="nav-btn">
+      <mat-icon>point_of_sale</mat-icon>
+      <span>Caja</span>
+    </a>
+
+    <!-- Botón Ventas (Dashboard) -->
+    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+      <a mat-button
+         routerLink="/dashboard"
+         routerLinkActive="active"
+         class="nav-btn">
+        <mat-icon>trending_up</mat-icon>
+        <span>Ventas</span>
+      </a>
+    }
+  </nav>
+
+  <span class="spacer"></span>
+
+  <!-- Zona de Usuario con Menú Nativo -->
+  <div class="user-zone">
+    <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn">
+      <mat-icon class="avatar-icon">account_circle</mat-icon>
+      <span class="user-name">{{ authService.usuarioActivo()?.nombre || 'Sin Usuario' }}</span>
+      <mat-icon class="dropdown-icon">expand_more</mat-icon>
+    </button>
+
+    <mat-menu #userMenu="matMenu" xPosition="before" class="minimal-menu">
+      <button mat-menu-item (click)="cambiarTurno()">
+        <mat-icon>sync</mat-icon>
+        <span>Cambiar Turno</span>
+      </button>
+
+      @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+        <button mat-menu-item routerLink="/ajustes">
+          <mat-icon>settings</mat-icon>
+          <span>Ajustes POS</span>
+        </button>
+      }
+
+      <mat-divider></mat-divider>
+
+      <button mat-menu-item class="logout-item" (click)="cerrarSesion()">
+        <mat-icon color="warn">logout</mat-icon>
+        <span>Cerrar Sesión</span>
+      </button>
+    </mat-menu>
+  </div>
+</mat-toolbar>

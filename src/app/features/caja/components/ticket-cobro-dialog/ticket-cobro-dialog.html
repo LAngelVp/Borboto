@@ -1,0 +1,60 @@
+<div class="ticket-dialog-container">
+  <div class="status-header">
+    <mat-icon class="check-icon">check_circle</mat-icon>
+    <h2>¡Cobro Exitoso!</h2>
+    <span class="sub-mesa">Mesa {{ data.transaccion.mesaNumero }} cerrada correctamente</span>
+  </div>
+
+  <div class="receipt-paper">
+    <div class="receipt-header">
+      <h3 class="negocio-name">{{ negocio().nombre }}</h3>
+      @if (negocio().direccion) {
+        <p class="negocio-detail">{{ negocio().direccion }}</p>
+      }
+      @if (negocio().telefono) {
+        <p class="negocio-detail">Tel: {{ negocio().telefono }}</p>
+      }
+      @if (negocio().rfc) {
+        <p class="negocio-detail">RFC: {{ negocio().rfc }}</p>
+      }
+      <div class="receipt-space"></div>
+      <p class="receipt-meta">Ticket #{{ data.transaccion.id || '0001' }}</p>
+      <p class="receipt-meta">{{ data.transaccion.fecha | date:'dd/MM/yyyy HH:mm' }}</p>
+    </div>
+
+    <div class="receipt-divider">--------------------------------</div>
+
+    <div class="receipt-row">
+      <span>Método de Pago:</span>
+      <strong>{{ data.transaccion.metodoPago }}</strong>
+    </div>
+
+    <div class="receipt-row">
+      <span>Total Cobrado:</span>
+      <strong>${{ data.transaccion.totalCuenta | number:'1.2-2' }}</strong>
+    </div>
+
+    @if (data.transaccion.metodoPago === 'EFECTIVO') {
+      <div class="receipt-row">
+        <span>Monto Recibido:</span>
+        <span>${{ data.transaccion.montoRecibido | number:'1.2-2' }}</span>
+      </div>
+      <div class="receipt-row cambio">
+        <span>Cambio Entregado:</span>
+        <strong>${{ data.transaccion.cambio | number:'1.2-2' }}</strong>
+      </div>
+    }
+
+    <div class="receipt-divider">--------------------------------</div>
+    <p class="receipt-footer">{{ negocio().mensaje_recibo || '¡Gracias por su visita!' }}</p>
+  </div>
+
+  <div class="dialog-actions">
+    <button mat-stroked-button (click)="imprimirTicket()">
+      <mat-icon>print</mat-icon> Imprimir Ticket
+    </button>
+    <button mat-flat-button color="primary" (click)="cerrar()">
+      <mat-icon>home</mat-icon> Volver al Salón
+    </button>
+  </div>
+</div>

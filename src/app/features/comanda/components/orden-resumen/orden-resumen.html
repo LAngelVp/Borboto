@@ -1,0 +1,66 @@
+<div class="ticket-panel">
+  <!-- Cabecera -->
+  <div class="ticket-header">
+    <h3>ORDEN DE LA MESA</h3>
+    <span class="count-badge">{{ comandaService.itemsComanda().length }} ítems</span>
+  </div>
+
+  <!-- Lista de Ítems / Vacío -->
+  <div class="ticket-items">
+    @if (comandaService.itemsComanda().length === 0) {
+      <div class="ticket-vacio">
+        <mat-icon>shopping_cart</mat-icon>
+        <p>No hay productos seleccionados</p>
+      </div>
+    } @else {
+      @for (item of comandaService.itemsComanda(); track $index) {
+        <div class="item-wrapper">
+          <div class="item-row">
+            <div class="item-info">
+              <span class="cantidad">{{ item.cantidad }}x</span>
+              <span class="nombre">{{ item.producto.nombre }}</span>
+            </div>
+
+            <div class="item-derecha">
+              <span class="subtotal">${{ (item.producto.precio * item.cantidad) | number:'1.2-2' }}</span>
+              <button
+                mat-icon-button
+                class="btn-remove"
+                (click)="comandaService.removerProducto(item.producto.id)">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Entrada de Notas Inline -->
+          <div class="item-notas-row">
+            <mat-icon class="icon-nota">edit_note</mat-icon>
+            <input
+              type="text"
+              class="nota-input"
+              placeholder="Ej: sin cebolla, salsa extra, término medio..."
+              [value]="item.notas || ''"
+              (input)="actualizarNota($index, $any($event.target).value)" />
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Pie con Total y Botón -->
+  <div class="ticket-footer">
+    <div class="total-row">
+      <span>Total:</span>
+      <span class="total-monto">${{ comandaService.totalComanda() | number:'1.2-2' }}</span>
+    </div>
+
+    <button
+      mat-flat-button
+      color="primary"
+      class="btn-enviar"
+      [disabled]="comandaService.itemsComanda().length === 0"
+      (click)="enviarCocina()">
+      <mat-icon>restaurant_menu</mat-icon> ENVIAR A COCINA
+    </button>
+  </div>
+</div>

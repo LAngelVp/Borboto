@@ -1,1 +1,85 @@
-/* You can add global styles to this file, and also import other style files */
+/* src/styles.scss */
+@use '@angular/material' as mat;
+
+// Configuración visual global de Borboto POS
+:root {
+  /* Marca (Neuromarketing Gastronómico) */
+  --color-primary: #E65100;      /* Naranja (Acción / Comanda) */
+  --color-primary-hover: #BF360C;
+  --color-secondary: #263238;    /* Azul Pizarra (Navegación / Estabilidad) */
+  --color-bg: #F4F6F8;           /* Gris Niebla (Descanso visual) */
+  --color-surface: #FFFFFF;      /* Blanco Puro (Tarjetas / Limpieza) */
+  --color-text-main: #1C1E21;
+  --color-text-muted: #5F6368;
+
+  /* Estados de Comandas */
+  --status-pendiente: #FFB300;   /* Ámbar */
+  --status-cocinando: #0288D1;   /* Azul */
+  --status-listo: #4CAF50;       /* Verde */
+  --status-urgente: #D32F2F;     /* Rojo */
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+}
+
+/* Formato de precios alineado verticalmente para la caja */
+.precio, .total-monto {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   ANGULAR MATERIAL OVERLAYS (MODALES Y MENÚS FLOTANTES OPACOS)
+   ========================================================================== */
+
+/* 1. Fondo sólido blanco para la superficie del Modal (MatDialog) */
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  background-color: var(--color-surface, #ffffff) !important;
+  color: var(--color-text-main, #1c1e21) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.2),
+              0 24px 38px 3px rgba(0, 0, 0, 0.14),
+              0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid #e0e0e0;
+}
+
+/* 2. Oscurecer el fondo opaco detrás del modal (Backdrop) */
+.cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
+  opacity: 0.65 !important;
+  background-color: rgba(0, 0, 0, 0.65) !important;
+}
+
+/* 3. Menús desplegables opacos (MatMenu de acciones en tarjetas) */
+.mat-mdc-menu-panel {
+  background-color: var(--color-surface, #ffffff) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 4. Paneles de selección (Desplegables / Selects / Autocomplete) opacos y con fondo blanco sólido */
+.mat-mdc-select-panel,
+.mat-mdc-select-panel-wrap,
+.mat-mdc-autocomplete-panel,
+.mat-mdc-select-panel .mat-mdc-option {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+
+// Estilos globales adicionales para asegurar que las opciones dentro de cualquier panel no tengan transparencias
+.mat-mdc-option {
+  background-color: #ffffff !important;
+  color: var(--color-text-main, #1c1e21) !important;
+  opacity: 1 !important;
+
+  &:hover:not(.mdc-list-item--disabled),
+  &.mat-mdc-option-active,
+  &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+    background-color: #f0f2f5 !important; // Fondo sutil en hover/activo pero opaco
+  }
+}

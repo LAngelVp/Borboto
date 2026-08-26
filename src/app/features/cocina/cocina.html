@@ -1,0 +1,32 @@
+<div class="kds-page">
+  <!-- Barra de Filtro de Comandas -->
+  <header class="kds-topbar">
+    <div class="kds-title">
+      <mat-icon>soup_kitchen</mat-icon>
+      <h2>Monitor de Cocina (KDS)</h2>
+    </div>
+
+    <mat-chip-listbox [value]="cocinaService.filtroEstado()" (change)="cocinaService.filtroEstado.set($event.value)">
+      <mat-chip-option value="TODOS">Todas</mat-chip-option>
+      <mat-chip-option value="PENDIENTE">Pendientes</mat-chip-option>
+      <mat-chip-option value="PREPARANDO">En Preparación</mat-chip-option>
+    </mat-chip-listbox>
+  </header>
+
+  <!-- Cuadrícula de Comandas -->
+  <main class="kds-grid">
+    @for (ticket of cocinaService.ticketsFiltrados(); track ticket.id) {
+      <app-kds-card
+        [ticket]="ticket"
+        (toggleItem)="cocinaService.toggleItemCompletado(ticket.id, $event)"
+        (ticketListo)="cocinaService.marcarTicketListo(ticket.id)">
+      </app-kds-card>
+    } @empty {
+      <div class="kds-empty">
+        <mat-icon>check_circle_outline</mat-icon>
+        <h3>¡Sin comandas pendientes!</h3>
+        <p>Todo el trabajo en cocina está al día.</p>
+      </div>
+    }
+  </main>
+</div>

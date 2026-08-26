@@ -1,0 +1,1011 @@
+<div class="ajustes-container">
+  <header class="ajustes-header">
+    <div class="header-title">
+      <mat-icon class="header-icon">settings</mat-icon>
+      <div>
+        <h1>Ajustes Administrativos POS</h1>
+        <p>Configura el menú, las mesas, datos fiscales de facturación y directorio de clientes de confianza.</p>
+      </div>
+    </div>
+    <button mat-stroked-button color="primary" routerLink="/mesas">
+      <mat-icon>arrow_back</mat-icon> Volver al Tablero
+    </button>
+  </header>
+
+  <mat-tab-group class="ajustes-tabs" mat-stretch-tabs="false">
+
+    <!-- PESTAÑA 1: CATÁLOGO Y MENÚ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">restaurant_menu</mat-icon>
+        <span>Productos y Menú</span>
+      </ng-template>
+      <div class="tab-content row-layout">
+        <!-- Izquierda: Formulario de Productos -->
+        <div class="form-card col-sm">
+          @if (productoEditando(); as prod) {
+            <div class="card-header border-orange">
+              <h3>Editar Producto</h3>
+              <p>Modifica el platillo seleccionado.</p>
+            </div>
+            <form (submit)="guardarEdicionProducto(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre</mat-label>
+                <input matInput [(ngModel)]="prod.nombre" name="editProdNombre" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Precio ($)</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="prod.precio" name="editProdPrecio" required min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Categoría</mat-label>
+                <mat-select [(ngModel)]="prod.categoria_id" name="editProdCat" required>
+                  @for (cat of categorias(); track cat.id) {
+                    <mat-option [value]="cat.id">{{ cat.nombre }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <div class="checkbox-container">
+                <label class="custom-checkbox">
+                  <input type="checkbox" [(ngModel)]="prod.disponible" name="editProdDisp">
+                  <span>Disponible para Venta</span>
+                </label>
+              </div>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!prod.nombre || prod.precio === null">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionProducto()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Crear Nuevo Producto</h3>
+              <p>Añade un platillo o bebida al catálogo.</p>
+            </div>
+            <form (submit)="guardarProducto(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre del Producto</mat-label>
+                <input matInput [(ngModel)]="nuevoProducto.nombre" name="prodNombre" placeholder="Ej. Tacos de Pastor" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Precio ($ MXN)</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="nuevoProducto.precio" name="prodPrecio" placeholder="0.00" required min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Categoría</mat-label>
+                <mat-select [(ngModel)]="nuevoProducto.categoria_id" name="prodCategoria" required>
+                  @for (cat of categorias(); track cat.id) {
+                    <mat-option [value]="cat.id">{{ cat.nombre }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoProducto.nombre || nuevoProducto.precio === null || !nuevoProducto.categoria_id">
+                  <mat-icon>add</mat-icon> Crear Platillo
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Centro: Formulario de Categorías -->
+        <div class="form-card col-sm">
+          @if (categoriaEditando(); as catEdit) {
+            <div class="card-header border-orange">
+              <h3>Editar Categoría</h3>
+              <p>Ajusta el nombre, ícono u orden.</p>
+            </div>
+            <form (submit)="guardarEdicionCategoria(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre</mat-label>
+                <input matInput [(ngModel)]="catEdit.nombre" name="editCatNombre" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Ícono de Material</mat-label>
+                <input matInput [(ngModel)]="catEdit.icono" name="editCatIcono">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Orden</mat-label>
+                <input matInput type="number" [(ngModel)]="catEdit.orden" name="editCatOrden">
+              </mat-form-field>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!catEdit.nombre">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionCategoria()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Nueva Categoría</h3>
+              <p>Agrupa tus productos para comandar rápido.</p>
+            </div>
+            <form (submit)="guardarCategoria(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre de Categoría</mat-label>
+                <input matInput [(ngModel)]="nuevaCategoria.nombre" name="catNombre" placeholder="Ej. BEBIDAS" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Ícono de Material</mat-label>
+                <input matInput [(ngModel)]="nuevaCategoria.icono" name="catIcono" placeholder="Ej. restaurant">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Orden de visualización</mat-label>
+                <input matInput type="number" [(ngModel)]="nuevaCategoria.orden" name="catOrden" placeholder="0">
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-stroked-button color="primary" type="submit" [disabled]="!nuevaCategoria.nombre" class="w-full">
+                  <mat-icon>category</mat-icon> Crear Categoría
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Derecha: Listas de Menú y Categorías (CRUD) -->
+        <div class="form-card col-lg">
+          <div class="card-header">
+            <h3>Listado del Menú y Categorías</h3>
+            <p>Gestiona los elementos que aparecen actualmente en el comandero.</p>
+          </div>
+
+          <div class="scrollable-crud-list">
+            <!-- Sección de Categorías -->
+            <h4 class="section-subtitle"><mat-icon>folder</mat-icon> Categorías Existentes</h4>
+            <div class="crud-items-grid">
+              @for (cat of categorias(); track cat.id) {
+                <div class="crud-row-item">
+                  <span class="row-text font-bold">
+                    <mat-icon class="inline-icon">{{ cat.icono || 'restaurant' }}</mat-icon>
+                    {{ cat.nombre }} <span class="badge">Orden: {{ cat.orden || 0 }}</span>
+                  </span>
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionCategoria(cat)" title="Editar Categoria">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                      <button type="button" class="btn-icon delete" (click)="eliminarCategoria(cat.id!)" title="Eliminar Categoria">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Sección de Productos -->
+            <h4 class="section-subtitle"><mat-icon>fastfood</mat-icon> Menú de Platillos / Bebidas</h4>
+            <div class="crud-items-grid">
+              @for (p of productos(); track p.id) {
+                <div class="crud-row-item" [class.inactive]="!p.disponible">
+                  <div class="row-text">
+                    <span class="font-bold">{{ p.nombre }}</span>
+                    <span class="secondary-info">({{ p['categoriaNombre'] || 'Sin categoría' }})</span>
+                    <span class="price-info">${{ p.precio | number:'1.2-2' }}</span>
+                    @if (!p.disponible) {
+                      <span class="no-disp-badge">No disponible</span>
+                    }
+                  </div>
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionProducto(p)" title="Editar Producto">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                      <button type="button" class="btn-icon delete" (click)="eliminarProducto(p.id!)" title="Eliminar Producto">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @empty {
+                <div class="empty-state">No hay productos dados de alta.</div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 2: SALÓN Y MESAS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">grid_view</mat-icon>
+        <span>Salón y Mesas</span>
+      </ng-template>
+      <div class="tab-content row-layout">
+        <!-- Izquierda: Formulario de Mesas -->
+        <div class="form-card col-sm">
+          @if (mesaEditando(); as me) {
+            <div class="card-header border-orange">
+              <h3>Editar Mesa</h3>
+              <p>Actualizar propiedades de la mesa.</p>
+            </div>
+            <form (submit)="guardarEdicionMesa(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Identificador / Número</mat-label>
+                <input matInput [(ngModel)]="me.numero" name="editMesaNum" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Zona</mat-label>
+                <mat-select [(ngModel)]="me.zona_id" name="editMesaZona" required>
+                  @for (z of zonas(); track z.id) {
+                    <mat-option [value]="z.id">{{ z.nombre }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Capacidad</mat-label>
+                <input matInput type="number" [(ngModel)]="me.capacidad" name="editMesaCap" required min="1">
+              </mat-form-field>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!me.numero || !me.zona_id">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionMesa()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Dar de Alta Mesa</h3>
+              <p>Asigna un identificador físico y zona del restaurante.</p>
+            </div>
+            <form (submit)="guardarMesa(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Identificador de Mesa (Ej: Mesa 1, Mesa 2)</mat-label>
+                <input matInput [(ngModel)]="nuevaMesa.numero" name="mesaNum" placeholder="Ej. 10 o Barra 2" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Zona de Ubicación o Sector</mat-label>
+                <mat-select [(ngModel)]="nuevaMesa.zona_id" name="mesaZona" required>
+                  @for (z of zonas(); track z.id) {
+                    <mat-option [value]="z.id">{{ z.nombre }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Capacidad Máxima (Comensales)</mat-label>
+                <input matInput type="number" [(ngModel)]="nuevaMesa.capacidad" name="mesaCapacidad" placeholder="Ej. 4" required min="1">
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevaMesa.numero || !nuevaMesa.zona_id || !nuevaMesa.capacidad">
+                  <mat-icon>add_box</mat-icon> Dar de Alta Mesa
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Centro: Formulario de Zonas (Salas) -->
+        <div class="form-card col-sm">
+          @if (zonaEditando(); as ze) {
+            <div class="card-header border-orange">
+              <h3>Editar Zona / Salón</h3>
+              <p>Escribe el nuevo nombre para esta sección.</p>
+            </div>
+            <form (submit)="guardarEdicionZona(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre de Zona</mat-label>
+                <input matInput [(ngModel)]="ze.nombre" name="editZonaNombre" required>
+              </mat-form-field>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!ze.nombre">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionZona()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Crear Nueva Zona / Salón</h3>
+              <p>Divide físicamente tu restaurante (v.g. Terraza, Planta Baja).</p>
+            </div>
+            <form (submit)="guardarZona(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre del Espacio</mat-label>
+                <input matInput [ngModel]="nuevaZonaNombre()" (ngModelChange)="nuevaZonaNombre.set($event)" name="zonaNombre" placeholder="Ej. Terraza, Balcón" required>
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-stroked-button color="primary" type="submit" [disabled]="!nuevaZonaNombre()" class="w-full">
+                  <mat-icon>add_circle_outline</mat-icon> Crear Zona
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Derecha: Listado de Distribución del Salón -->
+        <div class="form-card col-md">
+          <div class="card-header">
+            <h3>Distribución del Establecimiento</h3>
+            <p>Revisa, edita o elimina las zonas físicas y las mesas.</p>
+          </div>
+
+          <div class="scrollable-crud-list">
+            <!-- Sección de Zonas -->
+            <h4 class="section-subtitle"><mat-icon>storefont</mat-icon> Zonas del Restaurante</h4>
+            <div class="crud-items-grid">
+              @for (z of zonas(); track z.id) {
+                <div class="crud-row-item">
+                  <span class="row-text font-bold">
+                    <mat-icon class="inline-icon">layers</mat-icon> {{ z.nombre }}
+                  </span>
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionZona(z)" title="Editar Zona">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                      <button type="button" class="btn-icon delete" (click)="eliminarZona(z.id)" title="Eliminar Zona">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Sección de Mesas -->
+            <h4 class="section-subtitle"><mat-icon>table_restaurant</mat-icon> Mesas Disponibles</h4>
+            <div class="crud-items-grid">
+              @for (m of mesas(); track m.id) {
+                <div class="crud-row-item">
+                  <div class="row-text">
+                    <span class="font-bold">Mesa {{ m.numero }}</span>
+                    <span class="secondary-info">({{ m['zona'] }}) - Capacidad: {{ m.capacidad }} personas</span>
+                  </div>
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionMesa(m)" title="Editar Mesa">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                      <button type="button" class="btn-icon delete" (click)="eliminarMesa(m.id!)" title="Eliminar Mesa">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @empty {
+                <div class="empty-state">No hay mesas registradas.</div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 3: DATOS DEL NEGOCIO -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">store</mat-icon>
+        <span>Datos del Negocio</span>
+      </ng-template>
+      <div class="tab-content">
+        <div class="form-card width-xl mx-auto">
+          <div class="card-header">
+            <h3>Información Comercial de Facturación y Recibos</h3>
+            <p>Estos datos se imprimen al pie de los tickets de cobro emitidos para tus clientes.</p>
+          </div>
+          <form (submit)="guardarNegocio(); $event.preventDefault()" class="grid-form">
+            <mat-form-field appearance="outline" class="grid-span-2">
+              <mat-label>Nombre Comercial / Razón Social</mat-label>
+              <input matInput [(ngModel)]="datosNegocio.nombre" name="negName" required>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>RFC (Registro Federal de Contribuyentes)</mat-label>
+              <input matInput [(ngModel)]="datosNegocio.rfc" name="negRfc">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Teléfono de Contacto</mat-label>
+              <input matInput [(ngModel)]="datosNegocio.telefono" name="negTel">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="grid-span-2">
+              <mat-label>Dirección Física del Establecimiento</mat-label>
+              <input matInput [(ngModel)]="datosNegocio.direccion" name="negDir">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="grid-span-2">
+              <mat-label>Correo Electrónico Comercial</mat-label>
+              <input matInput type="email" [(ngModel)]="datosNegocio.email" name="negEmail">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="grid-span-2">
+              <mat-label>Mensaje de Agradecimiento en Tickets</mat-label>
+              <textarea matInput [(ngModel)]="datosNegocio.mensaje_recibo" name="negMsg" rows="3" placeholder="Disfrute de su comida... ¡Vuelva pronto!"></textarea>
+            </mat-form-field>
+
+            <div class="grid-span-2 form-actions">
+              <button mat-flat-button color="primary" type="submit" [disabled]="!datosNegocio.nombre">
+                <mat-icon>save</mat-icon> Guardar Cambios Comerciales
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 4: DETALLES DE TRANSFERENCIA -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">account_balance</mat-icon>
+        <span>Detalles de Transferencia</span>
+      </ng-template>
+      <div class="tab-content">
+        <div class="form-card width-xl mx-auto">
+          <div class="card-header">
+            <h3>Cuenta Clabe para Recibir Transferencias Bancarias</h3>
+            <p>Se desplegará una ventana emergente en pantalla cuando el cajero seleccione la forma de pago "Transferencia" para agilizar el proceso.</p>
+          </div>
+          <form (submit)="guardarTransferencia(); $event.preventDefault()" class="ajustes-form">
+            <div class="grid-row-2">
+              <mat-form-field appearance="outline">
+                <mat-label>Institución Bancaria (Banco)</mat-label>
+                <input matInput [(ngModel)]="datosTransferencia.banco" name="bank" placeholder="Ej. BBVA, Santander" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Titular de la Cuenta</mat-label>
+                <input matInput [(ngModel)]="datosTransferencia.titular" name="owner" placeholder="Ej. Borboto S.A. de C.V." required>
+              </mat-form-field>
+            </div>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Clabe Interbancaria (18 dígitos)</mat-label>
+              <input matInput [(ngModel)]="datosTransferencia.clabe" name="clabe" placeholder="Ej. 012180001234567890" maxlength="18" minlength="18" required>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Correo de Envío para Comprobantes</mat-label>
+              <input matInput type="email" [(ngModel)]="datosTransferencia.email" name="transferEmail" placeholder="Ej. pagos@borboto.com">
+            </mat-form-field>
+
+            <div class="form-actions">
+              <button mat-flat-button color="primary" type="submit" [disabled]="!datosTransferencia.banco || !datosTransferencia.titular || !datosTransferencia.clabe">
+                <mat-icon>save</mat-icon> Guardar Ajustes de Cuenta
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 5: DIRECTORIO DE CLIENTES -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">people</mat-icon>
+        <span>Directorio de Clientes</span>
+      </ng-template>
+      <div class="tab-content row-layout">
+
+        <!-- Formulario de Clientes (Agregar / Editar) -->
+        <div class="form-card col-sm">
+          @if (clienteEditando(); as cliEdit) {
+            <div class="card-header border-orange">
+              <h3>Editar Cliente</h3>
+              <p>Cambia los datos reales del cliente en el registro.</p>
+            </div>
+            <form (submit)="guardarEdicionCliente(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Completo</mat-label>
+                <input matInput [(ngModel)]="cliEdit.nombre" name="editCliNombre" placeholder="Ej. María Pérez" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Número de Teléfono</mat-label>
+                <input matInput [(ngModel)]="cliEdit.telefono" name="editCliTel" placeholder="Ej. 5511223344">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Correo Electrónico</mat-label>
+                <input matInput type="email" [(ngModel)]="cliEdit.email" name="editCliEmail" placeholder="ejemplo@email.com">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Dirección Física (Envíos)</mat-label>
+                <input matInput [(ngModel)]="cliEdit.direccion" name="editCliDir" placeholder="Calle Falsa 123, Col. Centro">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Notas Internas</mat-label>
+                <textarea matInput [(ngModel)]="cliEdit.notas" name="editCliNotas" placeholder="Escribe alguna acotación..." rows="3"></textarea>
+              </mat-form-field>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!cliEdit.nombre">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionCliente()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Añadir Nuevo Cliente</h3>
+              <p>Utilizado para registrar envíos a domicilio o aplicar políticas de beneficio de confianza.</p>
+            </div>
+            <form (submit)="guardarCliente(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Completo</mat-label>
+                <input matInput [(ngModel)]="nuevoCliente.nombre" name="cliNombre" placeholder="Ej. María Pérez" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Número de Teléfono</mat-label>
+                <input matInput [(ngModel)]="nuevoCliente.telefono" name="cliTel" placeholder="Ej. 5511223344">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Correo Electrónico</mat-label>
+                <input matInput type="email" [(ngModel)]="nuevoCliente.email" name="cliEmail" placeholder="ejemplo@email.com">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Dirección Física (Envíos)</mat-label>
+                <input matInput [(ngModel)]="nuevoCliente.direccion" name="cliDir" placeholder="Calle Falsa 123, Col. Centro">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Notas Internas (Descuentos, Confianza, etc.)</mat-label>
+                <textarea matInput [(ngModel)]="nuevoCliente.notas" name="cliNotas" placeholder="Cliente de confianza... crédito hasta $500." rows="3"></textarea>
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoCliente.nombre" class="w-full">
+                  <mat-icon>person_add</mat-icon> Registrar Cliente
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Directorio / Cartera de Clientes (CRUD) -->
+        <div class="form-card col-md">
+          <div class="card-header">
+            <h3>Cartera de Clientes Registrados</h3>
+            <p>Consulta, edita o elimina clientes vigentes dentro de la red corporativa del sistema.</p>
+          </div>
+
+          <div class="client-list scrollable-crud-list">
+            @for (c of clientes(); track c.id) {
+              <div class="client-item-card">
+                <div class="client-avatar">
+                  <mat-icon>person</mat-icon>
+                </div>
+                <div class="client-meta">
+                  <div class="meta-row">
+                    <span class="meta-name">{{ c.nombre }}</span>
+                    @if (c.telefono) {
+                      <span class="meta-tag"><mat-icon class="sub-icon">phone</mat-icon>{{ c.telefono }}</span>
+                    }
+                  </div>
+                  @if (c.email) {
+                    <p class="meta-text"><mat-icon class="sub-icon">email</mat-icon> {{ c.email }}</p>
+                  }
+                  @if (c.direccion) {
+                    <p class="meta-text"><mat-icon class="sub-icon">location_on</mat-icon> {{ c.direccion }}</p>
+                  }
+                  @if (c.notas) {
+                    <div class="meta-notes">
+                      <strong>Nota:</strong> {{ c.notas }}
+                    </div>
+                  }
+                </div>
+                <div class="client-actions">
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionCliente(c)" title="Editar Cliente">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                    <button type="button" class="btn-icon delete" (click)="eliminarCliente(c.id!)" title="Eliminar Cliente">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-clients">
+                <mat-icon>group_off</mat-icon>
+                <p>No se han registrado clientes en esta base de datos.</p>
+              </div>
+            }
+          </div>
+        </div>
+
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 6: PROMOCIONES Y COMBOS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">local_offer</mat-icon>
+        <span>Promociones y Combos</span>
+      </ng-template>
+      <div class="tab-content row-layout">
+
+        <!-- Formulario (Crear o Editar Promoción) -->
+        <div class="form-card col-sm">
+          @if (promocionEditando(); as promoEdit) {
+            <div class="card-header border-orange">
+              <h3>Editar Promoción</h3>
+              <p>Actualiza la oferta comercial del POS.</p>
+            </div>
+            <form (submit)="guardarEdicionPromocion(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Oficial</mat-label>
+                <input matInput [(ngModel)]="promoEdit.nombre" name="editPromoName" placeholder="Ej. Combo Taco y Refresco" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Código Único canjeable</mat-label>
+                <input matInput [(ngModel)]="promoEdit.codigo" name="editPromoCode" placeholder="Ej. COMBO_TACO" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Tipo de Beneficio</mat-label>
+                <mat-select [(ngModel)]="promoEdit.tipo" name="editPromoTipo" required>
+                  <mat-option value="COMBO_PRECIO">Precio de Combo Especial ($)</mat-option>
+                  <mat-option value="DESCUENTO_PORCENTAJE">Descuento de Porcentaje (%)</mat-option>
+                  <mat-option value="DESCUENTO_MONTO">Cantidad Restada ($ Directo)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Valor numérico</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="promoEdit.valor" name="editPromoVal" placeholder="0.00" required min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Descripción / Restricción</mat-label>
+                <textarea matInput [(ngModel)]="promoEdit.descripcion" name="editPromoDesc" rows="3" placeholder="Ej. Válido solo de lunes a viernes en mostrador..."></textarea>
+              </mat-form-field>
+
+              <div class="checkbox-container">
+                <label class="custom-checkbox">
+                  <input type="checkbox" [(ngModel)]="promoEdit.activo" name="editPromoActiva">
+                  <span>Promoción Activa / Vigente</span>
+                </label>
+              </div>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!promoEdit.nombre || !promoEdit.codigo || promoEdit.valor === null">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionPromocion()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Nueva Promoción o Combo</h3>
+              <p>Lanza descuentos especiales o combos con costo cerrado al total del ticket.</p>
+            </div>
+            <form (submit)="guardarPromocion(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Corto de Promoción</mat-label>
+                <input matInput [(ngModel)]="nuevaPromocion.nombre" name="promoNombre" placeholder="Ej. Descuento Familiar" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Código Canjeable (Sin espacios)</mat-label>
+                <input matInput [(ngModel)]="nuevaPromocion.codigo" name="promoCodigo" placeholder="Ej. FAMILIA20" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Tipo de Oferta</mat-label>
+                <mat-select [(ngModel)]="nuevaPromocion.tipo" name="promoTipo" required>
+                  <mat-option value="COMBO_PRECIO">Precio de Combo Especial ($)</mat-option>
+                  <mat-option value="DESCUENTO_PORCENTAJE">Descuento de Porcentaje (%)</mat-option>
+                  <mat-option value="DESCUENTO_MONTO">Cantidad Restada ($ Directo)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Valor (Porcentaje / Monto Fijo)</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="nuevaPromocion.valor" name="promoValor" placeholder="0.00" required min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Descripción e Instrucciones</mat-label>
+                <textarea matInput [(ngModel)]="nuevaPromocion.descripcion" name="promoDesc" rows="3" placeholder="Ej. Descuenta 20% al total del pedido..."></textarea>
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevaPromocion.nombre || !nuevaPromocion.codigo || nuevaPromocion.valor === null">
+                  <mat-icon>add</mat-icon> Crear Promoción
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Listado de Promociones (CRUD) -->
+        <div class="form-card col-md">
+          <div class="card-header">
+            <h3>Ofertas y Campañas Comerciales</h3>
+            <p>Habilita, edita o retira las promociones y precios de combo de la base operativa.</p>
+          </div>
+
+          <div class="scrollable-crud-list">
+            @for (p of promociones(); track p.id) {
+              <div class="client-item-card" [class.inactive]="!p.activo">
+                <div class="client-avatar">
+                  <mat-icon>local_offer</mat-icon>
+                </div>
+                <div class="client-meta">
+                  <div class="meta-row">
+                    <span class="meta-name font-bold">{{ p.nombre }}</span>
+                    <span class="meta-tag">
+                      <mat-icon class="sub-icon">fingerprint</mat-icon> {{ p.codigo }}
+                    </span>
+                  </div>
+                  <p class="meta-text">
+                    <mat-icon class="sub-icon">auto_awesome</mat-icon>
+                    <strong>Tipo: </strong>
+                    @switch (p.tipo) {
+                      @case ('COMBO_PRECIO') { Precio Combo Cerrado: <span class="price-info">${{ p.valor | number:'1.2-2' }}</span> }
+                      @case ('DESCUENTO_PORCENTAJE') { Porcentaje Restado: <span class="price-info">{{ p.valor }}%</span> }
+                      @case ('DESCUENTO_MONTO') { Monto Restado: <span class="price-info">${{ p.valor | number:'1.2-2' }}</span> }
+                    }
+                  </p>
+                  @if (p.descripcion) {
+                    <p class="meta-text"><mat-icon class="sub-icon">notes</mat-icon> {{ p.descripcion }}</p>
+                  }
+                  @if (!p.activo) {
+                    <div style="margin-top: 6px;"><span class="no-disp-badge">Inactiva</span></div>
+                  }
+                </div>
+                <div class="client-actions">
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionPromocion(p)" title="Editar Promoción">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                    <button type="button" class="btn-icon delete" (click)="eliminarPromocion(p.id!)" title="Eliminar Promoción">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-clients">
+                <mat-icon>local_activity</mat-icon>
+                <p>No se han registrado promociones o combos vigentes en esta sucursal.</p>
+              </div>
+            }
+          </div>
+        </div>
+
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 7: EMPLEADOS Y ROLES (CRUD) -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">engineering</mat-icon>
+        <span>Empleados y Roles</span>
+      </ng-template>
+      <div class="tab-content row-layout">
+        <!-- Izquierda: Formulario Empleados -->
+        <div class="form-card col-sm">
+          @if (empleadoEditando(); as emp) {
+            <div class="card-header border-orange">
+              <h3>Editar Colaborador</h3>
+              <p>Cambia el nombre, rol o PIN de acceso del empleado.</p>
+            </div>
+            <form (submit)="guardarEdicionEmpleado(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Completo</mat-label>
+                <input matInput [(ngModel)]="emp.nombre" name="editEmpNombre" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>NIP / PIN de Acceso (4-6 dígitos)</mat-label>
+                <input matInput type="password" [(ngModel)]="emp.pin" name="editEmpPin" required maxlength="6" minlength="4">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Rol o Puesto</mat-label>
+                <mat-select [(ngModel)]="emp.rol" name="editEmpRol" required>
+                  <mat-option value="ADMIN">ADMIN (Acceso Total)</mat-option>
+                  <mat-option value="MESERO">MESERO (Zonas, Comandas)</mat-option>
+                  <mat-option value="COCINERO">COCINERO (KDS Cocina)</mat-option>
+                  <mat-option value="CAJERO">CAJERO (Caja, Cobro)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <div class="checkbox-container">
+                <label class="custom-checkbox">
+                  <input type="checkbox" [(ngModel)]="emp.activo" name="editEmpActivo">
+                  <span>Colaborador Activo</span>
+                </label>
+              </div>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!emp.nombre || !emp.pin">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionEmpleado()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Registrar Colaborador</h3>
+              <p>Agrega un nuevo integrante al personal del negocio.</p>
+            </div>
+            <form (submit)="guardarEmpleado(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Completo</mat-label>
+                <input matInput [(ngModel)]="nuevoEmpleado.nombre" name="empNombre" placeholder="Ej. Carlos Cocinero" required autocomplete="off">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>NIP / PIN de Acceso (4-6 dígitos)</mat-label>
+                <input matInput type="password" [(ngModel)]="nuevoEmpleado.pin" name="empPin" placeholder="Ej. 1234" required maxlength="6" minlength="4">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Rol Operativo</mat-label>
+                <mat-select [(ngModel)]="nuevoEmpleado.rol" name="empRol" required>
+                  <mat-option value="ADMIN">ADMIN (Acceso Total)</mat-option>
+                  <mat-option value="MESERO">MESERO (Comandero)</mat-option>
+                  <mat-option value="COCINERO">COCINERO (Cocina / KDS)</mat-option>
+                  <mat-option value="CAJERO">CAJERO (Caja & Cobros)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <div class="form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoEmpleado.nombre || !nuevoEmpleado.pin">
+                  <mat-icon>person_add</mat-icon> Registrar Colaborador
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Derecha: Listado de Empleados (CRUD) -->
+        <div class="form-card col-md">
+          <div class="card-header">
+            <h3>Nómina y Personal Registrado</h3>
+            <p>Monitorea y restringe accesos al personal del restaurante.</p>
+          </div>
+
+          <div class="scrollable-crud-list">
+            @for (emp of empleados(); track emp.id) {
+              <div class="client-item-card" [class.inactive]="!emp.activo">
+                <div class="client-avatar">
+                  <mat-icon>badge</mat-icon>
+                </div>
+                <div class="client-meta">
+                  <div class="meta-row">
+                    <span class="meta-name font-bold">{{ emp.nombre }}</span>
+                    <span class="meta-tag">
+                      <mat-icon class="sub-icon">security</mat-icon> {{ emp.rol }}
+                    </span>
+                  </div>
+                  <p class="meta-text"><mat-icon class="sub-icon">password</mat-icon> PIN configurado: (••••)</p>
+                  @if (!emp.activo) {
+                    <div style="margin-top: 6px;"><span class="no-disp-badge">Inactivo</span></div>
+                  }
+                </div>
+                <div class="client-actions">
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionEmpleado(emp)" title="Editar Colaborador">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                    <button type="button" class="btn-icon delete" (click)="eliminarEmpleado(emp.id)" title="Eliminar Colaborador">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-clients">
+                <mat-icon>people_outline</mat-icon>
+                <p>No se encontraron colaboradores registrados.</p>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 8: HISTORIAL DE CORTES DE CAJA -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">history_edu</mat-icon>
+        <span>Historial de Cortes</span>
+      </ng-template>
+      <div class="tab-content" style="padding: 24px;">
+        <div class="card-header border-red" style="margin-bottom: 20px;">
+          <h3 style="margin: 0 0 4px 0; color: #333; font-size: 1.3rem;">Historial de Cortes de Caja</h3>
+          <p style="margin: 0; color: #666; font-size: 0.9rem;">Auditoría y conciliación de cierres de caja realizados por los cajeros y administradores.</p>
+        </div>
+
+        @if (cortesHistory().length === 0) {
+          <div class="no-data-card" style="text-align: center; padding: 48px; background: white; border: 1px dashed #ccc; border-radius: 12px; color: #666;">
+            <mat-icon style="font-size: 48px; width: 48px; height: 48px; color: #999; margin-bottom: 8px;">account_balance_wallet</mat-icon>
+            <p style="margin: 0; font-size: 1.1rem;">No se han registrado cortes de caja en el sistema aún.</p>
+          </div>
+        } @else {
+          <div class="table-container" style="overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <table class="modern-table inline-edit-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="background: #f1f3f4; color: #333; border-bottom: 2px solid #e1e4e6;">
+                  <th style="padding: 14px 16px; font-weight: 600;">Cajero</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Fecha de Cierre</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Fondo Apertura</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Ventas Efec (Sist.)</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Ventas Tarj (Sist.)</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Ventas Transf (Sist.)</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Total Ventas</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Efectivo Real (Contado)</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Diferencia</th>
+                  <th style="padding: 14px 16px; font-weight: 600;">Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (corte of cortesHistory(); track corte.id) {
+                  <tr style="border-bottom: 1px solid #e1e4e6;">
+                    <td style="padding: 14px 16px;"><strong>{{ corte.usuarioNombre }}</strong></td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem; color: #555;">{{ corte.fecha_cierre | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.fondo_apertura | currency }}</td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.efectivo_calculado | currency }}</td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.tarjeta_calculado | currency }}</td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.transferencia_calculado | currency }}</td>
+                    <td style="padding: 14px 16px; font-weight: 600; color: #2e7d32;">{{ corte.ventas_totales | currency }}</td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.efectivo_real | currency }}</td>
+                    <td style="padding: 14px 16px;">
+                      <span [style.background-color]="corte.diferencia < 0 ? '#ffebee' : (corte.diferencia > 0 ? '#e8f5e9' : '#f5f5f5')"
+                            [style.color]="corte.diferencia < 0 ? '#c62828' : (corte.diferencia > 0 ? '#2e7d32' : '#333')"
+                            style="padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; display: inline-block;">
+                        @if (corte.diferencia > 0) { + }
+                        {{ corte.diferencia | currency }}
+                      </span>
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.9rem; color: #666; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" [title]="corte.notas || ''">
+                      {{ corte.notas || 'Sin notas.' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+</div>

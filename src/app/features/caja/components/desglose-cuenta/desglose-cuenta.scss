@@ -1,0 +1,182 @@
+.ticket-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  .ticket-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 2px dashed #e0e0e0;
+
+    mat-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: var(--color-primary, #e65100);
+    }
+
+    mat-card-title {
+      font-weight: 800;
+      font-size: 18px;
+      margin: 0;
+    }
+  }
+
+  .ticket-body {
+    padding: 16px;
+  }
+}
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+
+  .item-row {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+
+    .cant {
+      font-weight: 800;
+      color: var(--color-primary, #e65100);
+      width: 32px;
+    }
+
+    .nombre {
+      flex: 1;
+      color: #263238;
+      font-weight: 500;
+    }
+
+    .precio {
+      font-weight: 700;
+    }
+  }
+}
+
+.promocion-section {
+  padding: 12px 0;
+  border-top: 1px solid #f0f0f0;
+
+  .cupon-aplicado-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 4px 12px;
+
+    .cupon-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #2e7d32;
+      font-size: 14px;
+
+      .promo-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #2e7d32;
+      }
+    }
+  }
+
+  .cupon-input-box {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+
+    .cupon-field {
+      flex: 1;
+
+      :deep(.mat-mdc-form-field-subscript-wrapper) {
+        display: none !important;
+      }
+    }
+
+    .btn-aplicar-cupon {
+      height: 48px;
+      border-radius: 8px;
+    }
+  }
+}
+
+.split-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px dashed #e0e0e0;
+  border-bottom: 1px dashed #e0e0e0;
+
+  .split-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #5f6368;
+  }
+
+  .split-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .partes-num {
+      font-weight: 800;
+      font-size: 14px;
+      min-width: 60px;
+      text-align: center;
+    }
+  }
+}
+
+.totales-container {
+  margin-top: 16px;
+
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+
+    &.subtotal {
+      font-size: 14px;
+      color: #666;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    &.descuento {
+      font-size: 14px;
+      color: #c62828;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .monto-total {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1a1a1a;
+    }
+
+    &.highlight {
+      background-color: #fff3e0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: var(--color-primary, #e65100);
+
+      .monto-persona {
+        font-size: 20px;
+        font-weight: 800;
+      }
+    }
+  }
+}

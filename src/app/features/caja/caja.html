@@ -1,0 +1,34 @@
+<div class="caja-page">
+  <div class="caja-header-bar">
+    <h2 class="title">
+      <mat-icon>point_of_sale</mat-icon> Panel de Caja
+    </h2>
+    <div class="header-actions">
+      <button mat-raised-button color="warn" class="btn-corte" (click)="abrirCorteCaja()">
+        <mat-icon>local_atm</mat-icon> Corte de Caja / Cerrar Sesión
+      </button>
+    </div>
+  </div>
+
+  <div class="caja-layout">
+    <!-- Columna Izquierda: Desglose de Consumos -->
+    <section class="col-desglose">
+      <app-desglose-cuenta></app-desglose-cuenta>
+    </section>
+
+    <!-- Columna Derecha: Calculadora y Métodos -->
+    <section class="col-calculadora">
+      <app-calculadora-pago></app-calculadora-pago>
+
+      <!-- Botón de Cobro con estado verde dinámico -->
+      <button
+        mat-flat-button
+        color="primary"
+        class="btn-cobrar"
+        [class.btn-listo]="cajaService.pagoSuficiente()"
+        (click)="procesarCobro()">
+        <mat-icon>check_circle</mat-icon> COBRAR Y CERRAR MESA
+      </button>
+    </section>
+  </div>
+</div>

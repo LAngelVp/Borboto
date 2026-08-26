@@ -1,0 +1,53 @@
+<h2 mat-dialog-title class="dialog-title">
+  <mat-icon>account_balance</mat-icon> Datos de Transferencia Bancaria
+</h2>
+
+<mat-dialog-content class="dialog-content">
+  @if (cargando()) {
+    <div class="spinner-container">
+      <p>Cargando información bancaria...</p>
+    </div>
+  } @else {
+    <p class="description">Proporciona los siguientes datos al cliente para que realice el pago electrónico:</p>
+
+    <div class="banco-card">
+      <div class="card-row">
+        <span class="label">Banco Destinatario:</span>
+        <span class="value">{{ datos().banco }}</span>
+      </div>
+
+      <div class="card-row">
+        <span class="label">Titular / Beneficiario:</span>
+        <span class="value">{{ datos().titular }}</span>
+      </div>
+
+      <div class="card-row flex-col">
+        <span class="label">Clabe Interbancaria (18 dígitos):</span>
+        <div class="clabe-container">
+          <span class="value clabe-val">{{ datos().clabe }}</span>
+          <button mat-icon-button (click)="copiarClabe()" title="Copiar CLABE" type="button">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      @if (datos().email) {
+        <div class="card-row">
+          <span class="label">Correo de Envío (Comprobantes):</span>
+          <span class="value">{{ datos().email }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="instrucciones-nota">
+      <mat-icon>info</mat-icon>
+      <p>Una vez realizada la transferencia electrónica, el cajero puede registrar el cobro presionando el botón "PROCESAR COBRO" en pantalla.</p>
+    </div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions">
+  <button mat-flat-button color="primary" (click)="cerrar()" type="button">
+    Aceptar y Cerrar
+  </button>
+</mat-dialog-actions>

@@ -1,0 +1,114 @@
+<h2 mat-dialog-title class="dialog-title">
+  <mat-icon>point_of_sale</mat-icon>
+  Corte de Caja - {{ usuarioNombre() }}
+</h2>
+
+<mat-dialog-content class="dialog-content">
+  @if (loading()) {
+    <div class="loading-container">
+      Cargando información del turno...
+    </div>
+  } @else {
+    <!-- Panel de Resumen del Sistema -->
+    <div class="resumen-container">
+      <h3>Resumen del Turno</h3>
+      <p class="apertura-info">
+        @if (fechaApertura()) {
+          Monitoreando ventas desde: <strong>{{ fechaApertura() | date: 'dd/MM/yyyy HH:mm' }}</strong>
+        } @else {
+          Monitoreando todo el historial de ventas del usuario.
+        }
+      </p>
+
+      <div class="grid-metodos">
+        <div class="metodo-card cash">
+          <mat-icon>payments</mat-icon>
+          <span class="label">Efectivo (Sistema)</span>
+          <span class="monto">{{ efectivoCalculado() | currency }}</span>
+        </div>
+        <div class="metodo-card card">
+          <mat-icon>credit_card</mat-icon>
+          <span class="label">Tarjeta (Sistema)</span>
+          <span class="monto">{{ tarjetaCalculado() | currency }}</span>
+        </div>
+        <div class="metodo-card transfer">
+          <mat-icon>sync_alt</mat-icon>
+          <span class="label">Transf. (Sistema)</span>
+          <span class="monto">{{ transferenciaCalculado() | currency }}</span>
+        </div>
+        <div class="metodo-card total">
+          <mat-icon>trending_up</mat-icon>
+          <span class="label">Ventas Totales</span>
+          <span class="monto-tot">{{ ventasTotales() | currency }}</span>
+        </div>
+      </div>
+
+      <div class="transacciones-info">
+        <mat-icon>receipt_long</mat-icon>
+        <span>Transacciones cobradas en este turno: <strong>{{ pagosCount() }} cobros</strong></span>
+      </div>
+    </div>
+
+    <!-- Panel de Conciliación Física -->
+    <div class="conciliacion-container">
+      <h3>Conciliación del Cajero</h3>
+
+      <div class="input-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Fondo de Apertura (Caja Chica)</mat-label>
+          <input matInput type="number" [(ngModel)]="fondoApertura" placeholder="0.00" min="0">
+          <span matPrefix>$&nbsp;</span>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Efectivo Físico Contado</mat-label>
+          <input matInput type="number" [(ngModel)]="efectivoReal" placeholder="0.00" min="0">
+          <span matPrefix>$&nbsp;</span>
+        </mat-form-field>
+      </div>
+
+      <div class="calculos-conciliacion">
+        <div class="calc-row">
+          <span>Efectivo Esperado (Fondo + Ventas Sistema):</span>
+          <strong>{{ efectivoEsperado() | currency }}</strong>
+        </div>
+        <div class="calc-row">
+          <span>Efectivo Real Contado:</span>
+          <strong>{{ efectivoReal() | currency }}</strong>
+        </div>
+        <div class="calc-row diferencia-row" [class.negativa]="diferencia() < 0" [class.positiva]="diferencia() > 0">
+          <span>Diferencia (Sobrante/Faltante):</span>
+          <strong class="dif-monto">
+            @if (diferencia() > 0) { + }
+            {{ diferencia() | currency }}
+          </strong>
+        </div>
+      </div>
+
+      @if (diferencia() !== 0) {
+        <div class="alerta-diferencia" [class.error]="diferencia() < 0" [class.warning]="diferencia() > 0">
+          <mat-icon>{{ diferencia() < 0 ? 'warning' : 'info' }}</mat-icon>
+          <span>
+            @if (diferencia() < 0) {
+              Hay un faltante de <strong>{{ -diferencia() | currency }}</strong> en caja.
+            } @else {
+              Hay un sobrante de <strong>{{ diferencia() | currency }}</strong> en caja.
+            }
+          </span>
+        </div>
+      }
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Notas u Observaciones del Corte</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="notas" placeholder="Escriba aquí cualquier anomalía o comentario..."></textarea>
+      </mat-form-field>
+    </div>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cerrar()" [disabled]="loading()">Salir sin Cerrar</button>
+  <button mat-raised-button color="accent" (click)="confirmarCorte()" [disabled]="loading()">
+    <mat-icon>check_circle</mat-icon> Realizar Corte y Cerrar Sesión
+  </button>
+</mat-dialog-actions>

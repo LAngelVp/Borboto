@@ -1,0 +1,132 @@
+.mesa-card {
+  border-left: 8px solid #ccc;
+  background-color: #ffffff;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  /* Indicadores Visuales por Estado */
+  &.estado-libre { border-left-color: #9e9e9e; }
+  &.estado-pendiente { border-left-color: var(--status-pendiente, #ffb300); }
+  &.estado-cocinando { border-left-color: var(--status-cocinando, #0288d1); }
+  &.estado-listo { border-left-color: var(--status-listo, #4caf50); }
+  &.estado-por_cobrar { border-left-color: #7b1fa2; }
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+
+  .mesa-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    .numero {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1a1a1a;
+    }
+
+    .zona {
+      font-size: 12px;
+      color: #757575;
+      font-weight: 500;
+    }
+  }
+
+  .tiempo {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #e65100;
+    background: #fff3e0;
+    padding: 2px 6px;
+    border-radius: 4px;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+.card-body {
+  padding-top: 12px;
+
+  .badge-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .badge-libre { background-color: #f5f5f5; color: #616161; }
+  .badge-pendiente { background-color: #fff8e1; color: #b78103; }
+  .badge-cocinando { background-color: #e1f5fe; color: #0277bd; }
+  .badge-listo { background-color: #e8f5e9; color: #2e7d32; }
+  .badge-cobrar { background-color: #f3e5f5; color: #6a1b9a; }
+
+  .comensales, .mesero-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #5f6368;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .monto-container {
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-top: 1px dashed #e0e0e0;
+    padding-top: 8px;
+
+    .monto-label {
+      font-size: 12px;
+      color: #757575;
+    }
+
+    .monto-valor {
+      font-size: 20px;
+      font-weight: 800;
+      color: #263238;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+.btn-action {
+  width: 100%;
+  border-radius: 8px;
+  font-weight: 700;
+}

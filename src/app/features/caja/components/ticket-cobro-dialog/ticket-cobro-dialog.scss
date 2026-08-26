@@ -1,0 +1,87 @@
+.ticket-dialog-container {
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.status-header {
+  margin-bottom: 16px;
+
+  .check-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #4caf50;
+  }
+
+  h2 {
+    margin: 4px 0;
+    font-weight: 800;
+    font-size: 22px;
+  }
+
+  .sub-mesa {
+    font-size: 13px;
+    color: #757575;
+  }
+}
+
+.receipt-paper {
+  background-color: #fafafa;
+  border: 1px dashed #cccccc;
+  padding: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: left;
+  border-radius: 8px;
+  margin-bottom: 16px;
+
+  .receipt-header {
+    text-align: center;
+
+    .negocio-name {
+      margin: 0;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .negocio-detail {
+      margin: 2px 0 0 0;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .receipt-space {
+      margin-top: 8px;
+    }
+
+    .receipt-meta {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: #111;
+    }
+  }
+  padding: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+
+  .receipt-header h3 { margin: 0; font-size: 16px; }
+  .receipt-header p { margin: 2px 0; color: #666; font-size: 11px; }
+  .receipt-divider { margin: 8px 0; color: #999; }
+  .receipt-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .receipt-row.cambio { font-size: 14px; color: #2e7d32; }
+  .receipt-footer { margin-top: 12px; font-weight: bold; font-size: 11px; }
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+
+  button {
+    height: 44px;
+    font-weight: 700;
+  }
+}

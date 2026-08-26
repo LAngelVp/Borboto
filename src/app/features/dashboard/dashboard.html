@@ -1,0 +1,212 @@
+<div class="dashboard-container">
+  <!-- Cabecera global -->
+  <header class="dashboard-header">
+    <div class="header-title">
+      <mat-icon class="title-icon">trending_up</mat-icon>
+      <div>
+        <h1>Control de Ventas</h1>
+        <p>Estadísticas y Métricas de Rendimiento Real</p>
+      </div>
+    </div>
+
+    <!-- Filtros de fecha optimizados -->
+    <div class="dashboard-filters">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Rango de Fecha</mat-label>
+        <mat-select [(ngModel)]="filtroRango" (selectionChange)="cambioRango()">
+          <mat-option value="HOY">Solo Hoy</mat-option>
+          <mat-option value="PERSONALIZADO">Rango Personalizado</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      @if (filtroRango === 'PERSONALIZADO') {
+        <mat-form-field appearance="outline" class="filter-field date-picker">
+          <mat-label>Desde</mat-label>
+          <input matInput type="date" [(ngModel)]="fechaInicio" (change)="cargarEstadisticas()">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field date-picker">
+          <mat-label>Hasta</mat-label>
+          <input matInput type="date" [(ngModel)]="fechaFin" (change)="cargarEstadisticas()">
+        </mat-form-field>
+      }
+
+      <button mat-flat-button color="primary" class="btn-refresh" (click)="cargarEstadisticas()">
+        <mat-icon>refresh</mat-icon> Filtrar
+      </button>
+    </div>
+  </header>
+
+  <!-- Estado de carga -->
+  @if (cargando()) {
+    <div class="loading-state">
+      <mat-spinner diameter="50"></mat-spinner>
+      <p>Cargando información del día...</p>
+    </div>
+  } @else {
+    <!-- KPIs (Tarjetas Métricas Principales) -->
+    @if (data(); as d) {
+      <div class="kpis-grid">
+        <!-- Venta Total -->
+        <mat-card class="kpi-card accent-primary">
+          <mat-card-header>
+            <div class="kpi-icon-wrapper">
+              <mat-icon>monetization_on</mat-icon>
+            </div>
+            <div class="kpi-text">
+              <span class="kpi-label">Ingresos de Hoy</span>
+              <h2 class="kpi-value">${{ d.resumen.totalVentas | number:'1.2-2' }}</h2>
+            </div>
+          </mat-card-header>
+        </mat-card>
+
+        <!-- Número de Órdenes -->
+        <mat-card class="kpi-card accent-secondary">
+          <mat-card-header>
+            <div class="kpi-icon-wrapper">
+              <mat-icon>receipt_long</mat-icon>
+            </div>
+            <div class="kpi-text">
+              <span class="kpi-label font-variant-numeric: tabular-nums">Órdenes Pagadas</span>
+              <h2 class="kpi-value">{{ d.resumen.totalOrdenes }}</h2>
+            </div>
+          </mat-card-header>
+        </mat-card>
+
+        <!-- Ticket Promedio -->
+        <mat-card class="kpi-card accent-third">
+          <mat-card-header>
+            <div class="kpi-icon-wrapper">
+              <mat-icon>calculate</mat-icon>
+            </div>
+            <div class="kpi-text">
+              <span class="kpi-label">Ticket Promedio</span>
+              <h2 class="kpi-value">${{ d.resumen.ticketPromedio | number:'1.2-2' }}</h2>
+            </div>
+          </mat-card-header>
+        </mat-card>
+      </div>
+
+      <!-- Secciones de Desglose Horizontal -->
+      <div class="details-section">
+        <!-- Métricas por Método de Pago -->
+        <mat-card class="details-card">
+          <mat-card-header class="details-header">
+            <mat-icon>payments</mat-icon>
+            <mat-card-title>Métodos de Pago</mat-card-title>
+          </mat-card-header>
+          <mat-card-content class="details-body">
+            @if (d.pagosMetodo.length === 0) {
+              <div class="empty-detail-state">
+                <p>No hay cobros registrados hoy todavía.</p>
+              </div>
+            } @else {
+              <div class="bar-chart-list">
+                @for (m of d.pagosMetodo; track m.metodo) {
+                  <div class="payment-method-row">
+                    <div class="method-header">
+                      <div class="method-title">
+                        <mat-icon [style.color]="getMetodoColor(m.metodo)">{{ getMetodoIcon(m.metodo) }}</mat-icon>
+                        <span class="method-name">{{ m.metodo }}</span>
+                      </div>
+                      <span class="method-amount">${{ m.total | number:'1.2-2' }} ({{ m.cantidad }} trans.)</span>
+                    </div>
+                    <!-- Barra de progreso simulando porcentaje -->
+                    <div class="progress-bar-container">
+                      <div class="progress-bar"
+                           [style.background-color]="getMetodoColor(m.metodo)"
+                           [style.width.%]="(m.total / d.resumen.totalVentas) * 100">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Ventas por Categoría -->
+        <mat-card class="details-card">
+          <mat-card-header class="details-header">
+            <mat-icon>category</mat-icon>
+            <mat-card-title>Ventas por Categoría</mat-card-title>
+          </mat-card-header>
+          <mat-card-content class="details-body">
+            @if (d.categorias.length === 0) {
+              <div class="empty-detail-state">
+                <p>No hay artículos vendidos hoy.</p>
+              </div>
+            } @else {
+              <div class="category-sales-list">
+                @for (cat of d.categorias; track cat.categoria) {
+                  <div class="category-row">
+                    <span class="cat-name">{{ cat.categoria }}</span>
+                    <div class="cat-bar-wrapper">
+                      <div class="cat-bar" [style.width.%]="(cat.total / d.resumen.totalVentas) * 100"></div>
+                    </div>
+                    <span class="cat-total">${{ cat.total | number:'1.2-2' }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Tabla de Tickets recientes -->
+      <mat-card class="tickets-table-card">
+        <mat-card-header class="table-header">
+          <mat-icon>history</mat-icon>
+          <div>
+            <mat-card-title>Últimas Traspasos y Cobros del Día</mat-card-title>
+            <mat-card-subtitle>Detalle cronológico de los últimos 10 tickets emitidos</mat-card-subtitle>
+          </div>
+        </mat-card-header>
+        <mat-card-content class="table-body">
+          @if (d.tickets.length === 0) {
+            <div class="empty-detail-state padding-large">
+              <mat-icon>receipt</mat-icon>
+              <p>Esperando la primera venta del día para poblar el reporte táctico.</p>
+            </div>
+          } @else {
+            <div class="table-responsive">
+              <table class="tickets-table">
+                <thead>
+                  <tr>
+                    <th>Folio</th>
+                    <th>Hora</th>
+                    <th>Ubicación / Destino</th>
+                    <th>Método</th>
+                    <th>Permanencia</th>
+                    <th class="align-right">Puntuación Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of d.tickets; track t.id) {
+                    <tr>
+                      <td class="folio">#{{ t.id }}</td>
+                      <td class="hora">{{ t.hora }} hrs</td>
+                      <td class="mesa">
+                        <span class="mesa-pill" [class.delivery]="t.mesaNombre.startsWith('Envío')">
+                          <mat-icon class="pill-icon">{{ t.mesaNombre.startsWith('Envío') ? 'local_shipping' : 'table_restaurant' }}</mat-icon>
+                          {{ t.mesaNombre }}
+                        </span>
+                      </td>
+                      <td class="metodo-badge-col">
+                        <span class="metodo-badge" [style.background-color]="getMetodoColor(t.metodo) + '15'" [style.color]="getMetodoColor(t.metodo)">
+                          {{ t.metodo }}
+                        </span>
+                      </td>
+                      <td class="duracion">{{ t.duracionMinutos }} min</td>
+                      <td class="total align-right">${{ t.total | number:'1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+  }
+</div>

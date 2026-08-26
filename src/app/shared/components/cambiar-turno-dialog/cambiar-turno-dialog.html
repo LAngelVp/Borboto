@@ -1,0 +1,52 @@
+<div class="shift-dialog-container">
+  <!-- Cabecera -->
+  <div class="shift-header">
+    <mat-icon class="header-icon">sync</mat-icon>
+    <h2 class="dialog-title">CAMBIO DE TURNO</h2>
+    <p class="dialog-subtitle">Por favor ingrese su PIN de seguridad de 4 dígitos</p>
+  </div>
+
+  <!-- Contenido -->
+  <mat-dialog-content class="shift-body">
+    <!-- Visualizador de PIN -->
+    <div class="pin-display">
+      <div class="bullets">
+        <span class="bullet" [class.filled]="pinText().length >= 1"></span>
+        <span class="bullet" [class.filled]="pinText().length >= 2"></span>
+        <span class="bullet" [class.filled]="pinText().length >= 3"></span>
+        <span class="bullet" [class.filled]="pinText().length >= 4"></span>
+        <span class="bullet" [class.filled]="pinText().length >= 5"></span>
+        <span class="bullet" [class.filled]="pinText().length >= 6"></span>
+      </div>
+      <input type="password" class="pin-input" readonly placeholder="••••" [value]="pinText()">
+    </div>
+
+    <!-- Teclado Numérico Táctil -->
+    <div class="calculator-grid">
+      @for (d of tecladoDigitos; track d) {
+        <button mat-stroked-button class="calc-btn" (click)="agregarDigito(d)">{{ d }}</button>
+      }
+      <!-- Botones Especiales -->
+      <button mat-stroked-button class="calc-btn clear-btn" (click)="limpiarPin()">
+        <mat-icon>delete_forever</mat-icon>
+      </button>
+      <button mat-stroked-button class="calc-btn" (click)="agregarDigito('0')">0</button>
+      <button mat-stroked-button class="calc-btn back-btn" (click)="borrarDigito()">
+        <mat-icon>backspace</mat-icon>
+      </button>
+    </div>
+  </mat-dialog-content>
+
+  <!-- Acciones -->
+  <mat-dialog-actions class="shift-actions">
+    <button mat-button class="cancel-btn" (click)="cancelar()">CANCELAR</button>
+    <button
+      mat-flat-button
+      color="primary"
+      class="confirm-btn"
+      [disabled]="pinText().length === 0"
+      (click)="confirmarTurno()">
+      INICIAR TURNO
+    </button>
+  </mat-dialog-actions>
+</div>

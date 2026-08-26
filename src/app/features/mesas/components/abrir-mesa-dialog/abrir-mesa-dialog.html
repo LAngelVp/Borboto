@@ -1,0 +1,49 @@
+<div class="dialog-container">
+  <div class="dialog-header">
+    <mat-icon class="icon-header">restaurant</mat-icon>
+    <div>
+      <h2 mat-dialog-title>Abrir Mesa {{ data.mesa.numero }}</h2>
+      <span class="sub-zona">Área: {{ data.mesa.zona }} (Capacidad max: {{ data.mesa.capacidad }})</span>
+    </div>
+  </div>
+
+  <mat-dialog-content class="dialog-content">
+    <p class="instruction">¿Cuántos comensales se van a sentar?</p>
+
+    <!-- Selector de Comensales Grandes -->
+    <div class="stepper-container">
+      <button mat-icon-button class="btn-stepper" (click)="decrementar()" [disabled]="comensales() <= 1">
+        <mat-icon>remove</mat-icon>
+      </button>
+
+      <div class="comensales-display">
+        <span class="num">{{ comensales() }}</span>
+        <span class="label">Personas</span>
+      </div>
+
+      <button mat-icon-button class="btn-stepper" (click)="incrementar()" [disabled]="comensales() >= 20">
+        <mat-icon>add</mat-icon>
+      </button>
+    </div>
+
+    <!-- Botones de Acceso Rápido Táctil -->
+    <div class="quick-buttons">
+      @for (n of [1, 2, 3, 4, 5, 6]; track n) {
+        <button
+          type="button"
+          class="quick-btn"
+          [class.active]="comensales() === n"
+          (click)="setComensales(n)">
+          {{ n }}
+        </button>
+      }
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" class="dialog-actions">
+    <button mat-button mat-dialog-close>Cancelar</button>
+    <button mat-flat-button color="primary" class="btn-confirmar" (click)="confirmarApertura()">
+      <mat-icon>edit_note</mat-icon> Tomar Comanda
+    </button>
+  </mat-dialog-actions>
+</div>

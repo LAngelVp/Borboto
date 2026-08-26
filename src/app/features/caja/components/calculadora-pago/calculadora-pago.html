@@ -1,0 +1,68 @@
+<div class="calculadora-panel">
+  <!-- Selector de Método de Pago -->
+  <div class="metodos-grid">
+    <button
+      class="btn-metodo"
+      [class.active]="cajaService.metodoPago() === 'EFECTIVO'"
+      (click)="seleccionarMetodo('EFECTIVO')">
+      <mat-icon>payments</mat-icon>
+      <span>Efectivo</span>
+    </button>
+
+    <button
+      class="btn-metodo"
+      [class.active]="cajaService.metodoPago() === 'TARJETA'"
+      (click)="seleccionarMetodo('TARJETA')">
+      <mat-icon>credit_card</mat-icon>
+      <span>Tarjeta</span>
+    </button>
+
+    <button
+      class="btn-metodo"
+      [class.active]="cajaService.metodoPago() === 'TRANSFERENCIA'"
+      (click)="seleccionarMetodo('TRANSFERENCIA')">
+      <mat-icon>account_balance</mat-icon>
+      <span>Transferencia</span>
+    </button>
+  </div>
+
+  @if (cajaService.metodoPago() === 'EFECTIVO') {
+    <!-- Lectura de Recibido y Cambio -->
+    <div class="display-cobro">
+      <div class="display-box">
+        <span class="label">Recibido:</span>
+        <span class="valor">${{ cajaService.montoRecibido() | number:'1.2-2' }}</span>
+      </div>
+
+      <!-- Corregido: cambio() en lugar de cambioCalculado() -->
+      <div class="display-box cambio" [class.suficiente]="cajaService.pagoSuficiente()">
+        <span class="label">Cambio:</span>
+        <span class="valor">${{ cajaService.cambio() | number:'1.2-2' }}</span>
+      </div>
+    </div>
+
+    <!-- Botones de Billetes Rápidos -->
+    <div class="billetes-row">
+      @for (b of billetesRapidos; track b) {
+        <button type="button" class="btn-billete" (click)="sumarBillete(b)">
+          +${{ b }}
+        </button>
+      }
+    </div>
+
+    <!-- Teclado Numérico Táctil -->
+    <div class="teclado-grid">
+      @for (n of ['7','8','9','4','5','6','1','2','3','0','00']; track n) {
+        <button type="button" class="btn-key" (click)="agregarNumero(n)">{{ n }}</button>
+      }
+      <button type="button" class="btn-key action" (click)="borrar()">
+        <mat-icon>backspace</mat-icon>
+      </button>
+    </div>
+  } @else {
+    <div class="terminal-msg">
+      <mat-icon>point_of_sale</mat-icon>
+      <p>Procese el cobro por <strong>${{ (cajaService.numeroPartes() > 1 ? cajaService.totalPorPersona() : cajaService.totalCuenta()) | number:'1.2-2' }}</strong> en la terminal bancaria / SPEI.</p>
+    </div>
+  }
+</div>

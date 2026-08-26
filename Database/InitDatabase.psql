@@ -1,38 +1,76 @@
 -- ============================================================================
--- BASE DE DATOS: BORBOTO POS (Restaurantes & Gastronomía)
--- Engine: PostgreSQL 14+
+-- SCRIPT DE LIMPIEZA Y CREACIÓN COMPLETA UNIFICADO (BORBOTO POS)
 -- ============================================================================
 
--- Configuración de zona horaria por defecto
 SET timezone = 'America/Mexico_City';
 
--- ----------------------------------------------------------------------------
--- 1. TIPOS ENUMERADOS (Enums para consistencia de estados)
--- ----------------------------------------------------------------------------
-CREATE TYPE estado_mesa_enum AS ENUM ('LIBRE', 'PENDIENTE', 'COCINANDO', 'LISTO', 'POR_COBRAR');
-CREATE TYPE estado_comanda_enum AS ENUM ('ABIERTA', 'CERRADA', 'CANCELADA');
-CREATE TYPE estado_item_kds_enum AS ENUM ('PENDIENTE', 'PREPARANDO', 'LISTO');
-CREATE TYPE metodo_pago_enum AS ENUM ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA');
-CREATE TYPE rol_usuario_enum AS ENUM ('ADMIN', 'MESERO', 'COCINERO', 'CAJERO');
+-- 1. ELIMINACIÓN DE TABLAS EN ORDEN DE DEPENDENCIAS (Inverso)
+DROP TABLE IF EXISTS pagos CASCADE;
+DROP TABLE IF EXISTS comanda_items CASCADE;
+DROP TABLE IF EXISTS comandas CASCADE;
+DROP TABLE IF EXISTS productos CASCADE;
+DROP TABLE IF EXISTS categorias CASCADE;
+DROP TABLE IF EXISTS mesas CASCADE;
+DROP TABLE IF EXISTS zonas CASCADE;
+DROP TABLE IF EXISTS usuarios CASCADE;
 
--- ----------------------------------------------------------------------------
--- 2. USUARIOS Y PERSONAL DE ROLES
--- ----------------------------------------------------------------------------
+-- ELIMINACIÓN DE TIPOS ENUMERADOS PREVIOS
+DROP TYPE IF EXISTS estado_mesa_enum CASCADE;
+DROP TYPE IF EXISTS estado_comanda_enum CASCADE;
+DROP TYPE IF EXISTS estado_item_kds_enum CASCADE;
+DROP TYPE IF EXISTS metodo_pago_enum CASCADE;
+DROP TYPE IF EXISTS rol_usuario_enum CASCADE;
+
+-- 2. CREACIÓN DE TIPOS ENUMERADOS CON LOS NUEVOS ESTADOS
+CREATE TYPE estado_mesa_enum AS ENUM (
+    'DISPONIBLE',
+    'PENDIENTE',
+    'EN COCINA',
+    'LISTO PARA SERVIR',
+    'SERVIDO'
+);
+
+CREATE TYPE estado_comanda_enum AS ENUM (
+    'ABIERTA',
+    'CERRADA',
+    'CANCELADA'
+);
+
+CREATE TYPE estado_item_kds_enum AS ENUM (
+    'PENDIENTE',
+    'PREPARANDO',
+    'LISTO'
+);
+
+CREATE TYPE metodo_pago_enum AS ENUM (
+    'EFECTIVO',
+    'TARJETA',
+    'TRANSFERENCIA'
+);
+
+CREATE TYPE rol_usuario_enum AS ENUM (
+    'ADMIN',
+    'MESERO',
+    'COCINERO',
+    'CAJERO'
+);
+
+-- 3. CREACIÓN DE TABLAS
+
+-- Personal
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
-    pin VARCHAR(6) NOT NULL UNIQUE, -- PIN de acceso rápido táctil
+    pin VARCHAR(6) NOT NULL UNIQUE,
     rol rol_usuario_enum NOT NULL DEFAULT 'MESERO',
     activo BOOLEAN DEFAULT TRUE,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ----------------------------------------------------------------------------
--- 3. ZONAS Y MAPA DE MESAS
--- ----------------------------------------------------------------------------
+-- Zonas y Salón
 CREATE TABLE zonas (
     id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE -- Ej. 'Terraza', 'Salón Principal', 'Barra'
+    nombre VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE mesas (
@@ -40,19 +78,17 @@ CREATE TABLE mesas (
     numero VARCHAR(10) NOT NULL,
     zona_id INT NOT NULL REFERENCES zonas(id) ON DELETE RESTRICT,
     capacidad INT DEFAULT 4,
-    estado estado_mesa_enum DEFAULT 'LIBRE',
+    estado estado_mesa_enum DEFAULT 'DISPONIBLE',
     comensales INT DEFAULT 0,
     minutos_abierta INT DEFAULT 0,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_mesa_zona UNIQUE(numero, zona_id)
 );
 
--- ----------------------------------------------------------------------------
--- 4. MENÚ Y CATÁLOGO DE PRODUCTOS
--- ----------------------------------------------------------------------------
+-- Catálogo de Menú
 CREATE TABLE categorias (
     id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE, -- Ej. 'Tacos', 'Antojitos', 'Bebidas'
+    nombre VARCHAR(50) NOT NULL UNIQUE,
     icono VARCHAR(30) DEFAULT 'restaurant',
     orden INT DEFAULT 0
 );
@@ -66,13 +102,11 @@ CREATE TABLE productos (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ----------------------------------------------------------------------------
--- 5. COMANDAS Y DETALLE DE ORDEN (CONEXIÓN SALÓN <-> COCINA)
--- ----------------------------------------------------------------------------
+-- Comandas
 CREATE TABLE comandas (
     id SERIAL PRIMARY KEY,
     mesa_id INT NOT NULL REFERENCES mesas(id) ON DELETE RESTRICT,
-    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT, -- Mesero
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
     estado estado_comanda_enum DEFAULT 'ABIERTA',
     total DECIMAL(10,2) DEFAULT 0.00,
     fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -86,19 +120,17 @@ CREATE TABLE comanda_items (
     cantidad INT NOT NULL CHECK (cantidad > 0),
     precio_unitario DECIMAL(10,2) NOT NULL,
     subtotal DECIMAL(10,2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED,
-    notas TEXT, -- Ej. 'Sin cebolla', 'Término medio'
+    notas TEXT,
     estado_kds estado_item_kds_enum DEFAULT 'PENDIENTE',
     completado BOOLEAN DEFAULT FALSE,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ----------------------------------------------------------------------------
--- 6. CAJA Y REGISTRO DE TRANSACCIONES / COBROS
--- ----------------------------------------------------------------------------
+-- Cobros
 CREATE TABLE pagos (
     id SERIAL PRIMARY KEY,
     comanda_id INT NOT NULL REFERENCES comandas(id) ON DELETE RESTRICT,
-    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT, -- Cajero
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
     metodo_pago metodo_pago_enum NOT NULL,
     total_cuenta DECIMAL(10,2) NOT NULL,
     monto_recibido DECIMAL(10,2) NOT NULL,
@@ -108,9 +140,7 @@ CREATE TABLE pagos (
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ----------------------------------------------------------------------------
--- 7. ÍNDICES DE RENDIMIENTO (OPTIMIZACIÓN CONSULTAS POS)
--- ----------------------------------------------------------------------------
+-- 4. ÍNDICES DE RENDIMIENTO
 CREATE INDEX idx_mesas_estado ON mesas(estado);
 CREATE INDEX idx_comandas_mesa ON comandas(mesa_id) WHERE estado = 'ABIERTA';
 CREATE INDEX idx_comanda_items_kds ON comanda_items(completado) WHERE completado = FALSE;
