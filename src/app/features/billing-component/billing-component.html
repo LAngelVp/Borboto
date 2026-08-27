@@ -1,0 +1,169 @@
+<div class="form-card width-xl mx-auto">
+  <div class="card-header border-blue">
+    <h3><mat-icon class="header-inline-icon">receipt_long</mat-icon> Configuración de Facturación Electrónica (CFDI 4.0)</h3>
+    <p>Ingresa tus credenciales de Facturapi / PAC y los datos fiscales del emisor para emitir los códigos de autofactura en los tickets.</p>
+  </div>
+
+  <form [formGroup]="billingForm" (ngSubmit)="guardarConfiguracion()" class="ajustes-form grid-form">
+
+    <!-- SECCIÓN 1: CREDENCIALES DE API -->
+    <div class="grid-span-2 form-section-title">
+      <mat-icon>vpn_key</mat-icon>
+      <h4>1. Conexión con Proveedor de Facturación (API Keys)</h4>
+    </div>
+
+    <mat-form-field appearance="outline">
+      <mat-label>API Key de Pruebas (Test Secret Key)</mat-label>
+      <input matInput formControlName="apiKeyTest" placeholder="sk_test_..." type="password">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Llave secreta de prueba obtenida en Facturapi (empieza con 'sk_test_'). Permite emitir facturas de prueba sin valor fiscal."
+                matTooltipPosition="above">help_outline</mat-icon>
+      @if (billingForm.get('apiKeyTest')?.touched && billingForm.get('apiKeyTest')?.invalid) {
+        <mat-error>La API Key de prueba es obligatoria.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>API Key de Producción (Live Secret Key)</mat-label>
+      <input matInput formControlName="apiKeyLive" placeholder="sk_live_..." type="password">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Llave secreta de producción (empieza con 'sk_live_'). Emite facturas reales con timbre fiscal ante el SAT."
+                matTooltipPosition="above">help_outline</mat-icon>
+    </mat-form-field>
+
+    <div class="grid-span-2 toggle-container">
+      <mat-slide-toggle formControlName="modoProduccion" color="primary">
+        <strong>Modo Producción Activo</strong> (Emisión de facturas reales ante el SAT)
+      </mat-slide-toggle>
+      <mat-icon class="help-icon inline-help"
+                matTooltip="Si está deshabilitado, todas las ventas utilizarán el entorno de Sandbox (pruebas)."
+                matTooltipPosition="right">help_outline</mat-icon>
+    </div>
+
+    <!-- SECCIÓN 2: DATOS FISCALES DEL EMISOR -->
+    <div class="grid-span-2 form-section-title">
+      <mat-icon>business</mat-icon>
+      <h4>2. Datos Fiscales del Restaurante (Emisor)</h4>
+    </div>
+
+    <mat-form-field appearance="outline" class="grid-span-2">
+      <mat-label>Nombre o Razón Social</mat-label>
+      <input matInput formControlName="razonSocial" placeholder="Ej. RESTAURANTE EL SAZON DE MEXICO">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Nombre o Razón Social EXACTAMENTE como figura en la Constancia de Situación Fiscal (en mayúsculas y sin el régimen de capital como SA de CV)."
+                matTooltipPosition="above">help_outline</mat-icon>
+      @if (billingForm.get('razonSocial')?.touched && billingForm.get('razonSocial')?.invalid) {
+        <mat-error>La razón social es obligatoria (tal cual en la Constancia del SAT).</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>RFC del Emisor</mat-label>
+      <input matInput formControlName="rfcEmisor" placeholder="Ej. MESR900101XXX" style="text-transform: uppercase;">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Clave del RFC a 12 caracteres (Persona Moral) o 13 caracteres (Persona Física)."
+                matTooltipPosition="above">help_outline</mat-icon>
+      @if (billingForm.get('rfcEmisor')?.touched && billingForm.get('rfcEmisor')?.invalid) {
+        <mat-error>RFC no válido (Debe tener 12 o 13 caracteres).</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Código Postal Fiscal</mat-label>
+      <input matInput formControlName="codigoPostal" placeholder="Ej. 06600" maxlength="5">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Código postal de 5 dígitos correspondiente al domicilio fiscal registrado ante el SAT."
+                matTooltipPosition="above">help_outline</mat-icon>
+      @if (billingForm.get('codigoPostal')?.touched && billingForm.get('codigoPostal')?.invalid) {
+        <mat-error>Ingresa un código postal válido de 5 dígitos.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="grid-span-2">
+      <mat-label>Régimen Fiscal</mat-label>
+      <mat-select formControlName="regimenFiscal">
+        @for (reg of RegimenesFiscales; track reg.clave) {
+          <mat-option [value]="reg.clave">{{ reg.descripcion }}</mat-option>
+        }
+      </mat-select>
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Régimen tributario en el que tributa el negocio (Ej. 601 General de Ley o 626 RESICO)."
+                matTooltipPosition="above">help_outline</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="grid-span-2">
+      <mat-label>Correo para Notificaciones Fiscales</mat-label>
+      <input matInput formControlName="emailNotificaciones" type="email" placeholder="factura@restaurante.com">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Correo electrónico para recibir alertas del sistema o respuestas administrativas de la API."
+                matTooltipPosition="above">help_outline</mat-icon>
+    </mat-form-field>
+
+    <!-- SECCIÓN 3: ARCHIVOS CSD DEL SAT -->
+    <div class="grid-span-2 form-section-title">
+      <mat-icon>verified_user</mat-icon>
+      <h4>3. Certificados de Sello Digital (CSD del SAT)</h4>
+    </div>
+
+    <div class="file-input-wrapper">
+      <label class="file-label">
+        Archivo Certificado (.cer):
+        <mat-icon class="help-icon inline-help"
+                  matTooltip="Archivo .cer correspondiente al Certificado de Sello Digital (CSD) de facturación (NO usar la e.firma/FIEL)."
+                  matTooltipPosition="right">help_outline</mat-icon>
+      </label>
+      <input type="file" (change)="onFileSelected($event, 'cer')" accept=".cer" class="file-input">
+      @if (archivoCer) {
+        <span class="file-name"><mat-icon class="sub-icon">check_circle</mat-icon> {{ archivoCer.name }}</span>
+      }
+    </div>
+
+    <div class="file-input-wrapper">
+      <label class="file-label">
+        Archivo Llave Privada (.key):
+        <mat-icon class="help-icon inline-help"
+                  matTooltip="Archivo .key correspondiente a la llave privada de tu Certificado de Sello Digital (CSD)."
+                  matTooltipPosition="right">help_outline</mat-icon>
+      </label>
+      <input type="file" (change)="onFileSelected($event, 'key')" accept=".key" class="file-input">
+      @if (archivoKey) {
+        <span class="file-name"><mat-icon class="sub-icon">check_circle</mat-icon> {{ archivoKey.name }}</span>
+      }
+    </div>
+
+    <mat-form-field appearance="outline" class="grid-span-2">
+      <mat-label>Contraseña de la Llave Privada (CSD)</mat-label>
+      <input matInput formControlName="csdPassword" type="password" placeholder="Contraseña de los sellos">
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Contraseña asignada al tramitar la llave privada de los sellos digitales en el SAT."
+                matTooltipPosition="above">help_outline</mat-icon>
+    </mat-form-field>
+
+    <!-- SECCIÓN 4: REGLAS DE TICKET Y EXPIRACIÓN -->
+    <div class="grid-span-2 form-section-title">
+      <mat-icon>timer</mat-icon>
+      <h4>4. Reglas para Autofactura en Ticket</h4>
+    </div>
+
+    <mat-form-field appearance="outline" class="grid-span-2">
+      <mat-label>Días de vigencia del ticket para autofacturar</mat-label>
+      <input matInput formControlName="diasVigenciaTicket" type="number" min="1" max="30">
+      <span matSuffix style="padding-right: 8px;">días hábiles</span>
+      <mat-icon matSuffix class="help-icon"
+                matTooltip="Número de días que tendrá el cliente para ingresar el código del ticket en el portal y emitir su factura antes de que venza."
+                matTooltipPosition="above">help_outline</mat-icon>
+    </mat-form-field>
+
+    <!-- ACCIONES DE BOTONES -->
+    <div class="grid-span-2 form-actions gap-12">
+      <button mat-stroked-button color="accent" type="button" (click)="probarConexionAPI()" [disabled]="probandoConexion()">
+        <mat-icon>sync</mat-icon> {{ probandoConexion() ? 'Probando...' : 'Probar Conexión' }}
+      </button>
+
+      <button mat-flat-button color="primary" type="submit" [disabled]="guardando()">
+        <mat-icon>save</mat-icon> {{ guardando() ? 'Guardando...' : 'Guardar Ajustes Fiscales' }}
+      </button>
+    </div>
+
+  </form>
+</div>

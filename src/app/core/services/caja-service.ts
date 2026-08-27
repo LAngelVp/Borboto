@@ -25,6 +25,9 @@ export class CajaService {
   readonly items = signal<ItemComanda[]>([]);
   readonly itemsComanda = this.items;
 
+  // Estado de Facturación
+  readonly solicitaFactura = signal<boolean>(false);
+
   // Datos del Cliente y Puntos de Lealtad
   readonly clienteId = signal<number | null>(null);
   readonly clienteNombre = signal<string>('');
@@ -76,6 +79,10 @@ export class CajaService {
     this.numeroPartes.set(partes);
   }
 
+  setSolicitaFactura(solicita: boolean) {
+    this.solicitaFactura.set(solicita);
+  }
+
   cargarCuentaMesa(mesaId: number) {
     this.mesaId.set(mesaId);
     this.descuentoAplicado.set(0);
@@ -87,6 +94,7 @@ export class CajaService {
     this.clienteEsFrecuente.set(false);
     this.clienteVisitas.set(0);
     this.puntosCanjeados.set(0);
+    this.solicitaFactura.set(false);
 
     this.http.get<{
       comandaId: number;
@@ -135,10 +143,11 @@ export class CajaService {
       partesIguales: this.numeroPartes(),
       descuento: this.descuentoAplicado(),
       promocionId: this.promocionIdAplicada(),
-      puntosCanjeados: this.puntosCanjeados()
+      puntosCanjeados: this.puntosCanjeados(),
+      solicitaFactura: this.solicitaFactura()
     };
 
-    return this.http.post<{ ok: boolean }>(`${this.apiUrl}/caja/cobrar`, payload);
+    return this.http.post<{ ok: boolean; ticketId: number; autofactura?: any }>(`${this.apiUrl}/caja/cobrar`, payload);
   }
 
   vincularClienteAComanda(comandaId: number, clienteId: number | null) {
@@ -217,6 +226,7 @@ export class CajaService {
     this.clienteEsFrecuente.set(false);
     this.clienteVisitas.set(0);
     this.puntosCanjeados.set(0);
+    this.solicitaFactura.set(false);
     this.items.set([]);
     this.metodoPago.set('EFECTIVO');
     this.montoRecibido.set(0);

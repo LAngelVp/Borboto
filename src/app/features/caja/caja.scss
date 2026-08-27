@@ -63,6 +63,33 @@
   flex-direction: column;
   gap: 16px;
 
+  /* Tarjeta de Selección de Facturación */
+  .factura-option-card {
+    background: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    display: flex;
+    align-items: center;
+
+    .factura-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #333;
+      font-size: 0.95rem;
+
+      .icon-receipt {
+        color: #1976d2;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+
   .btn-cobrar {
     height: 56px;
     font-size: 18px;

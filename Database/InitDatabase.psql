@@ -1,10 +1,13 @@
 -- ============================================================================
--- SCRIPT DE LIMPIEZA Y CREACIÓN COMPLETA UNIFICADO (BORBOTO POS)
+-- SCRIPT OPTIMIZADO MULTIGIRO CON FACTURACIÓN CFDI 4.0 (BORBOTO POS)
 -- ============================================================================
 
 SET timezone = 'America/Mexico_City';
 
 -- 1. ELIMINACIÓN DE TABLAS EN ORDEN DE DEPENDENCIAS (Inverso)
+DROP TABLE IF EXISTS facturas CASCADE;
+DROP TABLE IF EXISTS tickets_autofactura CASCADE;
+DROP TABLE IF EXISTS configuracion_facturacion CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
 DROP TABLE IF EXISTS comanda_items CASCADE;
 DROP TABLE IF EXISTS comandas CASCADE;
@@ -15,49 +18,22 @@ DROP TABLE IF EXISTS zonas CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
 
 -- ELIMINACIÓN DE TIPOS ENUMERADOS PREVIOS
+DROP TYPE IF EXISTS estado_factura_enum CASCADE;
 DROP TYPE IF EXISTS estado_mesa_enum CASCADE;
 DROP TYPE IF EXISTS estado_comanda_enum CASCADE;
 DROP TYPE IF EXISTS estado_item_kds_enum CASCADE;
 DROP TYPE IF EXISTS metodo_pago_enum CASCADE;
 DROP TYPE IF EXISTS rol_usuario_enum CASCADE;
 
--- 2. CREACIÓN DE TIPOS ENUMERADOS CON LOS NUEVOS ESTADOS
-CREATE TYPE estado_mesa_enum AS ENUM (
-    'DISPONIBLE',
-    'PENDIENTE',
-    'EN COCINA',
-    'LISTO PARA SERVIR',
-    'SERVIDO'
-);
+-- 2. ENUMERADOS
+CREATE TYPE estado_mesa_enum AS ENUM ('DISPONIBLE', 'PENDIENTE', 'EN COCINA', 'LISTO PARA SERVIR', 'SERVIDO');
+CREATE TYPE estado_comanda_enum AS ENUM ('ABIERTA', 'CERRADA', 'CANCELADA');
+CREATE TYPE estado_item_kds_enum AS ENUM ('PENDIENTE', 'PREPARANDO', 'LISTO');
+CREATE TYPE metodo_pago_enum AS ENUM ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA');
+CREATE TYPE rol_usuario_enum AS ENUM ('ADMIN', 'MESERO', 'COCINERO', 'CAJERO');
+CREATE TYPE estado_factura_enum AS ENUM ('PENDIENTE', 'TIMBRADA', 'CANCELADA', 'ERROR');
 
-CREATE TYPE estado_comanda_enum AS ENUM (
-    'ABIERTA',
-    'CERRADA',
-    'CANCELADA'
-);
-
-CREATE TYPE estado_item_kds_enum AS ENUM (
-    'PENDIENTE',
-    'PREPARANDO',
-    'LISTO'
-);
-
-CREATE TYPE metodo_pago_enum AS ENUM (
-    'EFECTIVO',
-    'TARJETA',
-    'TRANSFERENCIA'
-);
-
-CREATE TYPE rol_usuario_enum AS ENUM (
-    'ADMIN',
-    'MESERO',
-    'COCINERO',
-    'CAJERO'
-);
-
--- 3. CREACIÓN DE TABLAS
-
--- Personal
+-- 3. TABLAS BASE
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
@@ -67,7 +43,6 @@ CREATE TABLE usuarios (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Zonas y Salón
 CREATE TABLE zonas (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL UNIQUE
@@ -85,12 +60,12 @@ CREATE TABLE mesas (
     CONSTRAINT uq_mesa_zona UNIQUE(numero, zona_id)
 );
 
--- Catálogo de Menú
 CREATE TABLE categorias (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL UNIQUE,
     icono VARCHAR(30) DEFAULT 'restaurant',
-    orden INT DEFAULT 0
+    orden INT DEFAULT 0,
+    clave_sat VARCHAR(10) -- Permite asignar una clave SAT opcional por categoría
 );
 
 CREATE TABLE productos (
@@ -98,11 +73,11 @@ CREATE TABLE productos (
     categoria_id INT NOT NULL REFERENCES categorias(id) ON DELETE RESTRICT,
     nombre VARCHAR(100) NOT NULL,
     precio DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
+    clave_sat VARCHAR(10), -- Opcional: Si es NULL, heredará la clave de la categoría o la del negocio
     disponible BOOLEAN DEFAULT TRUE,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Comandas
 CREATE TABLE comandas (
     id SERIAL PRIMARY KEY,
     mesa_id INT NOT NULL REFERENCES mesas(id) ON DELETE RESTRICT,
@@ -126,7 +101,6 @@ CREATE TABLE comanda_items (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Cobros
 CREATE TABLE pagos (
     id SERIAL PRIMARY KEY,
     comanda_id INT NOT NULL REFERENCES comandas(id) ON DELETE RESTRICT,
@@ -140,8 +114,63 @@ CREATE TABLE pagos (
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. ÍNDICES DE RENDIMIENTO
+-- ============================================================================
+-- MÓDULO DE FACTURACIÓN ELECTRÓNICA (CFDI 4.0 MULTIGIRO)
+-- ============================================================================
+
+-- 4. CONFIGURACIÓN FISCAL DEL NEGOCIO (EMISOR)
+CREATE TABLE configuracion_facturacion (
+    id SERIAL PRIMARY KEY,
+    api_key_test VARCHAR(255) NOT NULL,
+    api_key_live VARCHAR(255),
+    modo_produccion BOOLEAN DEFAULT FALSE,
+    rfc_emisor VARCHAR(13) NOT NULL,
+    razon_social VARCHAR(255) NOT NULL,
+    regimen_fiscal VARCHAR(5) NOT NULL, -- Ej: '601', '626'
+    codigo_postal VARCHAR(5) NOT NULL,
+    clave_sat_defecto VARCHAR(10) DEFAULT '01010101', -- Clave por defecto según el giro (Ej: '90101501' Restaurantes, '01010101' Genérica)
+    email_notificaciones VARCHAR(150),
+    dias_vigencia_ticket INT DEFAULT 7,
+    tiene_csd BOOLEAN DEFAULT FALSE,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. REGISTRO DE TICKETS DISPONIBLES PARA AUTOFACTURA
+CREATE TABLE tickets_autofactura (
+    id SERIAL PRIMARY KEY,
+    pago_id INT NOT NULL REFERENCES pagos(id) ON DELETE RESTRICT,
+    facturapi_receipt_id VARCHAR(100) UNIQUE NOT NULL, -- ID del recibo en Facturapi
+    codigo_ticket VARCHAR(20) NOT NULL UNIQUE,         -- Código corto impreso (Ej: A7B9-X2)
+    url_autofactura TEXT NOT NULL,                     -- URL para el QR del ticket
+    total DECIMAL(10,2) NOT NULL,
+    estado estado_factura_enum DEFAULT 'PENDIENTE',
+    fecha_expiracion TIMESTAMP NOT NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. HISTORIAL DE FACTURAS TIMBRADAS ANTE EL SAT (RECEPTOR)
+CREATE TABLE facturas (
+    id SERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets_autofactura(id) ON DELETE RESTRICT,
+    uuid_sat VARCHAR(36) UNIQUE NOT NULL,               -- Folio Fiscal del SAT
+    rfc_receptor VARCHAR(13) NOT NULL,
+    razon_social_receptor VARCHAR(255) NOT NULL,
+    regimen_fiscal_receptor VARCHAR(5) NOT NULL,
+    codigo_postal_receptor VARCHAR(5) NOT NULL,
+    uso_cfdi VARCHAR(5) NOT NULL,                       -- Ej: 'G03', 'S01'
+    url_pdf TEXT,
+    url_xml TEXT,
+    fecha_timbrado TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. ÍNDICES DE RENDIMIENTO ADICIONALES
 CREATE INDEX idx_mesas_estado ON mesas(estado);
 CREATE INDEX idx_comandas_mesa ON comandas(mesa_id) WHERE estado = 'ABIERTA';
 CREATE INDEX idx_comanda_items_kds ON comanda_items(completado) WHERE completado = FALSE;
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);
+
+-- ÍNDICES ESPECÍFICOS PARA FACTURACIÓN
+CREATE INDEX idx_tickets_codigo ON tickets_autofactura(codigo_ticket);
+CREATE INDEX idx_tickets_estado ON tickets_autofactura(estado);
+CREATE INDEX idx_facturas_uuid ON facturas(uuid_sat);
+CREATE INDEX idx_facturas_rfc_receptor ON facturas(rfc_receptor);

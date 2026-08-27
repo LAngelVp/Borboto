@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { BillingComponent } from '../../features/billing-component/billing-component';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +17,7 @@ import { CajaService } from '../../core/services/caja-service';
 
 @Component({
   selector: 'app-ajustes',
+  standalone: true,
   imports: [
     CommonModule,
     RouterModule,
@@ -26,7 +28,8 @@ import { CajaService } from '../../core/services/caja-service';
     MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    BillingComponent
   ],
   templateUrl: './ajustes.html',
   styleUrl: './ajustes.scss',

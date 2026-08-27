@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 
 import { CajaService } from '../../core/services/caja-service';
 import { MesaService } from '../../core/services/mesa';
@@ -22,6 +23,7 @@ import { CorteCajaDialog } from './components/corte-caja-dialog/corte-caja-dialo
     MatIconModule,
     MatSnackBarModule,
     MatDialogModule,
+    MatCheckboxModule,
     DesgloseCuentaComponent,
     CalculadoraPagoComponent
   ],
@@ -48,6 +50,10 @@ export class Caja implements OnInit {
     });
   }
 
+  toggleFactura(solicita: boolean) {
+    this.cajaService.setSolicitaFactura(solicita);
+  }
+
   procesarCobro() {
     if (!this.cajaService.pagoSuficiente()) {
       this.snackBar.open('El pago recibido es insuficiente', 'Cerrar', { duration: 2500 });
@@ -56,8 +62,14 @@ export class Caja implements OnInit {
 
     const usuarioId = this.authService.usuarioActivo()?.id;
     this.cajaService.cobrarYCerrarMesa(usuarioId).subscribe({
-      next: () => {
-        this.snackBar.open('¡Pago procesado y mesa liberada con éxito!', 'Cerrar', { duration: 3000 });
+      next: (res) => {
+        let msj = '¡Pago procesado y mesa liberada con éxito!';
+
+        if (this.cajaService.solicitaFactura() && res?.autofactura?.codigo) {
+          msj += ` Ticket de autofactura: ${res.autofactura.codigo}`;
+        }
+
+        this.snackBar.open(msj, 'Cerrar', { duration: 4000 });
         this.mesaService.cargarMesas();
         this.router.navigate(['/mesas']);
       },

@@ -20,6 +20,19 @@
     <section class="col-calculadora">
       <app-calculadora-pago></app-calculadora-pago>
 
+      <!-- Checkbox de Facturación -->
+      <div class="factura-option-card">
+        <mat-checkbox
+          [checked]="cajaService.solicitaFactura()"
+          (change)="toggleFactura($event.checked)"
+          color="primary">
+          <span class="factura-label">
+            <mat-icon class="icon-receipt">receipt_long</mat-icon>
+            Generar código de autofactura en ticket
+          </span>
+        </mat-checkbox>
+      </div>
+
       <!-- Botón de Cobro con estado verde dinámico -->
       <button
         mat-flat-button

@@ -72,6 +72,26 @@ export interface Promocion {
   activo?: boolean;
 }
 
+// Interfaz para la configuración de Facturación CFDI 4.0
+export interface FacturacionConfig {
+  id?: number;
+  apiKeyTest: string;
+  apiKeyLive?: string;
+  modoProduccion: boolean;
+  rfcEmisor: string;
+  razonSocial: string;
+  regimenFiscal: string;
+  codigoPostal: string;
+  emailNotificaciones?: string;
+  diasVigenciaTicket: number;
+  tieneCsd?: boolean; // Indica si ya se subieron los sellos del SAT
+}
+
+export interface PruebaConexionPayload {
+  apiKey: string;
+  isLive: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -132,7 +152,6 @@ export class AjustesService {
 
   // Mesas
   getAdminMesas(): Observable<MesaAdmin[]> {
-    // Al reutilizar getMesas normal o añadir un endpoint para admin, podemos usar simplemente getMesas pero de admin o el endpoint existente de mesas
     return this.http.get<MesaAdmin[]>(`${this.apiUrl}/mesas`);
   }
 
@@ -198,5 +217,31 @@ export class AjustesService {
 
   eliminarPromocion(id: number): Observable<{ ok: boolean; mensaje: string }> {
     return this.http.delete<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/promociones/${id}`);
+  }
+
+  // ==========================================
+  // FACTURACIÓN ELECTRÓNICA (CFDI 4.0)
+  // ==========================================
+
+  /**
+   * Obtiene la configuración fiscal actual guardada en el servidor local.
+   */
+  getConfiguracionFacturacion(): Observable<FacturacionConfig> {
+    return this.http.get<FacturacionConfig>(`${this.apiUrl}/ajustes/facturacion`);
+  }
+
+  /**
+   * Guarda o actualiza los datos fiscales de facturación.
+   * Acepta `FormData` para soportar la subida de los archivos CSD (.cer y .key).
+   */
+  guardarConfiguracionFacturacion(formData: FormData): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/ajustes/facturacion`, formData);
+  }
+
+  /**
+   * Realiza una prueba de ping/autenticación con Facturapi pasando la API Key ingresada.
+   */
+  probarConexionFacturapi(payload: PruebaConexionPayload): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/ajustes/facturacion/test`, payload);
   }
 }
