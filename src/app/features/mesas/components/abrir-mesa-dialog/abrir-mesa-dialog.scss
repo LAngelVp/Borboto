@@ -98,6 +98,33 @@
       border-color: var(--color-primary, #e65100);
       color: var(--color-primary, #e65100);
     }
+
+    &.custom-btn {
+      font-size: 14px;
+      background-color: #f8fafc;
+    }
+  }
+}
+
+/* Estilo para la entrada manual directa */
+.input-manual-container {
+  margin-top: 16px;
+
+  .w-full {
+    width: 100%;
+  }
+
+  input[type="number"] {
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  /* Remueve las flechas por defecto del input number en navegadores */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 }
 

@@ -1,19 +1,21 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Mesa, EstadoMesa } from '../models/mesa';
+import { Zona } from '../models/zona';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MesaService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://127.0.0.1:3000/api/mesas';
+  private readonly apiUrl = 'http://127.0.0.1:3000/api';
 
   // Signals de estado
   readonly mesas = signal<Mesa[]>([]);
+  readonly zonas = signal<Zona[]>([]);
   readonly mesaActiva = signal<Mesa | null>(null);
 
-  // Signals para Filtros
+  // Signals para Filtros de Mesas de Salón
   readonly filtroEstado = signal<string>('TODOS');
   readonly filtroZona = signal<string>('TODAS');
 
@@ -63,24 +65,25 @@ export class MesaService {
     });
   });
 
-  // Cómputo dinámico de mesas filtradas (excluyendo domicilio)
+  // Cómputo dinámico de mesas filtradas por Zona y Estado (excluyendo domicilio)
   readonly mesasFiltradas = computed(() => {
     const estado = this.filtroEstado();
     const zona = this.filtroZona();
 
     return this.mesas().filter(mesa => {
-      if (mesa.zona === 'Domicilio') return false; // Excluir de las mesas físicas habituales
+      if (mesa.zona === 'Domicilio') return false; // Excluir de las mesas físicas
       const cumpleEstado = estado === 'TODOS' || mesa.estado === estado;
-      const cumpleZona = zona === 'TODAS' || mesa.zona === zona;
+      const cumpleZona = zona === 'TODAS' || mesa.zona?.toUpperCase() === zona.toUpperCase();
       return cumpleEstado && cumpleZona;
     });
   });
 
   constructor() {
     this.cargarMesas();
+    this.cargarZonas();
   }
 
-  // --- MÉTODOS DE FILTRADO (Resuelven error TS2551) ---
+  // --- MÉTODOS DE FILTRADO ---
   setFiltroZona(zona: string) {
     this.filtroZona.set(zona);
   }
@@ -96,19 +99,26 @@ export class MesaService {
   setFiltroEnvioFecha(fecha: string) {
     this.filtroEnvioFecha.set(fecha);
   }
-  // --------------------------------------------------
 
   // Cargar mesas desde PostgreSQL
   cargarMesas() {
-    this.http.get<Mesa[]>(this.apiUrl).subscribe({
-      next: (data) => this.mesas.set(data),
+    this.http.get<Mesa[]>(`${this.apiUrl}/mesas`).subscribe({
+      next: (data) => this.mesas.set(data || []),
       error: (err) => console.error('Error cargando mesas:', err)
+    });
+  }
+
+  // Cargar zonas físicas del establecimiento desde PostgreSQL
+  cargarZonas() {
+    this.http.get<Zona[]>(`${this.apiUrl}/zonas`).subscribe({
+      next: (data) => this.zonas.set(data || []),
+      error: (err) => console.error('Error cargando zonas:', err)
     });
   }
 
   // Abrir mesa en la base de datos
   abrirMesa(mesaId: number, comensales: number, usuarioId?: number) {
-    return this.http.post<{ ok: boolean; comandaId: number }>(`${this.apiUrl}/${mesaId}/abrir`, {
+    return this.http.post<{ ok: boolean; comandaId: number }>(`${this.apiUrl}/mesas/${mesaId}/abrir`, {
       comensales,
       usuarioId: usuarioId || 1
     });
@@ -138,19 +148,19 @@ export class MesaService {
   }
 
   moverMesa(origenId: number, destinoId: number) {
-    return this.http.post(`${this.apiUrl}/${origenId}/mover`, { destinoId });
+    return this.http.post(`${this.apiUrl}/mesas/${origenId}/mover`, { destinoId });
   }
 
   crearEnvio(usuarioId?: number, clienteId?: number) {
     return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
-      'http://127.0.0.1:3000/api/envios/crear',
+      `${this.apiUrl}/envios/crear`,
       { usuarioId, clienteId }
     );
   }
 
   cancelarComanda(comandaId: number, usuarioId: number, notas: string) {
     return this.http.post<{ ok: boolean; mensaje: string }>(
-      `http://127.0.0.1:3000/api/comandas/${comandaId}/cancelar`,
+      `${this.apiUrl}/comandas/${comandaId}/cancelar`,
       { usuarioId, notas }
     );
   }

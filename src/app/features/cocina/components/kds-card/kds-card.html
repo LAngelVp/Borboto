@@ -11,14 +11,11 @@
     </div>
   </mat-card-header>
 
-  <!-- Lista de Platillos Táchables -->
+  <!-- Lista de Platillos (Sin acción de clic individual) -->
   <mat-card-content class="kds-body">
     <div class="items-list">
       @for (item of ticket().items; track item.id) {
-        <div
-          class="item-row"
-          [class.completado]="item.completado"
-          (click)="toggleItem.emit(item.id)">
+        <div class="item-row" [class.completado]="item.completado">
           <div class="item-info">
             <span class="cantidad">{{ item.cantidad }}x</span>
             <span class="nombre">{{ item.nombre }}</span>
@@ -33,10 +30,16 @@
     </div>
   </mat-card-content>
 
-  <!-- Botón Final: Marcar Despachado -->
+  <!-- Botón Final: Marcar Despachado (Se deshabilita cuando todos los ítems están completados) -->
   <mat-card-actions class="kds-actions">
-    <button mat-flat-button color="accent" class="btn-listo" (click)="ticketListo.emit()" [disabled]="!todosCompletados()">
-      <mat-icon>check_circle</mat-icon> ¡DESPACHAR!
+    <button
+      mat-flat-button
+      color="accent"
+      class="btn-listo"
+      (click)="ticketListo.emit()"
+      [disabled]="todosCompletados()">
+      <mat-icon>check_circle</mat-icon>
+      {{ todosCompletados() ? 'DESPACHADO' : '¡DESPACHAR!' }}
     </button>
   </mat-card-actions>
 </mat-card>

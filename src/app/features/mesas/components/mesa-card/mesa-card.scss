@@ -1,25 +1,50 @@
+/* ==========================================================================
+   MESA CARD - TAMAÑO UNIFORME Y HOMOGÉNEO (FLEXBOX STRUCTURE)
+   ========================================================================== */
+
 .mesa-card {
+  /* 1. Dimensiones unificadas por defecto */
+  width: 100%;
+  height: 240px; /* Altura estándar óptima para grids de mesas POS */
+  box-sizing: border-box;
+
+  /* 2. Estructura Flexbox vertical */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
   border-left: 8px solid #ccc;
   background-color: #ffffff;
   border-radius: 12px;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   user-select: none;
+  overflow: hidden;
 
   &:active {
     transform: scale(0.98);
   }
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   /* Indicadores Visuales por Estado */
   &.estado-libre { border-left-color: #9e9e9e; }
+  &.estado-disponible { border-left-color: #9e9e9e; }
   &.estado-pendiente { border-left-color: var(--status-pendiente, #ffb300); }
   &.estado-cocinando { border-left-color: var(--status-cocinando, #0288d1); }
+  &.estado-en-cocina { border-left-color: var(--status-cocinando, #0288d1); }
   &.estado-listo { border-left-color: var(--status-listo, #4caf50); }
+  &.estado-listo-para-servir { border-left-color: var(--status-listo, #4caf50); }
   &.estado-por_cobrar { border-left-color: #7b1fa2; }
+  &.estado-servido { border-left-color: #7b1fa2; }
+}
+
+/* Cabecera */
+mat-card-header {
+  padding: 12px 16px 0 16px;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -34,15 +59,17 @@
     gap: 8px;
 
     .numero {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
       color: #1a1a1a;
+      line-height: 1;
     }
 
     .zona {
       font-size: 12px;
       color: #757575;
       font-weight: 500;
+      white-space: nowrap;
     }
   }
 
@@ -65,14 +92,20 @@
   }
 }
 
+/* Cuerpo Flexible */
 .card-body {
-  padding-top: 12px;
+  padding: 8px 16px;
+  flex: 1; /* Absorbe el espacio vertical sobrante */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 
   .badge-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+    min-height: 24px; /* Evita colapsos de altura si no hay comensales */
   }
 
   .badge {
@@ -103,13 +136,17 @@
     }
   }
 
+  .mesero-info {
+    min-height: 20px; /* Reserva espacio visual para mesas sin mesero asignado */
+  }
+
   .monto-container {
-    margin-top: 12px;
+    margin-top: auto; /* Empuja el monto al final del card-body */
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     border-top: 1px dashed #e0e0e0;
-    padding-top: 8px;
+    padding-top: 6px;
 
     .monto-label {
       font-size: 12px;
@@ -117,7 +154,7 @@
     }
 
     .monto-valor {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 800;
       color: #263238;
       font-variant-numeric: tabular-nums;
@@ -125,8 +162,16 @@
   }
 }
 
-.btn-action {
-  width: 100%;
-  border-radius: 8px;
-  font-weight: 700;
+/* Acciones Alineadas al Fondo */
+mat-card-actions {
+  padding: 8px 16px 12px 16px;
+  margin: 0;
+  flex-shrink: 0;
+
+  .btn-action {
+    width: 100%;
+    border-radius: 8px;
+    font-weight: 700;
+    height: 38px;
+  }
 }

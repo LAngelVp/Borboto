@@ -10,17 +10,39 @@ export class CocinaService {
   private readonly apiUrl = 'http://127.0.0.1:3000/api/cocina';
 
   readonly tickets = signal<TicketCocina[]>([]);
-  readonly filtroEstado = signal<string>('TODOS');
+  // 🔹 Iniciar en 'PENDIENTE' como filtro predeterminado
+  readonly filtroEstado = signal<string>('PENDIENTE');
 
+  // Cómputo dinámico corregido para evaluar por ítems pendientes/en preparación
   readonly ticketsFiltrados = computed(() => {
     const filtro = this.filtroEstado();
-    if (filtro === 'TODOS') return this.tickets();
-    return this.tickets().filter(t => t.estado === filtro);
+    const listaTickets = this.tickets();
+
+    if (filtro === 'TODOS') return listaTickets;
+
+    if (filtro === 'PENDIENTE') {
+      // Muestra tickets que tengan al menos 1 platillo SIN tachar (pendiente por preparar)
+      return listaTickets.filter(ticket =>
+        ticket.items && ticket.items.some(item => !item.completado)
+      );
+    }
+
+    if (filtro === 'PREPARANDO') {
+      // Muestra tickets que ya tienen algunos ítems listos pero faltan otros
+      return listaTickets.filter(ticket =>
+        ticket.items &&
+        ticket.items.some(item => item.completado) &&
+        ticket.items.some(item => !item.completado)
+      );
+    }
+
+    // Fallback estándar si el estado coincide con ticket.estado
+    return listaTickets.filter(t => t.estado === filtro);
   });
 
   cargarTickets() {
     this.http.get<TicketCocina[]>(`${this.apiUrl}/tickets`).subscribe({
-      next: (data) => this.tickets.set(data),
+      next: (data) => this.tickets.set(data || []),
       error: (err) => console.error('Error cargando cocina:', err)
     });
   }

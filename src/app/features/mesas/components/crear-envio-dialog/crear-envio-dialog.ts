@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -31,16 +31,41 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
       </h2>
 
       <mat-dialog-content class="dialog-content">
-        <!-- Selector de Cliente Existente -->
+        <!-- Selector de Cliente Existente con Búsqueda -->
         <div class="form-section">
           <h3>1. Seleccionar Cliente de Cartera</h3>
           <mat-form-field appearance="outline" class="w-full">
             <mat-label>Selecciona un cliente</mat-label>
-            <mat-select [(ngModel)]="clienteSeleccionadoId" (selectionChange)="onSeleccionarCliente($event.value)">
+            <mat-select
+              [(ngModel)]="clienteSeleccionadoId"
+              (selectionChange)="onSeleccionarCliente($event.value)"
+              (openedChange)="alAbrirSelect($event)">
+
+              <!-- Campo de Búsqueda Rápida integrado dentro del Select -->
+              <div class="search-input-box" (click)="$event.stopPropagation()">
+                <mat-icon class="search-icon">search</mat-icon>
+                <input
+                  matInput
+                  placeholder="Buscar por nombre o teléfono..."
+                  [(ngModel)]="busquedaCliente"
+                  (keydown)="$event.stopPropagation()"
+                  class="search-input">
+                @if (busquedaCliente()) {
+                  <button mat-icon-button class="btn-clear" (click)="busquedaCliente.set('')">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+
               <mat-option [value]="0">-- NUEVO CLIENTE --</mat-option>
-              @for (c of clientes(); track c.id) {
+
+              @for (c of clientesFiltrados(); track c.id) {
                 <mat-option [value]="c.id">
                   {{ c.nombre }} @if(c.telefono) { ({{ c.telefono }}) }
+                </mat-option>
+              } @empty {
+                <mat-option disabled class="no-results">
+                  No se encontraron clientes coincidentes
                 </mat-option>
               }
             </mat-select>
@@ -114,6 +139,59 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
         font-weight: 700;
       }
     }
+
+    /* Estilos del Buscador Integrado en Mat-Select */
+    .search-input-box {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      position: sticky;
+      top: 0;
+      background: #ffffff;
+      z-index: 10;
+      border-bottom: 1px solid #e2e8f0;
+
+      .search-icon {
+        color: #94a3b8;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        margin-right: 8px;
+      }
+
+      .search-input {
+        border: none;
+        outline: none;
+        width: 100%;
+        font-size: 13px;
+        color: #1e293b;
+        background: transparent;
+
+        &::placeholder {
+          color: #94a3b8;
+        }
+      }
+
+      .btn-clear {
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #64748b;
+        }
+      }
+    }
+
+    .no-results {
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+
     .divider {
       height: 1px;
       background-color: #e2e8f0;
@@ -147,6 +225,18 @@ export class CrearEnvioDialogComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
 
   readonly clientes = signal<Cliente[]>([]);
+  readonly busquedaCliente = signal<string>('');
+
+  // Filtro reactivo en tiempo real por nombre o teléfono
+  readonly clientesFiltrados = computed(() => {
+    const query = this.busquedaCliente().toLowerCase().trim();
+    if (!query) return this.clientes();
+
+    return this.clientes().filter(c =>
+      c.nombre.toLowerCase().includes(query) ||
+      (c.telefono && c.telefono.includes(query))
+    );
+  });
 
   clienteSeleccionadoId = 0;
   nombre = '';
@@ -161,6 +251,12 @@ export class CrearEnvioDialogComponent implements OnInit {
       },
       error: () => console.error('Error cargando clientes para envío')
     });
+  }
+
+  alAbrirSelect(abierto: boolean) {
+    if (!abierto) {
+      this.busquedaCliente.set(''); // Limpia la búsqueda al cerrar el menú
+    }
   }
 
   onSeleccionarCliente(id: number) {
@@ -188,7 +284,6 @@ export class CrearEnvioDialogComponent implements OnInit {
     if (!this.nombre || !this.direccion) return;
 
     if (this.clienteSeleccionadoId === 0) {
-      // Registrar cliente nuevo antes de crear envío
       const nuevo: Cliente = {
         nombre: this.nombre,
         direccion: this.direccion,
@@ -208,7 +303,6 @@ export class CrearEnvioDialogComponent implements OnInit {
         }
       });
     } else {
-      // Cliente ya existe en la base de datos
       this.dialogRef.close({
         confirmado: true,
         clienteId: this.clienteSeleccionadoId

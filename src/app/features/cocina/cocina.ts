@@ -21,6 +21,9 @@ export class Cocina implements OnInit, OnDestroy {
   private socketSub!: Subscription;
 
   ngOnInit() {
+    // 🔹 Ajustamos el filtro por defecto a PENDIENTE al entrar a la pantalla
+    this.cocinaService.filtroEstado.set('PENDIENTE');
+
     this.cocinaService.cargarTickets();
     this.socketSub = this.socketService.onEvent('actualizar_cocina').subscribe(() => {
       this.cocinaService.cargarTickets();

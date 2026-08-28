@@ -48,6 +48,8 @@ export class MesasComponent implements OnInit, OnDestroy {
   private socketSub!: Subscription;
 
   ngOnInit() {
+    this.mesaService.cargarMesas();
+
     this.socketSub = this.socketService.onEvent('actualizar_mesas').subscribe(() => {
       this.mesaService.cargarMesas();
     });
@@ -103,7 +105,6 @@ export class MesasComponent implements OnInit, OnDestroy {
         this.abrirMesaModal(mesa);
         break;
 
-      // 1. VER DESGLOSE: Solo lectura de productos consumidos
       case 'VER_DETALLE':
         this.dialog.open(DesgloseMesaDialogComponent, {
           width: '450px',
@@ -111,7 +112,6 @@ export class MesasComponent implements OnInit, OnDestroy {
         });
         break;
 
-      // 2. AGREGAR MÁS PRODUCTOS: Navega a la pantalla de comandero
       case 'AGREGAR_COMANDA':
         this.mesaService.seleccionarMesaActiva(mesa);
         this.router.navigate(['/comanda'], { queryParams: { mesaId: mesa.id } });
@@ -125,7 +125,6 @@ export class MesasComponent implements OnInit, OnDestroy {
         this.moverMesaModal(mesa);
         break;
 
-      // 3. COBRAR: Pasa a pantalla de caja
       case 'COBRAR':
         this.mesaService.seleccionarMesaActiva(mesa);
         this.router.navigate(['/caja'], { queryParams: { mesaId: mesa.id } });
@@ -134,33 +133,32 @@ export class MesasComponent implements OnInit, OnDestroy {
   }
 
   private moverMesaModal(mesaOrigen: Mesa) {
-  // Corregido: Filtramos solo las mesas en estado DISPONIBLE
-  const mesasLibres = this.mesaService.mesas().filter(m =>
-    m.estado === 'DISPONIBLE' && m.id !== mesaOrigen.id
-  );
+    const mesasLibres = this.mesaService.mesas().filter(m =>
+      m.estado === 'DISPONIBLE' && m.id !== mesaOrigen.id
+    );
 
-  if (mesasLibres.length === 0) {
-    this.snackBar.open('No hay mesas disponibles para realizar el cambio.', 'Cerrar', { duration: 3000 });
-    return;
-  }
-
-  const dialogRef = this.dialog.open(MoverMesaDialogComponent, {
-    width: '420px',
-    data: { mesaOrigen, mesasLibres }
-  });
-
-  dialogRef.afterClosed().subscribe(res => {
-    if (res?.confirmado && res.destinoId) {
-      this.mesaService.moverMesa(mesaOrigen.id, res.destinoId).subscribe({
-        next: () => {
-          this.snackBar.open(`Mesa ${mesaOrigen.numero} movida exitosamente.`, 'Cerrar', { duration: 3000 });
-          this.mesaService.cargarMesas();
-        },
-        error: () => this.snackBar.open('Error al transferir la mesa en base de datos', 'Cerrar', { duration: 3000 })
-      });
+    if (mesasLibres.length === 0) {
+      this.snackBar.open('No hay mesas disponibles para realizar el cambio.', 'Cerrar', { duration: 3000 });
+      return;
     }
-  });
-}
+
+    const dialogRef = this.dialog.open(MoverMesaDialogComponent, {
+      width: '420px',
+      data: { mesaOrigen, mesasLibres }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.confirmado && res.destinoId) {
+        this.mesaService.moverMesa(mesaOrigen.id, res.destinoId).subscribe({
+          next: () => {
+            this.snackBar.open(`Mesa ${mesaOrigen.numero} movida exitosamente.`, 'Cerrar', { duration: 3000 });
+            this.mesaService.cargarMesas();
+          },
+          error: () => this.snackBar.open('Error al transferir la mesa en base de datos', 'Cerrar', { duration: 3000 })
+        });
+      }
+    });
+  }
 
   private abrirMesaModal(mesa: Mesa) {
     const dialogRef = this.dialog.open(AbrirMesaDialogComponent, {

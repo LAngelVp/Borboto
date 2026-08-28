@@ -1,5 +1,7 @@
 <div class="mesas-page">
   <div class="top-row">
+
+    <!-- Filtros de Estado -->
     <app-mesa-filtros class="filtros-flex"></app-mesa-filtros>
 
     <button mat-flat-button color="accent" class="btn-envio" (click)="registrarEnvioDomicilio()">
@@ -8,49 +10,45 @@
   </div>
 
   <div class="mesas-layout">
-    <!-- Columna Izquierda: Mesas Físicas -->
+    <!-- Columna Izquierda: Mesas Físicas de Salón -->
     <div class="mesas-sec">
-      <h2 class="sec-title"><mat-icon>table_restaurant</mat-icon> Mesas del Salón</h2>
+      <h2 class="sec-title">
+        <mat-icon>table_restaurant</mat-icon>
+        Listado de Mesas
+        <span class="zona-tag" *ngIf="mesaService.filtroZona() !== 'TODAS'">
+          ({{ mesaService.filtroZona() }})
+        </span>
+      </h2>
+
       <div class="grid-mesas">
         @for (mesa of mesaService.mesasFiltradas(); track mesa.id) {
           <app-mesa-card [mesa]="mesa" (accion)="onAccionMesa($event)"></app-mesa-card>
         } @empty {
           <div class="empty-state">
+            <mat-icon>table_bar</mat-icon>
             <p>No hay mesas físicas activas bajo los filtros seleccionados.</p>
           </div>
         }
       </div>
     </div>
 
-    <!-- Columna Derecha: Pedidos a Domicilio (Vertical) -->
+    <!-- Columna Derecha: Pedidos a Domicilio -->
     <div class="envios-sec">
       <h2 class="sec-title color-primary"><mat-icon>local_shipping</mat-icon> Pedidos a Domicilio</h2>
 
-      <!-- Filtros de Envíos -->
-      <div class="envio-filtros">
-        <mat-form-field appearance="outline" class="filtro-select-form">
-          <mat-label>Estado</mat-label>
-          <mat-select [value]="mesaService.filtroEnvioEstado()" (selectionChange)="mesaService.setFiltroEnvioEstado($event.value)">
-            <mat-option value="ACTIVOS">Activos</mat-option>
-            <mat-option value="TODOS">Todos</mat-option>
-            <mat-option value="PENDIENTE">Pendientes</mat-option>
-            <mat-option value="EN COCINA">Cocinando</mat-option>
-            <mat-option value="LISTO PARA SERVIR">Listos</mat-option>
-            <mat-option value="SERVIDO">Entregados</mat-option>
-            <mat-option value="DISPONIBLE">Cobrados</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filtro-select-form">
-          <mat-label>Fecha</mat-label>
-          <mat-select [value]="mesaService.filtroEnvioFecha()" (selectionChange)="mesaService.setFiltroEnvioFecha($event.value)">
-            <mat-option value="TODOS">Todas</mat-option>
-            <mat-option value="HOY">Hoy</mat-option>
-            <mat-option value="AYER">Ayer</mat-option>
-            <mat-option value="ESTE_MES">Este Mes</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
+      <!-- Filtro de Envíos en mesas.html -->
+      <mat-form-field appearance="outline" class="filtro-select-form">
+        <mat-label>Estado</mat-label>
+        <mat-select [value]="mesaService.filtroEnvioEstado()" (selectionChange)="mesaService.setFiltroEnvioEstado($event.value)">
+          <mat-option value="ACTIVOS">Activos (Sin Cobrar)</mat-option>
+          <mat-option value="TODOS">Todos</mat-option>
+          <mat-option value="PENDIENTE">Pendientes</mat-option>
+          <mat-option value="EN COCINA">Cocinando</mat-option>
+          <mat-option value="LISTO PARA SERVIR">Listos</mat-option>
+          <mat-option value="SERVIDO">Entregados (Servidos)</mat-option> <!-- Debe decir SERVIDO -->
+          <mat-option value="DISPONIBLE">Cobrados / Finalizados</mat-option>
+        </mat-select>
+      </mat-form-field>
 
       <div class="envios-list">
         @for (envio of mesaService.enviosDomicilio(); track envio.id) {

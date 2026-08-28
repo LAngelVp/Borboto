@@ -1,18 +1,28 @@
 <div class="filtros-container">
   <!-- Filtro por Zonas -->
   <div class="filtro-grupo">
-    <span class="filtro-label">Área:</span>
-    <mat-chip-listbox [value]="mesaService.filtroZona()" (change)="mesaService.setFiltroZona($event.value)">
+    <span class="filtro-label">
+      <mat-icon class="label-icon">place</mat-icon> Área:
+    </span>
+    <mat-chip-listbox
+      [value]="mesaService.filtroZona()"
+      (change)="onCambioZona($event.value)">
       @for (zona of zonas(); track zona) {
-        <mat-chip-option [value]="zona">{{ zona }}</mat-chip-option>
+        <mat-chip-option [value]="zona">
+          {{ zona === 'TODAS' ? 'Todas las Zonas' : zona }}
+        </mat-chip-option>
       }
     </mat-chip-listbox>
   </div>
 
   <!-- Filtro por Estado -->
   <div class="filtro-grupo">
-    <span class="filtro-label">Estado:</span>
-    <mat-chip-listbox [value]="mesaService.filtroEstado()" (change)="mesaService.setFiltroEstado($event.value)">
+    <span class="filtro-label">
+      <mat-icon class="label-icon">filter_alt</mat-icon> Estado:
+    </span>
+    <mat-chip-listbox
+      [value]="mesaService.filtroEstado()"
+      (change)="onCambioEstado($event.value)">
       @for (e of estados; track e.value) {
         <mat-chip-option [value]="e.value">{{ e.label }}</mat-chip-option>
       }

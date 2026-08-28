@@ -14,8 +14,6 @@ import { TicketCocina } from '../../../../core/models/cocina';
 })
 export class KdsCardComponent {
   readonly ticket = input.required<TicketCocina>();
-
-  readonly toggleItem = output<number>();
   readonly ticketListo = output<void>();
 
   todosCompletados(): boolean {

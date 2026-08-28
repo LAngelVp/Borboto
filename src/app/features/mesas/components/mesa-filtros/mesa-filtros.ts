@@ -15,17 +15,37 @@ import { MesaService } from '../../../../core/services/mesa';
 export class MesaFiltrosComponent {
   protected readonly mesaService = inject(MesaService);
 
+  // Obtiene dinámicamente las zonas desde la BD (vía MesaService) y excluye 'Domicilio'
   readonly zonas = computed(() => {
-    const list = this.mesaService.mesas().map(m => m.zona || '').filter(Boolean);
-    return ['TODAS', ...Array.from(new Set(list))];
+    const zonasBD = this.mesaService.zonas()
+      .map(z => z.nombre)
+      .filter(nombre => nombre && nombre !== 'Domicilio');
+
+    // Si aún no han cargado las zonas desde la BD, se extraen de las mesas registradas como fallback
+    if (zonasBD.length === 0) {
+      const zonasMesas = this.mesaService.mesas()
+        .map(m => m.zona || '')
+        .filter(z => z && z !== 'Domicilio');
+      return ['TODAS', ...Array.from(new Set(zonasMesas))];
+    }
+
+    return ['TODAS', ...Array.from(new Set(zonasBD))];
   });
 
   readonly estados = [
     { label: 'Todos', value: 'TODOS' },
-    { label: 'Libres', value: 'DISPONIBLE' }, // Corregido para que coincida con DB: 'DISPONIBLE' en vez de 'LIBRE'
-    { label: 'Pendientes', value: 'PENDIENTE' },
-    { label: 'Cocinando', value: 'EN COCINA' }, // Corregido para coincidir con DB: 'EN COCINA'
-    { label: 'Listo para Servir', value: 'LISTO PARA SERVIR' }, // Corregido para coincidir con DB
-    { label: 'Servidos', value: 'SERVIDO' } // Corregido
+    { label: 'Libres', value: 'DISPONIBLE' },          // Mapea a 'DISPONIBLE'
+    { label: 'Pendientes', value: 'PENDIENTE' },       // Mapea a 'PENDIENTE'
+    { label: 'Cocinando', value: 'EN COCINA' },        // Mapea a 'EN COCINA'
+    { label: 'Listo p/ Servir', value: 'LISTO PARA SERVIR' }, // Mapea a 'LISTO PARA SERVIR'
+    { label: 'Servidos', value: 'SERVIDO' }            // Mapea a 'SERVIDO'
   ];
+
+  onCambioZona(valor: any) {
+    this.mesaService.setFiltroZona(valor || 'TODAS');
+  }
+
+  onCambioEstado(valor: any) {
+    this.mesaService.setFiltroEstado(valor || 'TODOS');
+  }
 }

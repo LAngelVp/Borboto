@@ -21,23 +21,47 @@
         <span class="label">Personas</span>
       </div>
 
-      <button mat-icon-button class="btn-stepper" (click)="incrementar()" [disabled]="comensales() >= 20">
+      <button mat-icon-button class="btn-stepper" (click)="incrementar()" [disabled]="comensales() >= 99">
         <mat-icon>add</mat-icon>
       </button>
     </div>
 
-    <!-- Botones de Acceso Rápido Táctil -->
+    <!-- Botones de Acceso Rápido Táctil (1 a 5) + Opción de Entrada Manual -->
     <div class="quick-buttons">
-      @for (n of [1, 2, 3, 4, 5, 6]; track n) {
+      @for (n of [1, 2, 3, 4, 5]; track n) {
         <button
           type="button"
           class="quick-btn"
-          [class.active]="comensales() === n"
+          [class.active]="comensales() === n && !modoManual()"
           (click)="setComensales(n)">
           {{ n }}
         </button>
       }
+      <button
+        type="button"
+        class="quick-btn custom-btn"
+        [class.active]="modoManual() || comensales() >= 6"
+        (click)="activarModoManual()">
+        +6...
+      </button>
     </div>
+
+    <!-- Campo de Entrada Manual Directa (Aparece al elegir +6 o para grupos grandes) -->
+    @if (modoManual() || comensales() >= 6) {
+      <div class="input-manual-container">
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>Número exacto de comensales</mat-label>
+          <input
+            matInput
+            type="number"
+            min="1"
+            max="99"
+            [value]="comensales()"
+            (input)="actualizarManual($event)">
+          <mat-icon matSuffix>group</mat-icon>
+        </mat-form-field>
+      </div>
+    }
   </mat-dialog-content>
 
   <mat-dialog-actions align="end" class="dialog-actions">

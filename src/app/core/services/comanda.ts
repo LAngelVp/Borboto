@@ -10,13 +10,25 @@ export class ComandaService {
   private readonly apiUrl = 'http://127.0.0.1:3000/api';
 
   readonly productos = signal<Producto[]>([]);
+
+  // Ítems previamente guardados en la BD
+  readonly itemsGuardados = signal<ItemComanda[]>([]);
+
+  // Ítems NUEVOS seleccionados en esta sesión
   readonly itemsComanda = signal<ItemComanda[]>([]);
+
   readonly comandaIdActiva = signal<number>(0);
   readonly categoriaSeleccionada = signal<string>('TODOS');
 
-  // Total acumulado dinámico de la orden
-  readonly totalComanda = computed(() => {
+  // Total de los nuevos ítems
+  readonly totalNuevosItems = computed(() => {
     return this.itemsComanda().reduce((acc, item) => acc + (Number(item.subtotal) || Number(item.producto.precio) * item.cantidad), 0);
+  });
+
+  // Total acumulado general de la orden (Guardados + Nuevos)
+  readonly totalComanda = computed(() => {
+    const totalViejos = this.itemsGuardados().reduce((acc, item) => acc + (Number(item.subtotal) || Number(item.producto.precio) * item.cantidad), 0);
+    return totalViejos + this.totalNuevosItems();
   });
 
   private obtenerNombreCategoria(cat: any): string {
@@ -56,8 +68,11 @@ export class ComandaService {
     });
   }
 
-  // 🔹 Carga los consumos ya guardados en PostgreSQL y los pone en itemsComanda()
+  // Carga los consumos previamente guardados sin mezclarlos con el borrador de nuevos ítems
   cargarComandaActivaPorMesa(mesaId: number) {
+    // El borrador de nuevos ítems SIEMPRE inicia limpio
+    this.itemsComanda.set([]);
+
     this.http.get<{ comandaId: number; items: any[] }>(`${this.apiUrl}/comandas/activa/${mesaId}`).subscribe({
       next: (res) => {
         if (res && res.comandaId > 0) {
@@ -75,16 +90,16 @@ export class ComandaService {
             notas: i.notas
           }));
 
-          // Se cargan directamente en los ítems visibles de la comanda
-          this.itemsComanda.set(itemsCargados);
+          // Se asignan a la señal de ítems guardados (referencia visual)
+          this.itemsGuardados.set(itemsCargados);
         } else {
           this.comandaIdActiva.set(0);
-          this.itemsComanda.set([]);
+          this.itemsGuardados.set([]);
         }
       },
       error: () => {
         this.comandaIdActiva.set(0);
-        this.itemsComanda.set([]);
+        this.itemsGuardados.set([]);
       }
     });
   }
@@ -112,6 +127,7 @@ export class ComandaService {
     );
   }
 
+  // Envía ÚNICAMENTE las adiciones recientes guardadas en itemsComanda()
   enviarComandaACocina(comandaId: number, mesaId: number, usuarioId?: number) {
     const payload = {
       comandaId: comandaId || this.comandaIdActiva(),
@@ -129,6 +145,7 @@ export class ComandaService {
   }
 
   limpiarComanda() {
+    this.itemsGuardados.set([]);
     this.itemsComanda.set([]);
     this.comandaIdActiva.set(0);
   }

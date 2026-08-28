@@ -7,9 +7,9 @@
     </div>
 
     <mat-chip-listbox [value]="cocinaService.filtroEstado()" (change)="cocinaService.filtroEstado.set($event.value)">
-      <mat-chip-option value="TODOS">Todas</mat-chip-option>
       <mat-chip-option value="PENDIENTE">Pendientes</mat-chip-option>
       <mat-chip-option value="PREPARANDO">En Preparación</mat-chip-option>
+      <mat-chip-option value="TODOS">Todas</mat-chip-option>
     </mat-chip-listbox>
   </header>
 
@@ -18,7 +18,6 @@
     @for (ticket of cocinaService.ticketsFiltrados(); track ticket.id) {
       <app-kds-card
         [ticket]="ticket"
-        (toggleItem)="cocinaService.toggleItemCompletado(ticket.id, $event)"
         (ticketListo)="cocinaService.marcarTicketListo(ticket.id)">
       </app-kds-card>
     } @empty {
