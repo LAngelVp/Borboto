@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { CajaService } from '../../../../core/services/caja-service'; // <-- Ruta corregida
+import { CajaService } from '../../../../core/services/caja-service';
 import { AjustesService, Cliente } from '../../../../core/services/ajustes.service';
 
 @Component({
@@ -27,13 +27,29 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
   templateUrl: './desglose-cuenta.html',
   styleUrl: './desglose-cuenta.scss'
 })
-export class DesgloseCuentaComponent implements OnInit { // <-- Agregado 'Component' al final
+export class DesgloseCuentaComponent implements OnInit {
   protected readonly cajaService = inject(CajaService);
   private readonly ajustesService = inject(AjustesService);
   private readonly snackBar = inject(MatSnackBar);
 
+  protected readonly Math = Math;
+
   codigoPromo = signal<string>('');
   clientes = signal<Cliente[]>([]);
+  busquedaCliente = signal<string>('');
+
+  // 🔹 Signal para controlar la cantidad de puntos personalizada que se desea canjear
+  puntosAUsarInput = signal<number | null>(null);
+
+  readonly clientesFiltrados = computed(() => {
+    const query = this.busquedaCliente().toLowerCase().trim();
+    if (!query) return this.clientes();
+
+    return this.clientes().filter(c =>
+      c.nombre.toLowerCase().includes(query) ||
+      (c.telefono && c.telefono.includes(query))
+    );
+  });
 
   ngOnInit() {
     this.cargarClientesAll();
@@ -41,9 +57,15 @@ export class DesgloseCuentaComponent implements OnInit { // <-- Agregado 'Compon
 
   cargarClientesAll() {
     this.ajustesService.getClientes().subscribe({
-      next: (data) => this.clientes.set(data),
+      next: (data) => this.clientes.set(data || []),
       error: () => console.error('Error al cargar clientes de cartera')
     });
+  }
+
+  alAbrirSelect(abierto: boolean) {
+    if (!abierto) {
+      this.busquedaCliente.set('');
+    }
   }
 
   onVincularCliente(clienteId: number) {
@@ -109,11 +131,38 @@ export class DesgloseCuentaComponent implements OnInit { // <-- Agregado 'Compon
     });
   }
 
+  // 🔹 Canje del Máximo de Puntos Permitidos
   canjearPuntos() {
     const pts = this.cajaService.clientePuntos();
     if (pts <= 0) return;
     this.cajaService.canjearPuntosLealtad(pts);
-    this.snackBar.open(`¡Se canjearon ${pts} puntos por $${pts}.00 pesos de descuento!`, 'Cerrar', { duration: 3000 });
+    this.puntosAUsarInput.set(null);
+  }
+
+  // 🔹 Canje Personalizado de Puntos
+  canjearPuntosPersonalizado() {
+    const cantidad = Number(this.puntosAUsarInput());
+    const ptsDisponibles = this.cajaService.clientePuntos();
+    const totalCuenta = this.cajaService.totalCuentaOriginal();
+
+    if (!cantidad || cantidad <= 0) {
+      this.snackBar.open('Ingresa una cantidad de puntos válida superior a 0.', 'Cerrar', { duration: 2500 });
+      return;
+    }
+
+    if (cantidad > ptsDisponibles) {
+      this.snackBar.open(`El cliente solo cuenta con ${ptsDisponibles} puntos disponibles.`, 'Cerrar', { duration: 3000 });
+      return;
+    }
+
+    if (cantidad > totalCuenta) {
+      this.snackBar.open(`No se pueden canjear más puntos ($${cantidad}.00) que el total de la cuenta ($${totalCuenta.toFixed(2)}).`, 'Cerrar', { duration: 3500 });
+      return;
+    }
+
+    this.cajaService.canjearPuntosLealtad(cantidad);
+    this.snackBar.open(`¡Se aplicaron ${cantidad} puntos (-$${cantidad}.00 MXN) a la cuenta!`, 'Cerrar', { duration: 3000 });
+    this.puntosAUsarInput.set(null);
   }
 
   quitarDescuento() {
@@ -123,6 +172,7 @@ export class DesgloseCuentaComponent implements OnInit { // <-- Agregado 'Compon
     this.cajaService.puntosCanjeados.set(0);
     this.cajaService.totalCuenta.set(this.cajaService.totalCuentaOriginal());
     this.cajaService.montoRecibido.set(this.cajaService.totalCuentaOriginal());
+    this.puntosAUsarInput.set(null);
     this.snackBar.open('Beneficio / Descuento removido.', 'Cerrar', { duration: 2500 });
   }
 
@@ -142,6 +192,7 @@ export class DesgloseCuentaComponent implements OnInit { // <-- Agregado 'Compon
           this.cajaService.descuentoAplicado.set(0);
           this.cajaService.totalCuenta.set(this.cajaService.totalCuentaOriginal());
           this.cajaService.montoRecibido.set(this.cajaService.totalCuentaOriginal());
+          this.puntosAUsarInput.set(null);
           this.snackBar.open('Se desvinculó al cliente de esta cuenta de consumo.', 'Cerrar', { duration: 3000 });
         }
       },

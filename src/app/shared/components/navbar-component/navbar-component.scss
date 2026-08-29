@@ -3,14 +3,15 @@
    ========================================================================== */
 
 .navbar-borboto.mat-toolbar {
-  background-color: var(--mat-sys-surface, #ffffff);
-  color: var(--mat-sys-on-surface, #1c1b1f);
+  background-color: var(--color-surface, var(--mat-sys-surface, #ffffff));
+  color: var(--color-text-main, var(--mat-sys-on-surface, #1c1b1f));
   height: 64px;
   padding: 0 24px;
-  border-bottom: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
+  border-bottom: 1px solid var(--color-border, var(--mat-sys-outline-variant, #e0e0e0));
   box-shadow: var(--mat-sys-level0, none);
   display: flex;
   align-items: center;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 
   .spacer {
     flex: 1 1 auto;
@@ -30,8 +31,8 @@
     width: 40px;
     height: 40px;
     border-radius: var(--mat-sys-corner-medium, 12px);
-    background-color: var(--mat-sys-primary-container, #ffe0b2);
-    color: var(--mat-sys-on-primary-container, #e65100);
+    background-color: rgba(230, 81, 0, 0.15);
+    color: var(--color-primary, #e65100);
 
     mat-icon {
       font-size: 24px;
@@ -44,14 +45,14 @@
     font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.5px;
-    color: var(--mat-sys-on-surface, #1c1b1f);
+    color: var(--color-text-main, var(--mat-sys-on-surface, #1c1b1f));
   }
 
   .brand-tag {
     font-size: 11px;
     font-weight: 700;
-    background-color: var(--mat-sys-surface-variant, #f4f6f8);
-    color: var(--mat-sys-on-surface-variant, #49454f);
+    background-color: var(--color-bg, var(--mat-sys-surface-variant, #f4f6f8));
+    color: var(--color-text-muted, var(--mat-sys-on-surface-variant, #49454f));
     padding: 2px 8px;
     border-radius: var(--mat-sys-corner-small, 6px);
     letter-spacing: 0.5px;
@@ -65,8 +66,8 @@
   gap: 8px;
   margin-left: 16px;
   padding: 4px 12px;
-  background-color: var(--mat-sys-surface-container-low, #f7f2fa);
-  border: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
+  background-color: var(--color-bg, #f7f2fa);
+  border: 1px solid var(--color-border, #e0e0e0);
   border-radius: var(--mat-sys-corner-full, 50px);
 
   .status-dot {
@@ -83,7 +84,7 @@
   .status-text {
     font-size: 12px;
     font-weight: 600;
-    color: var(--mat-sys-on-surface-variant, #49454f);
+    color: var(--color-text-muted, #49454f);
   }
 }
 
@@ -107,31 +108,48 @@
     }
 
     /* Estilo por defecto (Inactivo) */
-    color: var(--mat-sys-on-surface-variant, #49454f) !important;
+    color: var(--color-text-muted, #49454f) !important;
 
     /* Estado ACTIVO con tonalidades M3 (Naranja Primario) */
     &.active {
-      background-color: var(--mat-sys-primary-container, #fff3e0) !important;
-      color: var(--mat-sys-on-primary-container, #e65100) !important;
+      background-color: rgba(230, 81, 0, 0.15) !important;
+      color: var(--color-primary, #e65100) !important;
       font-weight: 700 !important;
 
       mat-icon {
-        color: var(--mat-sys-on-primary-container, #e65100) !important;
+        color: var(--color-primary, #e65100) !important;
       }
     }
   }
 }
 
-/* 4. PERFIL DE USUARIO */
+/* 4. 🔹 BOTÓN DEL SELECTOR DE TEMA (LUNA / SOL) */
+.theme-toggle-btn {
+  margin-right: 8px;
+  color: var(--color-text-main, #1c1b1f) !important;
+  border-radius: var(--mat-sys-corner-medium, 12px) !important;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+
+  mat-icon {
+    color: var(--color-primary, #e65100);
+  }
+
+  &:hover {
+    transform: rotate(15deg) scale(1.08);
+    background-color: var(--color-hover, rgba(0, 0, 0, 0.04)) !important;
+  }
+}
+
+/* 5. PERFIL DE USUARIO */
 .user-zone {
   .user-btn {
     border-radius: var(--mat-sys-corner-medium, 12px) !important;
     height: 44px !important;
-    color: var(--mat-sys-on-surface, #1c1b1f) !important;
+    color: var(--color-text-main, #1c1b1f) !important;
 
     .avatar-icon {
       margin-right: 6px;
-      color: var(--mat-sys-outline, #79747e);
+      color: var(--color-text-muted, #79747e);
     }
 
     .user-name {
@@ -140,7 +158,7 @@
 
     .dropdown-icon {
       margin-left: 4px;
-      color: var(--mat-sys-outline, #79747e);
+      color: var(--color-text-muted, #79747e);
     }
   }
 }

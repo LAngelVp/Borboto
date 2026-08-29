@@ -59,6 +59,15 @@
 
   <span class="spacer"></span>
 
+  <!-- 🔹 BOTÓN RÁPIDO CAMBIAR TEMA (LUNA / SOL) -->
+  <button
+    mat-icon-button
+    class="theme-toggle-btn"
+    (click)="themeService.toggleTema()"
+    [title]="themeService.esOscuro() ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'">
+    <mat-icon>{{ themeService.esOscuro() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+
   <!-- Zona de Usuario con Menú Nativo -->
   <div class="user-zone">
     <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn">
@@ -71,6 +80,12 @@
       <button mat-menu-item (click)="cambiarTurno()">
         <mat-icon>sync</mat-icon>
         <span>Cambiar Turno</span>
+      </button>
+
+      <!-- Opción explícita dentro del menú desplegable -->
+      <button mat-menu-item (click)="themeService.toggleTema()">
+        <mat-icon>{{ themeService.esOscuro() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        <span>Modo {{ themeService.esOscuro() ? 'Claro' : 'Oscuro' }}</span>
       </button>
 
       @if (authService.usuarioActivo()?.rol === 'ADMIN') {

@@ -1,5 +1,6 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 
 export interface Usuario {
@@ -13,10 +14,13 @@ export interface Usuario {
 })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
   private readonly apiUrl = 'http://127.0.0.1:3000/api';
+  private readonly LS_KEY = 'borboto_pos_usuario';
 
-  // Usuario activo por defecto (Juan Mesero con ID de prueba = 1)
-  readonly usuarioActivo = signal<Usuario | null>(null);
+  // 🔹 Inicializa leyendo directamente de localStorage para no perder la sesión con F5
+  readonly usuarioActivo = signal<Usuario | null>(this.obtenerUsuarioGuardado());
+  readonly estaAutenticado = computed(() => this.usuarioActivo() !== null);
 
   // Comprobar si hay algún usuario registrado en la base de datos
   getHasUsers(): Observable<boolean> {
@@ -38,23 +42,47 @@ export class AuthService {
   registrarPrimerAdmin(nombre: string, pin: string): Observable<Usuario> {
     return this.http.post<Usuario>(`${this.apiUrl}/auth/register-first-admin`, { nombre, pin }).pipe(
       tap(usuario => {
-        this.usuarioActivo.set(usuario);
+        this.guardarSesion(usuario);
       })
     );
-  }
-
-  // Cerrar sesión
-  cerrarSesion() {
-    this.usuarioActivo.set(null);
   }
 
   // Intentar cambiar turno / validar con PIN
   loginConPin(pin: string): Observable<Usuario> {
     return this.http.post<Usuario>(`${this.apiUrl}/auth/login`, { pin }).pipe(
       tap(usuario => {
-        this.usuarioActivo.set(usuario);
+        this.guardarSesion(usuario);
       })
     );
+  }
+
+  // 🔹 Guardar usuario en localStorage y actualizar Signal
+  private guardarSesion(usuario: Usuario) {
+    try {
+      localStorage.setItem(this.LS_KEY, JSON.stringify(usuario));
+    } catch (e) {
+      console.error('Error al guardar sesión en localStorage:', e);
+    }
+    this.usuarioActivo.set(usuario);
+  }
+
+  // 🔹 Leer usuario guardado en localStorage al cargar la app
+  private obtenerUsuarioGuardado(): Usuario | null {
+    try {
+      const data = localStorage.getItem(this.LS_KEY);
+      return data ? (JSON.parse(data) as Usuario) : null;
+    } catch (e) {
+      console.error('Error al recuperar sesión de localStorage:', e);
+      localStorage.removeItem(this.LS_KEY);
+      return null;
+    }
+  }
+
+  // 🔹 Cerrar sesión
+  cerrarSesion() {
+    localStorage.removeItem(this.LS_KEY);
+    this.usuarioActivo.set(null);
+    this.router.navigate(['/login']);
   }
 
   // Obtener listado de empleados registrados

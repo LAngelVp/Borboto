@@ -42,6 +42,12 @@ export class LoginComponent implements OnInit {
   regPin = '';
 
   ngOnInit() {
+    // 🔹 Si ya tiene sesión activa en localStorage, redirigir directo al sistema
+    if (this.authService.estaAutenticado()) {
+      this.router.navigate(['/mesas']);
+      return;
+    }
+
     this.verificarSistema();
   }
 

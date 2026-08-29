@@ -8,6 +8,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from '../../../core/services/auth.service';
+import { ThemeService } from '../../../core/services/theme.service'; // Adjust path
 import { CambiarTurnoDialogComponent } from '../cambiar-turno-dialog/cambiar-turno-dialog';
 
 @Component({
@@ -28,6 +29,7 @@ import { CambiarTurnoDialogComponent } from '../cambiar-turno-dialog/cambiar-tur
 })
 export class NavbarComponent {
   protected readonly authService = inject(AuthService);
+  protected readonly themeService = inject(ThemeService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
 

@@ -8,7 +8,7 @@
   </mat-card-header>
 
   <mat-card-content class="ticket-body">
-    <!-- Lista de Items Consumidos (Corregido: items en lugar de itemsComanda) -->
+    <!-- Lista de Items Consumidos -->
     <div class="items-list">
       @for (item of cajaService.items(); track item.producto.id) {
         <div class="item-row">
@@ -19,45 +19,77 @@
       }
     </div>
 
-    <!-- Sección de Cupones / Promociones de Descuento -->
+    <!-- Sección de Cupones / Promociones / Puntos -->
     @if (cajaService.mesaId() > 0) {
       <div class="promocion-section">
         @if (cajaService.clienteId()) {
           <!-- Panel de Cliente Frecuente / Lealtad -->
-          <div class="cliente-lealtad-box" style="margin-bottom: 12px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 12px; text-align: left; position: relative;">
-            <mat-icon style="position: absolute; right: 10px; top: 10px; color: #1e88e5; font-size: 20px;">stars</mat-icon>
+          <div class="cliente-lealtad-box">
+            <mat-icon class="stars-icon">stars</mat-icon>
 
-            <button mat-icon-button color="warn" style="position: absolute; right: 30px; top: -1px; width: 32px; height: 32px;" (click)="quitarCliente()" title="Quitar o cambiar cliente">
-              <mat-icon style="font-size: 18px;">person_remove</mat-icon>
+            <button mat-icon-button color="warn" class="btn-quitar-cliente" (click)="quitarCliente()" title="Quitar o cambiar cliente">
+              <mat-icon>person_remove</mat-icon>
             </button>
 
-            <h4 style="margin: 0 0 4px 0; color: #0d47a1; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 4px; padding-right: 48px;">
+            <h4 class="cliente-titulo">
               Cliente Frecuente
               @if (cajaService.clienteEsFrecuente()) {
-                <span style="background: #1e88e5; color: white; font-size: 10px; padding: 1px 6px; border-radius: 12px; font-weight: normal; margin-left: 4px;">VIP Frecuente</span>
+                <span class="badge-vip">VIP Frecuente</span>
               }
             </h4>
-            <p style="margin: 0 0 8px 0; color: #1565c0; font-size: 13px;"><strong>{{ cajaService.clienteNombre() }}</strong></p>
+            <p class="cliente-nombre"><strong>{{ cajaService.clienteNombre() }}</strong></p>
 
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #555; margin-bottom: 8px; border-bottom: 1px dashed #bbdefb; padding-bottom: 6px;">
+            <div class="cliente-stats">
               <span>Visitas: <strong>{{ cajaService.clienteVisitas() }}</strong></span>
-              <span>Puntos: <strong style="color: #2e7d32; font-size: 13px;">{{ cajaService.clientePuntos() }} pts</strong></span>
+              <span>Puntos: <strong class="pts-val">{{ cajaService.clientePuntos() }} pts</strong></span>
             </div>
 
-            @if (cajaService.clientePuntos() >= 10 && !cajaService.promocionIdAplicada() && !cajaService.puntosCanjeados()) {
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="font-size: 11px; color: #555;">Canjear pts ($1/pt):</span>
-                <button mat-flat-button color="accent" size="small" style="height: 30px; font-size: 11px; padding: 0 12px; border-radius: 6px; background-color: #f57c00 !important; color: white !important;" (click)="canjearPuntos()">
-                  Canjear {{ cajaService.clientePuntos() }} Puntos
+            <!-- Opciones de Canje de Puntos -->
+            @if (cajaService.clientePuntos() > 0 && !cajaService.promocionIdAplicada() && !cajaService.puntosCanjeados()) {
+              <div class="puntos-canje-container">
+                <!-- 1. Entrada manual de puntos y botón aplicar -->
+                <div class="puntos-input-row">
+                  <mat-form-field appearance="outline" class="puntos-field">
+                    <mat-label>Puntos a canjear</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      min="1"
+                      [max]="cajaService.clientePuntos()"
+                      [value]="puntosAUsarInput()"
+                      (input)="puntosAUsarInput.set($any($event.target).valueAsNumber)"
+                      placeholder="Ej. 20">
+                  </mat-form-field>
+
+                  <button
+                    mat-flat-button
+                    class="btn-aplicar-puntos"
+                    (click)="canjearPuntosPersonalizado()"
+                    [disabled]="!puntosAUsarInput() || puntosAUsarInput()! <= 0">
+                    <mat-icon>check_circle</mat-icon> Aplicar
+                  </button>
+                </div>
+
+                <!-- 2. Botón Rápido para Usar Todo / Máximo Permitido -->
+                <button
+                  mat-button
+                  class="btn-usar-todo-pts"
+                  (click)="canjearPuntos()">
+                  <mat-icon>bolt</mat-icon>
+                  @if (cajaService.clientePuntos() >= cajaService.totalCuentaOriginal()) {
+                    Usar Máximo Requerido ({{ Math.ceil(cajaService.totalCuentaOriginal()) }} pts)
+                  } @else {
+                    Usar Todos mis Puntos ({{ cajaService.clientePuntos() }} pts)
+                  }
                 </button>
               </div>
             }
 
             @if (cajaService.puntosCanjeados() > 0) {
-              <div style="display: flex; justify-content: space-between; align-items: center; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 6px 10px; border-radius: 6px; margin-top: 6px;">
-                <span style="color: #2e7d32; font-size: 11px; font-weight: bold;">Canjeados: -${{ cajaService.puntosCanjeados() | number:'1.2-2' }}</span>
-                <button mat-icon-button color="warn" style="width: 24px; height: 24px; line-height: 24px;" (click)="quitarDescuento()">
-                  <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin: 0;">cancel</mat-icon>
+              <div class="puntos-aplicados-badge">
+                <span>Puntos aplicados: {{ cajaService.puntosCanjeados() }} (-${{ cajaService.descuentoAplicado() | number:'1.2-2' }})</span>
+                <button mat-icon-button color="warn" class="btn-cancel-pts" (click)="quitarDescuento()">
+                  <mat-icon>cancel</mat-icon>
                 </button>
               </div>
             }
@@ -70,16 +102,37 @@
             <div class="vincular-actions">
               <mat-form-field appearance="outline" class="cliente-select-form">
                 <mat-label>Selecciona un cliente</mat-label>
-                <!-- Usando selectionChange nativo con mat-select -->
-                <mat-select (selectionChange)="onVincularCliente($event.value)">
-                  @for (c of clientes(); track c.id) {
-                    <mat-option [value]="c.id">{{ c.nombre }}</mat-option>
+                <mat-select (selectionChange)="onVincularCliente($event.value)" (openedChange)="alAbrirSelect($event)">
+                  <div class="search-select-box" (click)="$event.stopPropagation()">
+                    <mat-icon class="search-icon">search</mat-icon>
+                    <input
+                      matInput
+                      placeholder="Buscar cliente por nombre o tel..."
+                      [value]="busquedaCliente()"
+                      (input)="busquedaCliente.set($any($event.target).value)"
+                      (keydown)="$event.stopPropagation()"
+                      class="search-select-input">
+                    @if (busquedaCliente()) {
+                      <button mat-icon-button class="btn-clear-search" (click)="busquedaCliente.set('')">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
+                  </div>
+
+                  @for (c of clientesFiltrados(); track c.id) {
+                    <mat-option [value]="c.id">
+                      {{ c.nombre }} @if(c.telefono) { ({{ c.telefono }}) }
+                    </mat-option>
+                  } @empty {
+                    <mat-option disabled class="no-results-option">
+                      Sin coincidencias
+                    </mat-option>
                   }
                 </mat-select>
               </mat-form-field>
 
-              <button mat-icon-button color="accent" (click)="registrarRapido()" title="Registrar Cliente Nuevo">
-                <mat-icon style="color: #1e88e5;">add_circle</mat-icon>
+              <button mat-icon-button color="primary" class="btn-add-cliente" (click)="registrarRapido()" title="Registrar Cliente Nuevo">
+                <mat-icon>add_circle</mat-icon>
               </button>
             </div>
           </div>
@@ -99,18 +152,28 @@
           <div class="cupon-input-box">
             <mat-form-field appearance="outline" class="cupon-field">
               <mat-label>Código de Cupón</mat-label>
-              <!-- Usando un standard input con (input) para Angular Standalone compatible binding con signal -->
-              <input matInput [value]="codigoPromo()" (input)="codigoPromo.set($any($event.target).value)" placeholder="Ej. APERTURA10" style="text-transform: uppercase;">
+              <input
+                matInput
+                [value]="codigoPromo()"
+                (input)="codigoPromo.set($any($event.target).value)"
+                placeholder="Ej. APERTURA10"
+                style="text-transform: uppercase;">
+
+              <button
+                mat-flat-button
+                matSuffix
+                class="btn-aplicar-cupon-suffix"
+                (click)="aplicarCodigo()"
+                [disabled]="!codigoPromo()">
+                <mat-icon>confirmation_number</mat-icon> Aplicar
+              </button>
             </mat-form-field>
-            <button mat-flat-button color="primary" class="btn-aplicar-cupon" (click)="aplicarCodigo()" [disabled]="!codigoPromo()">
-              Aplicar
-            </button>
           </div>
         }
       </div>
     }
 
-    <!-- Divisor de Cuenta (Split Bill) -->
+    <!-- Divisor de Cuenta -->
     <div class="split-section">
       <span class="split-label">Dividir entre:</span>
       <div class="split-controls">

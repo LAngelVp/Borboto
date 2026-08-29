@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -19,6 +19,7 @@ import { MoverMesaDialogComponent } from './components/mover-mesa-dialog/mover-m
 import { DesgloseMesaDialogComponent } from './components/desglose-mesa-dialog/desglose-mesa-dialog';
 import { CrearEnvioDialogComponent } from './components/crear-envio-dialog/crear-envio-dialog';
 import { Mesa } from '../../core/models/mesa';
+import { CrearMostradorDialogComponent } from './components/crear-mostrador-dialog/crear-mostrador-dialog';
 
 @Component({
   selector: 'app-mesas',
@@ -45,6 +46,9 @@ export class MesasComponent implements OnInit, OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
+  // Controla la pestaña activa del panel derecho ('MOSTRADOR' o 'DOMICILIO')
+  readonly vistaEspecial = signal<'MOSTRADOR' | 'DOMICILIO'>('MOSTRADOR');
+
   private socketSub!: Subscription;
 
   ngOnInit() {
@@ -61,6 +65,47 @@ export class MesasComponent implements OnInit, OnDestroy {
     }
   }
 
+  // 🔹 REGISTRAR MOSTRADOR / PARA LLEVAR
+  registrarPedidoMostrador() {
+    const dialogRef = this.dialog.open(CrearMostradorDialogComponent, {
+      width: '460px',
+      disableClose: false
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result && result.confirmado) {
+        const usuarioId = this.authService.usuarioActivo()?.id || 1;
+        const clienteId = result.clienteId;
+
+        this.mesaService.crearPedidoMostrador(usuarioId, clienteId).subscribe({
+          next: (res) => {
+            const mesaVirtual: Mesa = {
+              id: res.mesaId,
+              numero: res.numero,
+              zona: 'Mostrador',
+              capacidad: 1,
+              estado: 'PENDIENTE',
+              comensales: 1,
+              minutosAbierta: 1,
+              total: 0,
+              clienteNombre: result.nombre || 'Cliente Mostrador'
+            };
+
+            this.mesaService.seleccionarMesaActiva(mesaVirtual);
+            this.snackBar.open(`¡${res.numero} registrado con éxito!`, 'Cerrar', { duration: 3000 });
+
+            this.router.navigate(['/comanda'], {
+              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId }
+            });
+            this.mesaService.cargarMesas();
+          },
+          error: () => this.snackBar.open('Error al crear la orden de mostrador', 'Cerrar', { duration: 3000 })
+        });
+      }
+    });
+  }
+
+  // REGISTRAR ENVÍO A DOMICILIO
   registrarEnvioDomicilio() {
     const dialogRef = this.dialog.open(CrearEnvioDialogComponent, {
       width: '480px',
@@ -118,7 +163,7 @@ export class MesasComponent implements OnInit, OnDestroy {
         break;
 
       case 'IMPRIMIR_PRECUENTA':
-        this.snackBar.open(`Imprimiendo precuenta de Mesa ${mesa.numero}...`, 'Cerrar', { duration: 3000 });
+        this.snackBar.open(`Imprimiendo precuenta de ${mesa.numero}...`, 'Cerrar', { duration: 3000 });
         break;
 
       case 'MOVER_MESA':
@@ -132,13 +177,18 @@ export class MesasComponent implements OnInit, OnDestroy {
     }
   }
 
-  private moverMesaModal(mesaOrigen: Mesa) {
+  // 🔹 REUTILIZABLE: Funciona para Mesas Físicas, Pedidos de Mostrador y Envíos a Domicilio
+  moverMesaModal(mesaOrigen: Mesa) {
+    // Filtramos solo las mesas físicas que están DISPONIBLES
     const mesasLibres = this.mesaService.mesas().filter(m =>
-      m.estado === 'DISPONIBLE' && m.id !== mesaOrigen.id
+      m.estado === 'DISPONIBLE' &&
+      m.zona !== 'Domicilio' &&
+      m.zona !== 'Mostrador' &&
+      m.id !== mesaOrigen.id
     );
 
     if (mesasLibres.length === 0) {
-      this.snackBar.open('No hay mesas disponibles para realizar el cambio.', 'Cerrar', { duration: 3000 });
+      this.snackBar.open('No hay mesas de salón disponibles para realizar la transferencia.', 'Cerrar', { duration: 3000 });
       return;
     }
 
@@ -151,10 +201,10 @@ export class MesasComponent implements OnInit, OnDestroy {
       if (res?.confirmado && res.destinoId) {
         this.mesaService.moverMesa(mesaOrigen.id, res.destinoId).subscribe({
           next: () => {
-            this.snackBar.open(`Mesa ${mesaOrigen.numero} movida exitosamente.`, 'Cerrar', { duration: 3000 });
+            this.snackBar.open(`¡El pedido de ${mesaOrigen.numero} se transfirió exitosamente a la mesa seleccionada!`, 'Cerrar', { duration: 3000 });
             this.mesaService.cargarMesas();
           },
-          error: () => this.snackBar.open('Error al transferir la mesa en base de datos', 'Cerrar', { duration: 3000 })
+          error: () => this.snackBar.open('Error al transferir el pedido en la base de datos', 'Cerrar', { duration: 3000 })
         });
       }
     });

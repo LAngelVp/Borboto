@@ -23,13 +23,18 @@ export class MesaService {
   readonly filtroEnvioEstado = signal<string>('ACTIVOS');
   readonly filtroEnvioFecha = signal<string>('TODOS');
 
-  // Pedidos a domicilio activos y filtrados
+  // Signals para Filtros de Pedidos de Mostrador / Para Llevar
+  readonly filtroMostradorEstado = signal<string>('ACTIVOS');
+  readonly filtroMostradorFecha = signal<string>('TODOS');
+
+  // 🔹 Pedidos a domicilio activos y filtrados
   readonly enviosDomicilio = computed(() => {
     const estado = this.filtroEnvioEstado();
     const fechaFiltro = this.filtroEnvioFecha();
 
     return this.mesas().filter(mesa => {
-      if (mesa.zona !== 'Domicilio') return false;
+      const zonaUpper = (mesa.zona || '').toUpperCase().trim();
+      if (zonaUpper !== 'DOMICILIO') return false;
 
       // 1. Filtro por estado
       let cumpleEstado = true;
@@ -41,8 +46,8 @@ export class MesaService {
 
       // 2. Filtro por fecha
       let cumpleFecha = true;
-      if (fechaFiltro !== 'TODOS') {
-        const fechaMesa = mesa.creadoEn ? new Date(mesa.creadoEn) : new Date();
+      if (fechaFiltro !== 'TODOS' && mesa.creadoEn) {
+        const fechaMesa = new Date(mesa.creadoEn);
         const hoy = new Date();
 
         if (fechaFiltro === 'HOY') {
@@ -65,15 +70,62 @@ export class MesaService {
     });
   });
 
-  // Cómputo dinámico de mesas filtradas por Zona y Estado (excluyendo domicilio)
+  // 🔹 Pedidos de Mostrador activos y filtrados (Insensible a Mayúsculas / Minúsculas)
+  readonly pedidosMostrador = computed(() => {
+    const estado = this.filtroMostradorEstado();
+    const fechaFiltro = this.filtroMostradorFecha();
+
+    return this.mesas().filter(mesa => {
+      const zonaUpper = (mesa.zona || '').toUpperCase().trim();
+      // Acepta tanto 'MOSTRADOR' como 'FRENTE'
+      if (zonaUpper !== 'MOSTRADOR' && zonaUpper !== 'FRENTE') return false;
+
+      // 1. Filtro por estado
+      let cumpleEstado = true;
+      if (estado === 'ACTIVOS') {
+        cumpleEstado = mesa.estado !== 'DISPONIBLE';
+      } else if (estado !== 'TODOS') {
+        cumpleEstado = mesa.estado === estado;
+      }
+
+      // 2. Filtro por fecha
+      let cumpleFecha = true;
+      if (fechaFiltro !== 'TODOS' && mesa.creadoEn) {
+        const fechaMesa = new Date(mesa.creadoEn);
+        const hoy = new Date();
+
+        if (fechaFiltro === 'HOY') {
+          cumpleFecha = fechaMesa.getDate() === hoy.getDate() &&
+                        fechaMesa.getMonth() === hoy.getMonth() &&
+                        fechaMesa.getFullYear() === hoy.getFullYear();
+        } else if (fechaFiltro === 'AYER') {
+          const ayer = new Date();
+          ayer.setDate(hoy.getDate() - 1);
+          cumpleFecha = fechaMesa.getDate() === ayer.getDate() &&
+                        fechaMesa.getMonth() === ayer.getMonth() &&
+                        fechaMesa.getFullYear() === ayer.getFullYear();
+        } else if (fechaFiltro === 'ESTE_MES') {
+          cumpleFecha = fechaMesa.getMonth() === hoy.getMonth() &&
+                        fechaMesa.getFullYear() === hoy.getFullYear();
+        }
+      }
+
+      return cumpleEstado && cumpleFecha;
+    });
+  });
+
+  // 🔹 Cómputo dinámico de mesas filtradas por Zona y Estado (excluyendo Domicilio y Mostrador)
   readonly mesasFiltradas = computed(() => {
     const estado = this.filtroEstado();
     const zona = this.filtroZona();
 
     return this.mesas().filter(mesa => {
-      if (mesa.zona === 'Domicilio') return false; // Excluir de las mesas físicas
+      const zonaUpper = (mesa.zona || '').toUpperCase().trim();
+      // Excluir mesas virtuales del salón
+      if (zonaUpper === 'DOMICILIO' || zonaUpper === 'MOSTRADOR' || zonaUpper === 'FRENTE') return false;
+
       const cumpleEstado = estado === 'TODOS' || mesa.estado === estado;
-      const cumpleZona = zona === 'TODAS' || mesa.zona?.toUpperCase() === zona.toUpperCase();
+      const cumpleZona = zona === 'TODAS' || zonaUpper === zona.toUpperCase().trim();
       return cumpleEstado && cumpleZona;
     });
   });
@@ -100,6 +152,14 @@ export class MesaService {
     this.filtroEnvioFecha.set(fecha);
   }
 
+  setFiltroMostradorEstado(estado: string) {
+    this.filtroMostradorEstado.set(estado);
+  }
+
+  setFiltroMostradorFecha(fecha: string) {
+    this.filtroMostradorFecha.set(fecha);
+  }
+
   // Cargar mesas desde PostgreSQL
   cargarMesas() {
     this.http.get<Mesa[]>(`${this.apiUrl}/mesas`).subscribe({
@@ -116,7 +176,6 @@ export class MesaService {
     });
   }
 
-  // Abrir mesa en la base de datos
   abrirMesa(mesaId: number, comensales: number, usuarioId?: number) {
     return this.http.post<{ ok: boolean; comandaId: number }>(`${this.apiUrl}/mesas/${mesaId}/abrir`, {
       comensales,
@@ -124,7 +183,6 @@ export class MesaService {
     });
   }
 
-  // Liberar mesa
   liberarMesa(mesaId: number) {
     this.mesas.update(lista =>
       lista.map(mesa => {
@@ -154,6 +212,13 @@ export class MesaService {
   crearEnvio(usuarioId?: number, clienteId?: number) {
     return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
       `${this.apiUrl}/envios/crear`,
+      { usuarioId, clienteId }
+    );
+  }
+
+  crearPedidoMostrador(usuarioId?: number, clienteId?: number) {
+    return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
+      `${this.apiUrl}/mostrador/crear`,
       { usuarioId, clienteId }
     );
   }

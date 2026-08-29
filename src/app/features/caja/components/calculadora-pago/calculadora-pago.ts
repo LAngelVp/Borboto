@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { CajaService } from '../../../../core/services/caja-service'; // <-- Ruta corregida
+import { CajaService } from '../../../../core/services/caja-service';
 import { MetodoPago } from '../../../../core/models/pago';
 import { DatosTransferenciaDialogComponent } from '../datos-transferencia-dialog/datos-transferencia-dialog';
 
@@ -14,19 +14,27 @@ import { DatosTransferenciaDialogComponent } from '../datos-transferencia-dialog
   templateUrl: './calculadora-pago.html',
   styleUrl: './calculadora-pago.scss'
 })
-export class CalculadoraPagoComponent { // <-- Agregado 'Component' al final
+export class CalculadoraPagoComponent {
   protected readonly cajaService = inject(CajaService);
   private readonly dialog = inject(MatDialog);
 
   readonly billetesRapidos = [50, 100, 200, 500];
 
   seleccionarMetodo(metodo: MetodoPago) {
+    // Evitar hacer nada si hace clic en el método que ya estaba activo
+    if (this.cajaService.metodoPago() === metodo && metodo === 'EFECTIVO') {
+      return;
+    }
+
     this.cajaService.setMetodoPago(metodo);
+
+    const totalAPagar = this.cajaService.numeroPartes() > 1
+      ? this.cajaService.totalPorPersona()
+      : this.cajaService.totalCuenta();
+
     if (metodo !== 'EFECTIVO') {
-      const aPagar = this.cajaService.numeroPartes() > 1
-        ? this.cajaService.totalPorPersona()
-        : this.cajaService.totalCuenta();
-      this.cajaService.setMontoRecibido(aPagar);
+      // Tarjeta o Transferencia cubren el pago exacto
+      this.cajaService.setMontoRecibido(totalAPagar);
 
       if (metodo === 'TRANSFERENCIA') {
         this.dialog.open(DatosTransferenciaDialogComponent, {
@@ -34,7 +42,12 @@ export class CalculadoraPagoComponent { // <-- Agregado 'Component' al final
         });
       }
     } else {
-      this.cajaService.setMontoRecibido(0);
+      // 🔹 CORRECCIÓN: Si al regresar a EFECTIVO el monto es 0 o venía de tarjeta/transferencia,
+      // asignamos el total exacto por defecto para facilitar el cobro rápido.
+      // Si prefieres que al cambiar a efectivo quede en 0 solo si estaba vacío, se mantiene la memoria.
+      if (this.cajaService.montoRecibido() === 0) {
+        this.cajaService.setMontoRecibido(totalAPagar);
+      }
     }
   }
 

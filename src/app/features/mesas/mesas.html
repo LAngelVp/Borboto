@@ -1,12 +1,19 @@
 <div class="mesas-page">
   <div class="top-row">
-
     <!-- Filtros de Estado -->
     <app-mesa-filtros class="filtros-flex"></app-mesa-filtros>
 
-    <button mat-flat-button color="accent" class="btn-envio" (click)="registrarEnvioDomicilio()">
-      <mat-icon>local_shipping</mat-icon> REGISTRAR ENVÍO
-    </button>
+    <div class="top-actions-gap">
+      <!-- Botón de Venta Mostrador -->
+      <button mat-flat-button color="primary" class="btn-mostrador" (click)="registrarPedidoMostrador()">
+        <mat-icon>storefront</mat-icon> REGISTRAR MOSTRADOR
+      </button>
+
+      <!-- Botón de Envío a Domicilio -->
+      <button mat-flat-button color="accent" class="btn-envio" (click)="registrarEnvioDomicilio()">
+        <mat-icon>local_shipping</mat-icon> REGISTRAR ENVÍO
+      </button>
+    </div>
   </div>
 
   <div class="mesas-layout">
@@ -32,85 +39,193 @@
       </div>
     </div>
 
-    <!-- Columna Derecha: Pedidos a Domicilio -->
+    <!-- Columna Derecha: Pedidos Externos (Mostrador / Domicilio) -->
     <div class="envios-sec">
-      <h2 class="sec-title color-primary"><mat-icon>local_shipping</mat-icon> Pedidos a Domicilio</h2>
+      <!-- Selector de Vista: Mostrador o Domicilio -->
+      <div class="seccion-tabs">
+        <button
+          mat-button
+          [class.tab-active]="vistaEspecial() === 'MOSTRADOR'"
+          (click)="vistaEspecial.set('MOSTRADOR')">
+          <mat-icon>storefront</mat-icon> Mostrador ({{ mesaService.pedidosMostrador().length }})
+        </button>
+        <button
+          mat-button
+          [class.tab-active]="vistaEspecial() === 'DOMICILIO'"
+          (click)="vistaEspecial.set('DOMICILIO')">
+          <mat-icon>local_shipping</mat-icon> Domicilio ({{ mesaService.enviosDomicilio().length }})
+        </button>
+      </div>
 
-      <!-- Filtro de Envíos en mesas.html -->
-      <mat-form-field appearance="outline" class="filtro-select-form">
-        <mat-label>Estado</mat-label>
-        <mat-select [value]="mesaService.filtroEnvioEstado()" (selectionChange)="mesaService.setFiltroEnvioEstado($event.value)">
-          <mat-option value="ACTIVOS">Activos (Sin Cobrar)</mat-option>
-          <mat-option value="TODOS">Todos</mat-option>
-          <mat-option value="PENDIENTE">Pendientes</mat-option>
-          <mat-option value="EN COCINA">Cocinando</mat-option>
-          <mat-option value="LISTO PARA SERVIR">Listos</mat-option>
-          <mat-option value="SERVIDO">Entregados (Servidos)</mat-option> <!-- Debe decir SERVIDO -->
-          <mat-option value="DISPONIBLE">Cobrados / Finalizados</mat-option>
-        </mat-select>
-      </mat-form-field>
+      <!-- ==========================================
+           VISTA: PEDIDOS DE MOSTRADOR / PARA LLEVAR
+           ========================================== -->
+      @if (vistaEspecial() === 'MOSTRADOR') {
+        <div class="filtro-header-row">
+          <mat-form-field appearance="outline" class="filtro-select-form">
+            <mat-label>Estado Mostrador</mat-label>
+            <mat-select [value]="mesaService.filtroMostradorEstado()" (selectionChange)="mesaService.setFiltroMostradorEstado($event.value)">
+              <mat-option value="ACTIVOS">Activos (Sin Cobrar)</mat-option>
+              <mat-option value="TODOS">Todos</mat-option>
+              <mat-option value="PENDIENTE">Pendientes</mat-option>
+              <mat-option value="EN COCINA">Cocinando</mat-option>
+              <mat-option value="LISTO PARA SERVIR">Listos</mat-option>
+              <mat-option value="SERVIDO">Entregados</mat-option>
+              <mat-option value="DISPONIBLE">Cobrados / Finalizados</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-      <div class="envios-list">
-        @for (envio of mesaService.enviosDomicilio(); track envio.id) {
-          <div class="envio-card" [class.abierto]="envio.estado !== 'DISPONIBLE'">
-            <div class="envio-header">
-              <span class="envio-num">{{ envio.numero }}</span>
-              <span class="envio-estado-badge" [attr.data-estado]="envio.estado">{{ envio.estado }}</span>
-            </div>
-
-            <div class="envio-body">
-              <div class="info-row">
-                <mat-icon>person</mat-icon>
-                <div class="info-text">
-                  <span class="label">Cliente</span>
-                  <span class="value">{{ envio.clienteNombre || 'S/N (Pendiente de comanda)' }}</span>
-                </div>
+        <div class="envios-list">
+          @for (item of mesaService.pedidosMostrador(); track item.id) {
+            <div class="envio-card mostrador-card" [class.abierto]="item.estado !== 'DISPONIBLE'">
+              <div class="envio-header">
+                <!-- Formato sin la palabra "Mesa": Muestra "Mostrador #1" -->
+                <span class="envio-num"><mat-icon>storefront</mat-icon> Mostrador #{{ item.numero }}</span>
+                <span class="envio-estado-badge" [attr.data-estado]="item.estado">{{ item.estado }}</span>
               </div>
 
-              @if (envio.clienteDireccion) {
+              <div class="envio-body">
                 <div class="info-row">
-                  <mat-icon>location_on</mat-icon>
+                  <mat-icon>person</mat-icon>
                   <div class="info-text">
-                    <span class="label">Dirección</span>
-                    <span class="value">{{ envio.clienteDireccion }}</span>
+                    <span class="label">Cliente</span>
+                    <span class="value">{{ item.clienteNombre || 'Cliente Mostrador' }}</span>
                   </div>
                 </div>
-              }
 
-              <div class="info-row">
-                <mat-icon>badge</mat-icon>
-                <div class="info-text">
-                  <span class="label">Atendido por</span>
-                  <span class="value highlight-waiter">{{ envio.mesero || 'Sin asignar' }}</span>
+                <div class="info-row">
+                  <mat-icon>badge</mat-icon>
+                  <div class="info-text">
+                    <span class="label">Atendido por</span>
+                    <span class="value highlight-waiter">{{ item.mesero || 'Caja / Atención' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="envio-footer">
+                <div class="monto-cobro">
+                  <span class="label">Total</span>
+                  <span class="monto precio">${{ item.total | number:'1.2-2' }}</span>
+                </div>
+
+                <div class="envio-actions">
+                  <!-- Botón Transferir Orden de Mostrador a Mesa de Salón -->
+                  <button mat-icon-button color="primary" (click)="moverMesaModal(item)" title="Transferir Pedido a Mesa de Salón">
+                    <mat-icon>sync_alt</mat-icon>
+                  </button>
+
+                  <!-- Editar Comanda -->
+                  <button mat-icon-button color="primary" (click)="onAccionMesa({ tipo: 'AGREGAR_COMANDA', mesa: item })" title="Ver / Editar Comanda">
+                    <mat-icon>restaurant_menu</mat-icon>
+                  </button>
+
+                  <!-- Cobrar -->
+                  @if (item.total > 0) {
+                    <button mat-flat-button color="accent" class="btn-cobrar-envio" (click)="onAccionMesa({ tipo: 'COBRAR', mesa: item })">
+                      <mat-icon>payments</mat-icon> COBRAR
+                    </button>
+                  }
                 </div>
               </div>
             </div>
+          } @empty {
+            <div class="empty-envios">
+              <mat-icon>storefront</mat-icon>
+              <p>No hay pedidos de mostrador activos.</p>
+            </div>
+          }
+        </div>
+      }
 
-            <div class="envio-footer">
-              <div class="monto-cobro">
-                <span class="label">A Cobrar</span>
-                <span class="monto precio">${{ envio.total | number:'1.2-2' }}</span>
+      <!-- ==========================================
+           VISTA: PEDIDOS A DOMICILIO
+           ========================================== -->
+      @if (vistaEspecial() === 'DOMICILIO') {
+        <div class="filtro-header-row">
+          <mat-form-field appearance="outline" class="filtro-select-form">
+            <mat-label>Estado Domicilio</mat-label>
+            <mat-select [value]="mesaService.filtroEnvioEstado()" (selectionChange)="mesaService.setFiltroEnvioEstado($event.value)">
+              <mat-option value="ACTIVOS">Activos (Sin Cobrar)</mat-option>
+              <mat-option value="TODOS">Todos</mat-option>
+              <mat-option value="PENDIENTE">Pendientes</mat-option>
+              <mat-option value="EN COCINA">Cocinando</mat-option>
+              <mat-option value="LISTO PARA SERVIR">Listos</mat-option>
+              <mat-option value="SERVIDO">Entregados</mat-option>
+              <mat-option value="DISPONIBLE">Cobrados / Finalizados</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="envios-list">
+          @for (envio of mesaService.enviosDomicilio(); track envio.id) {
+            <div class="envio-card" [class.abierto]="envio.estado !== 'DISPONIBLE'">
+              <div class="envio-header">
+                <!-- Formato sin la palabra "Mesa": Muestra "Envío #1" -->
+                <span class="envio-num"><mat-icon>local_shipping</mat-icon> Envío #{{ envio.numero }}</span>
+                <span class="envio-estado-badge" [attr.data-estado]="envio.estado">{{ envio.estado }}</span>
               </div>
 
-              <div class="envio-actions">
-                <button mat-icon-button color="primary" (click)="onAccionMesa({ tipo: 'AGREGAR_COMANDA', mesa: envio })" title="Ver / Editar Comanda">
-                  <mat-icon>restaurant_menu</mat-icon>
-                </button>
-                @if (envio.total > 0) {
-                  <button mat-flat-button color="accent" class="btn-cobrar-envio" (click)="onAccionMesa({ tipo: 'COBRAR', mesa: envio })">
-                    <mat-icon>payments</mat-icon> COBRAR
-                  </button>
+              <div class="envio-body">
+                <div class="info-row">
+                  <mat-icon>person</mat-icon>
+                  <div class="info-text">
+                    <span class="label">Cliente</span>
+                    <span class="value">{{ envio.clienteNombre || 'S/N (Pendiente de comanda)' }}</span>
+                  </div>
+                </div>
+
+                @if (envio.clienteDireccion) {
+                  <div class="info-row">
+                    <mat-icon>location_on</mat-icon>
+                    <div class="info-text">
+                      <span class="label">Dirección</span>
+                      <span class="value">{{ envio.clienteDireccion }}</span>
+                    </div>
+                  </div>
                 }
+
+                <div class="info-row">
+                  <mat-icon>badge</mat-icon>
+                  <div class="info-text">
+                    <span class="label">Atendido por</span>
+                    <span class="value highlight-waiter">{{ envio.mesero || 'Sin asignar' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="envio-footer">
+                <div class="monto-cobro">
+                  <span class="label">A Cobrar</span>
+                  <span class="monto precio">${{ envio.total | number:'1.2-2' }}</span>
+                </div>
+
+                <div class="envio-actions">
+                  <!-- Botón Transferir Envío a Domicilio a Mesa de Salón -->
+                  <button mat-icon-button color="primary" (click)="moverMesaModal(envio)" title="Transferir Envío a Mesa de Salón">
+                    <mat-icon>sync_alt</mat-icon>
+                  </button>
+
+                  <button mat-icon-button color="primary" (click)="onAccionMesa({ tipo: 'AGREGAR_COMANDA', mesa: envio })" title="Ver / Editar Comanda">
+                    <mat-icon>restaurant_menu</mat-icon>
+                  </button>
+
+                  @if (envio.total > 0) {
+                    <button mat-flat-button color="accent" class="btn-cobrar-envio" (click)="onAccionMesa({ tipo: 'COBRAR', mesa: envio })">
+                      <mat-icon>payments</mat-icon> COBRAR
+                    </button>
+                  }
+                </div>
               </div>
             </div>
-          </div>
-        } @empty {
-          <div class="empty-envios">
-            <mat-icon>done_all</mat-icon>
-            <p>No hay envíos activos pendientes en este momento.</p>
-          </div>
-        }
-      </div>
+          } @empty {
+            <div class="empty-envios">
+              <mat-icon>done_all</mat-icon>
+              <p>No hay envíos activos pendientes en este momento.</p>
+            </div>
+          }
+        </div>
+      }
     </div>
   </div>
 </div>

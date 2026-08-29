@@ -42,7 +42,6 @@
 
   <!-- Acciones Contextuales -->
   <mat-card-actions align="end" (click)="$event.stopPropagation()">
-    <!-- Evaluación corregida para tipos estrictos -->
     @if (mesa().estado === 'DISPONIBLE') {
       <button mat-flat-button color="primary" class="btn-action" (click)="emitirAccion('ABRIR')">
         <mat-icon>add</mat-icon> Abrir Mesa

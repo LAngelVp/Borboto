@@ -1,79 +1,285 @@
 .ticket-card {
-  background-color: #ffffff;
   border-radius: 12px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  overflow: hidden;
 
   .ticket-header {
+    background: #1e293b;
+    color: #ffffff;
+    padding: 16px;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 16px;
-    border-bottom: 2px dashed #e0e0e0;
 
     mat-icon {
       font-size: 28px;
       width: 28px;
       height: 28px;
-      color: var(--color-primary, #e65100);
+      color: #38bdf8;
     }
 
     mat-card-title {
-      font-weight: 800;
-      font-size: 18px;
-      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    mat-card-subtitle {
+      font-size: 12px;
+      color: #94a3b8;
     }
   }
 
   .ticket-body {
     padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 }
 
+/* Lista de Consumos */
 .items-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
 
   .item-row {
     display: flex;
     align-items: center;
-    font-size: 14px;
+    font-size: 13px;
 
     .cant {
-      font-weight: 800;
-      color: var(--color-primary, #e65100);
+      font-weight: 700;
+      color: #0288d1;
       width: 32px;
     }
 
     .nombre {
       flex: 1;
-      color: #263238;
-      font-weight: 500;
+      color: #334155;
     }
 
     .precio {
-      font-weight: 700;
+      font-weight: 600;
+      color: #0f172a;
     }
   }
 }
 
+/* Sección de Cliente Frecuente y Canje de Puntos */
 .promocion-section {
-  padding: 12px 0;
-  border-top: 1px solid #f0f0f0;
-
-  .cliente-vincular-box {
-    background-color: #f5f5f5;
-    border: 1px dashed #cccccc;
-    border-radius: 8px;
-    padding: 10px 12px;
+  .cliente-lealtad-box {
     margin-bottom: 12px;
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: left;
+    position: relative;
+
+    .stars-icon {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      color: #1e88e5;
+      font-size: 20px;
+    }
+
+    .btn-quitar-cliente {
+      position: absolute;
+      right: 30px;
+      top: -1px;
+      width: 32px;
+      height: 32px;
+
+      mat-icon {
+        font-size: 18px;
+      }
+    }
+
+    .cliente-titulo {
+      margin: 0 0 4px 0;
+      color: #0d47a1;
+      font-size: 14px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-right: 48px;
+
+      .badge-vip {
+        background: #1e88e5;
+        color: white;
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 12px;
+        font-weight: normal;
+        margin-left: 4px;
+      }
+    }
+
+    .cliente-nombre {
+      margin: 0 0 8px 0;
+      color: #1565c0;
+      font-size: 13px;
+    }
+
+    .cliente-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 8px;
+      border-bottom: 1px dashed #bbdefb;
+      padding-bottom: 6px;
+
+      .pts-val {
+        color: #2e7d32;
+        font-size: 13px;
+      }
+    }
+
+    /* Contenedor de Canje de Puntos */
+    .puntos-canje-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+
+      .puntos-input-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+
+        .puntos-field {
+          flex: 1;
+          margin-bottom: -1.25em;
+
+          ::ng-deep .mat-mdc-text-field-wrapper {
+            background-color: #ffffff;
+            border-radius: 8px;
+          }
+
+          input {
+            font-weight: 700;
+            color: #0d47a1;
+          }
+        }
+
+        /* Botón APLICAR PUNTOS */
+        .btn-aplicar-puntos {
+          height: 48px;
+          padding: 0 16px;
+          border-radius: 8px;
+          background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%) !important;
+          color: #ffffff !important;
+          font-weight: 800;
+          font-size: 12px;
+          letter-spacing: 0.5px;
+          box-shadow: 0 3px 6px rgba(46, 125, 50, 0.25);
+          transition: all 0.2s ease-in-out;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+
+          &:hover:not([disabled]) {
+            background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%) !important;
+            box-shadow: 0 4px 10px rgba(46, 125, 50, 0.35);
+            transform: translateY(-1px);
+          }
+
+          &:active:not([disabled]) {
+            transform: translateY(0);
+          }
+
+          &[disabled] {
+            background: #e0e0e0 !important;
+            color: #9e9e9e !important;
+            box-shadow: none;
+          }
+        }
+      }
+
+      /* Botón Usar Todo / Máximo */
+      .btn-usar-todo-pts {
+        height: 32px;
+        line-height: 32px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #e65100 !important;
+        background-color: #fff3e0 !important;
+        border: 1px solid #ffe0b2;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: #f57c00;
+        }
+
+        &:hover {
+          background-color: #ffe0b2 !important;
+          border-color: #ffb74d;
+        }
+      }
+    }
+
+    .puntos-aplicados-badge {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #e8f5e9;
+      border: 1px solid #c8e6c9;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-top: 6px;
+      color: #2e7d32;
+      font-size: 11px;
+      font-weight: bold;
+
+      .btn-cancel-pts {
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          margin: 0;
+        }
+      }
+    }
+  }
+
+  /* Vincular Cliente Form */
+  .cliente-vincular-box {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 10px;
 
     .vincular-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #555;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -83,7 +289,7 @@
         font-size: 18px;
         width: 18px;
         height: 18px;
-        color: #1e88e5;
+        color: #0288d1;
       }
     }
 
@@ -94,71 +300,110 @@
 
       .cliente-select-form {
         flex: 1;
+        margin-bottom: -1.25em;
+      }
 
-        :deep(.mat-mdc-form-field-subscript-wrapper) {
-          display: none !important;
-        }
+      .btn-add-cliente {
+        margin-bottom: 4px;
       }
     }
   }
 
+  /* Descuentos y Cupones Aplicados */
   .cupon-aplicado-box {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #e8f5e9;
-    border: 1px solid #c8e6c9;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 8px 12px;
     border-radius: 8px;
-    padding: 4px 12px;
 
     .cupon-text {
       display: flex;
       align-items: center;
       gap: 6px;
-      color: #2e7d32;
-      font-size: 14px;
+      color: #dc2626;
+      font-size: 12px;
 
       .promo-icon {
         font-size: 18px;
         width: 18px;
         height: 18px;
-        color: #2e7d32;
       }
     }
   }
 
   .cupon-input-box {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-
     .cupon-field {
-      flex: 1;
+      width: 100%;
+      margin-bottom: -1.25em;
 
-      :deep(.mat-mdc-form-field-subscript-wrapper) {
-        display: none !important;
+      .btn-aplicar-cupon-suffix {
+        height: 36px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
       }
-    }
-
-    .btn-aplicar-cupon {
-      height: 48px;
-      border-radius: 8px;
     }
   }
 }
 
+/* Buscador en Select */
+.search-select-box, .search-input-box {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 10;
+  border-bottom: 1px solid #e2e8f0;
+
+  .search-icon {
+    color: #94a3b8;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+  }
+
+  .search-select-input, .search-input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 13px;
+    color: #1e293b;
+    background: transparent;
+  }
+
+  .btn-clear-search, .btn-clear {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #64748b;
+    }
+  }
+}
+
+/* Divisor de Cuenta (Split) */
 .split-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-top: 1px dashed #e0e0e0;
-  border-bottom: 1px dashed #e0e0e0;
+  padding: 10px 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
 
   .split-label {
     font-size: 13px;
-    font-weight: 700;
-    color: #5f6368;
+    color: #64748b;
+    font-weight: 600;
   }
 
   .split-controls {
@@ -167,53 +412,49 @@
     gap: 8px;
 
     .partes-num {
-      font-weight: 800;
-      font-size: 14px;
-      min-width: 60px;
-      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
     }
   }
 }
 
+/* Totales Finales */
 .totales-container {
-  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 
   .total-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 6px;
+    font-size: 14px;
+    color: #475569;
 
     &.subtotal {
-      font-size: 14px;
-      color: #666;
-      font-weight: 500;
-      margin-bottom: 4px;
+      font-size: 13px;
+      color: #64748b;
     }
 
     &.descuento {
-      font-size: 14px;
-      color: #c62828;
+      font-size: 13px;
+      color: #dc2626;
       font-weight: 600;
-      margin-bottom: 4px;
     }
 
     .monto-total {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
-      color: #1a1a1a;
+      color: #0f172a;
     }
 
     &.highlight {
-      background-color: #fff3e0;
-      padding: 8px 12px;
-      border-radius: 8px;
-      color: var(--color-primary, #e65100);
+      background: #f0fdf4;
+      padding: 8px;
+      border-radius: 6px;
+      color: #166534;
 
       .monto-persona {
-        font-size: 20px;
         font-weight: 800;
       }
     }

@@ -163,6 +163,49 @@ app.use(express.json());
     }
   });
 
+  app.post('/api/mesas/mover', async (req, res) => {
+    const { origenId, destinoId } = req.body;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Reasignar la comanda activa de la mesa origen a la mesa destino
+      await client.query(`
+        UPDATE comandas
+        SET mesa_id = $1
+        WHERE mesa_id = $2 AND estado != 'CERRADA'
+      `, [destinoId, origenId]);
+
+      // 2. Cambiar estado de la mesa destino a PENDIENTE
+      await client.query(`
+        UPDATE mesas
+        SET estado = 'PENDIENTE'
+        WHERE id = $1
+      `, [destinoId]);
+
+      // 3. Marcar la mesa origen como DISPONIBLE
+      await client.query(`
+        UPDATE mesas
+        SET estado = 'DISPONIBLE'
+        WHERE id = $1
+      `, [origenId]);
+
+      await client.query('COMMIT');
+
+      // Notificar por WebSockets la actualización de mesas
+      io.emit('actualizar_mesas');
+
+      res.json({ ok: true });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error al mover mesa:', error);
+      res.status(500).json({ error: 'Error al mover comanda de mesa' });
+    } finally {
+      client.release();
+    }
+  });
+
   /* ==========================================================================
      2. ENDPOINTS DE MENÚ Y COMANDERO
      ========================================================================== */
@@ -182,6 +225,59 @@ app.use(express.json());
       res.json(rows);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/mostrador/crear', async (req, res) => {
+    const { usuarioId, clienteId } = req.body;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Obtener o registrar la zona "Frente" o "Mostrador"
+      let zonaId: number;
+      const zonaRes = await client.query("SELECT id FROM zonas WHERE UPPER(nombre) IN ('MOSTRADOR', 'FRENTE') LIMIT 1");
+      if (zonaRes.rows.length === 0) {
+        const nuevaZona = await client.query("INSERT INTO zonas (nombre) VALUES ('Mostrador') RETURNING id");
+        zonaId = nuevaZona.rows[0].id;
+      } else {
+        zonaId = zonaRes.rows[0].id;
+      }
+
+      // 2. Calcular el siguiente número correlativo del día (retorna solo el entero: 1, 2, 3...)
+      const numRes = await client.query(`
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(numero, '\\D', '', 'g'), '')::integer), 0) + 1 AS proximo
+        FROM mesas
+        WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE
+      `, [zonaId]);
+
+      const numeroPuro = numRes.rows[0].proximo.toString(); // "1", "2", etc.
+
+      // 3. Registrar la mesa virtual con solo el número numérico
+      const mesaRes = await client.query(`
+        INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta, creado_en)
+        VALUES ($1, $2, 1, 'PENDIENTE', 1, 1, NOW()) RETURNING id
+      `, [numeroPuro, zonaId]);
+      const mesaId = mesaRes.rows[0].id;
+
+      // 4. Crear la comanda activa
+      const comandaRes = await client.query(`
+        INSERT INTO comandas (mesa_id, usuario_id, estado, total, cliente_id)
+        VALUES ($1, $2, 'ABIERTA', 0.00, $3) RETURNING id
+      `, [mesaId, usuarioId || 1, clienteId || null]);
+      const comandaId = comandaRes.rows[0].id;
+
+      await client.query('COMMIT');
+      emitirCambioGlobal('actualizar_mesas');
+
+      res.status(201).json({ ok: true, mesaId, comandaId, numero: numeroPuro });
+    } catch (error: any) {
+      await client.query('ROLLBACK');
+      console.error('Error al crear orden en mostrador:', error.message);
+      res.status(500).json({ error: error.message || 'Error al procesar orden de mostrador' });
+    } finally {
+      client.release();
     }
   });
 
@@ -332,12 +428,13 @@ app.use(express.json());
   app.post('/api/envios/crear', async (req, res) => {
     const { usuarioId, clienteId } = req.body;
     const client = await pool.connect();
+
     try {
       await client.query('BEGIN');
 
-      // 1. Asegurar la zona "Domicilio"
-      let zonaId;
-      const zonaRes = await client.query("SELECT id FROM zonas WHERE nombre = 'Domicilio' LIMIT 1");
+      // 1. Obtener o registrar la zona "Domicilio"
+      let zonaId: number;
+      const zonaRes = await client.query("SELECT id FROM zonas WHERE UPPER(nombre) = 'DOMICILIO' LIMIT 1");
       if (zonaRes.rows.length === 0) {
         const nuevaZona = await client.query("INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id");
         zonaId = nuevaZona.rows[0].id;
@@ -345,24 +442,22 @@ app.use(express.json());
         zonaId = zonaRes.rows[0].id;
       }
 
-      // 2. Determinar el siguiente número de envío
+      // 2. Calcular el consecutivo numérico del día para Domicilio
       const numRes = await client.query(`
-        SELECT COALESCE(MAX(SUBSTRING(numero FROM '[0-9]+')::integer), 0) + 1 AS proximo
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(numero, '\\D', '', 'g'), '')::integer), 0) + 1 AS proximo
         FROM mesas
-        WHERE zona_id = $1 AND numero LIKE 'Envío %'
+        WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE
       `, [zonaId]);
-      const proximoNum = numRes.rows[0].proximo;
-      const nombreEnvio = `Envío #${proximoNum}`;
 
-      // 3. Crear el registro en mesas representando el envío
+      const numeroPuro = numRes.rows[0].proximo.toString(); // "1", "2", etc.
+
+      // 3. Insertar la comanda de envío con solo el número
       const mesaRes = await client.query(`
-        INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
-        VALUES ($1, $2, 1, 'PENDIENTE', 1, 1) RETURNING id
-      `, [nombreEnvio, zonaId]);
-
+        INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta, creado_en)
+        VALUES ($1, $2, 1, 'PENDIENTE', 1, 1, NOW()) RETURNING id
+      `, [numeroPuro, zonaId]);
       const mesaId = mesaRes.rows[0].id;
 
-      // 4. Crear comanda ABIERTA para este envío con cliente opcional
       const comandaRes = await client.query(`
         INSERT INTO comandas (mesa_id, usuario_id, estado, total, cliente_id)
         VALUES ($1, $2, 'ABIERTA', 0.00, $3) RETURNING id
@@ -370,7 +465,8 @@ app.use(express.json());
 
       await client.query('COMMIT');
       emitirCambioGlobal('actualizar_mesas');
-      res.status(201).json({ ok: true, mesaId, comandaId: comandaRes.rows[0].id, numero: nombreEnvio });
+
+      res.status(201).json({ ok: true, mesaId, comandaId: comandaRes.rows[0].id, numero: numeroPuro });
     } catch (err: any) {
       await client.query('ROLLBACK');
       res.status(500).json({ error: err.message });
@@ -996,6 +1092,49 @@ app.post('/api/caja/cobrar', async (req, res) => {
       res.status(201).json(rows[0]);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/mesas/mostrador', async (req, res) => {
+    const { usuarioId, clienteId } = req.body;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Obtener siguiente correlativo de Mostrador del día
+      const countRes = await client.query(`
+        SELECT COUNT(*) + 1 AS num
+        FROM mesas
+        WHERE zona = 'Mostrador' AND DATE(created_at) = CURRENT_DATE
+      `);
+      const numCorrelativo = countRes.rows[0].num;
+      const numeroStr = `Mostrador #${numCorrelativo}`;
+
+      // 2. Insertar Mesa Virtual
+      const mesaRes = await client.query(`
+        INSERT INTO mesas (numero, zona, capacidad, estado, created_at)
+        VALUES ($1, 'Mostrador', 1, 'PENDIENTE', NOW())
+        RETURNING id
+      `, [numeroStr]);
+      const mesaId = mesaRes.rows[0].id;
+
+      // 3. Crear Comanda asociada
+      const comandaRes = await client.query(`
+        INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, created_at)
+        VALUES ($1, $2, $3, 'PENDIENTE', NOW())
+        RETURNING id
+      `, [mesaId, usuarioId, clienteId || null]);
+      const comandaId = comandaRes.rows[0].id;
+
+      await client.query('COMMIT');
+      res.json({ mesaId, comandaId, numero: numeroStr });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error al crear pedido mostrador:', error);
+      res.status(500).json({ error: 'Error al crear pedido mostrador' });
+    } finally {
+      client.release();
     }
   });
 

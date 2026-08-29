@@ -195,16 +195,28 @@ export class CajaService {
   }
 
   canjearPuntosLealtad(puntos: number) {
+    const subtotalActual = this.totalCuentaOriginal();
+
+    // 1. Validar que no intente canjear más puntos de los que tiene el cliente
     if (puntos > this.clientePuntos()) {
       puntos = this.clientePuntos();
     }
+
+    // 2. 🔹 NUEVA LÓGICA: Si el cliente tiene más puntos que el costo de la cuenta,
+    // solo canjear el equivalente estricto al valor de la cuenta
+    const puntosNecesarios = Math.ceil(subtotalActual);
+    if (puntos > puntosNecesarios) {
+      puntos = puntosNecesarios;
+    }
+
     this.puntosCanjeados.set(puntos);
+
     // 1 punto = $1 peso de descuento
     const descPuntos = puntos;
-    const subtotalActual = this.totalCuentaOriginal();
 
     this.descuentoAplicado.set(descPuntos);
     const nuevoTotal = subtotalActual - descPuntos > 0 ? subtotalActual - descPuntos : 0;
+
     this.totalCuenta.set(nuevoTotal);
     this.montoRecibido.set(nuevoTotal);
     this.promocionIdAplicada.set(null);
