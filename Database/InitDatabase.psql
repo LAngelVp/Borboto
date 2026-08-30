@@ -1,5 +1,5 @@
 -- ============================================================================
--- SCRIPT OPTIMIZADO MULTIGIRO CON FACTURACIÓN CFDI 4.0 (BORBOTO POS)
+-- SCRIPT OPTIMIZADO MULTIGIRO CON FACTURACIÓN CFDI 4.0 Y CLIENTES (BORBOTO POS)
 -- ============================================================================
 
 SET timezone = 'America/Mexico_City';
@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS configuracion_facturacion CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
 DROP TABLE IF EXISTS comanda_items CASCADE;
 DROP TABLE IF EXISTS comandas CASCADE;
+DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS productos CASCADE;
 DROP TABLE IF EXISTS categorias CASCADE;
 DROP TABLE IF EXISTS mesas CASCADE;
@@ -73,8 +74,20 @@ CREATE TABLE productos (
     categoria_id INT NOT NULL REFERENCES categorias(id) ON DELETE RESTRICT,
     nombre VARCHAR(100) NOT NULL,
     precio DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
+    imagen_url TEXT, -- 📸 Soporte para URL o ruta relativa de la imagen del producto
     clave_sat VARCHAR(10), -- Opcional: Si es NULL, heredará la clave de la categoría o la del negocio
     disponible BOOLEAN DEFAULT TRUE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- TABLA DE CLIENTES (Directorio / Cartera)
+CREATE TABLE clientes (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    telefono VARCHAR(20),
+    email VARCHAR(150),
+    direccion TEXT,
+    notas TEXT,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -82,6 +95,7 @@ CREATE TABLE comandas (
     id SERIAL PRIMARY KEY,
     mesa_id INT NOT NULL REFERENCES mesas(id) ON DELETE RESTRICT,
     usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+    cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL, -- 👤 Vinculación de cliente a la orden
     estado estado_comanda_enum DEFAULT 'ABIERTA',
     total DECIMAL(10,2) DEFAULT 0.00,
     fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -128,7 +142,7 @@ CREATE TABLE configuracion_facturacion (
     razon_social VARCHAR(255) NOT NULL,
     regimen_fiscal VARCHAR(5) NOT NULL, -- Ej: '601', '626'
     codigo_postal VARCHAR(5) NOT NULL,
-    clave_sat_defecto VARCHAR(10) DEFAULT '01010101', -- Clave por defecto según el giro (Ej: '90101501' Restaurantes, '01010101' Genérica)
+    clave_sat_defecto VARCHAR(10) DEFAULT '01010101', -- Clave por defecto según el giro
     email_notificaciones VARCHAR(150),
     dias_vigencia_ticket INT DEFAULT 7,
     tiene_csd BOOLEAN DEFAULT FALSE,
@@ -140,8 +154,8 @@ CREATE TABLE tickets_autofactura (
     id SERIAL PRIMARY KEY,
     pago_id INT NOT NULL REFERENCES pagos(id) ON DELETE RESTRICT,
     facturapi_receipt_id VARCHAR(100) UNIQUE NOT NULL, -- ID del recibo en Facturapi
-    codigo_ticket VARCHAR(20) NOT NULL UNIQUE,         -- Código corto impreso (Ej: A7B9-X2)
-    url_autofactura TEXT NOT NULL,                     -- URL para el QR del ticket
+    codigo_ticket VARCHAR(20) NOT NULL UNIQUE,          -- Código corto impreso (Ej: A7B9-X2)
+    url_autofactura TEXT NOT NULL,                      -- URL para el QR del ticket
     total DECIMAL(10,2) NOT NULL,
     estado estado_factura_enum DEFAULT 'PENDIENTE',
     fecha_expiracion TIMESTAMP NOT NULL,
@@ -166,6 +180,7 @@ CREATE TABLE facturas (
 -- 7. ÍNDICES DE RENDIMIENTO ADICIONALES
 CREATE INDEX idx_mesas_estado ON mesas(estado);
 CREATE INDEX idx_comandas_mesa ON comandas(mesa_id) WHERE estado = 'ABIERTA';
+CREATE INDEX idx_comandas_cliente ON comandas(cliente_id);
 CREATE INDEX idx_comanda_items_kds ON comanda_items(completado) WHERE completado = FALSE;
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);
 

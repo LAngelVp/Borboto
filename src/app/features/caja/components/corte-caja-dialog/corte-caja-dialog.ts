@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,6 +23,7 @@ import { Router } from '@angular/router';
     MatInputModule,
     FormsModule
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './corte-caja-dialog.html',
   styleUrl: './corte-caja-dialog.scss'
 })

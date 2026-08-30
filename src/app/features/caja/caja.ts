@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,6 +27,7 @@ import { CorteCajaDialog } from './components/corte-caja-dialog/corte-caja-dialo
     DesgloseCuentaComponent,
     CalculadoraPagoComponent
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './caja.html',
   styleUrl: './caja.scss'
 })

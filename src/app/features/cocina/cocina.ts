@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +12,7 @@ import { KdsCardComponent } from './components/kds-card/kds-card';
   selector: 'app-cocina',
   standalone: true,
   imports: [CommonModule, MatChipsModule, MatIconModule, KdsCardComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './cocina.html',
   styleUrl: './cocina.scss'
 })

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,6 +20,7 @@ export type AccionMesa = 'ABRIR' | 'AGREGAR_COMANDA' | 'VER_DETALLE' | 'IMPRIMIR
     MatMenuModule,
     MatDividerModule
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mesa-card.html',
   styleUrl: './mesa-card.scss'
 })

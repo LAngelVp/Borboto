@@ -1,17 +1,25 @@
+:host {
+  display: block;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-main) !important;
+}
+
 .dialog-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #d32f2f; /* Red-accent theme for Borboto */
-  color: white;
+  background-color: var(--status-urgente, #d32f2f) !important;
+  color: #ffffff !important;
   padding: 16px;
   margin: 0;
   font-size: 1.25rem;
+  font-weight: 800;
 
   mat-icon {
     font-size: 24px;
     width: 24px;
     height: 24px;
+    color: #ffffff !important;
   }
 }
 
@@ -20,6 +28,8 @@
   max-width: 550px;
   max-height: 70vh;
   overflow-y: auto;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-main) !important;
 }
 
 .loading-container {
@@ -28,7 +38,7 @@
   align-items: center;
   min-height: 150px;
   font-size: 1.1rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .resumen-container {
@@ -38,15 +48,20 @@
     margin-top: 0;
     margin-bottom: 8px;
     font-size: 1.15rem;
-    color: #333;
-    border-bottom: 2px solid #eee;
+    font-weight: 800;
+    color: var(--color-text-main);
+    border-bottom: 2px solid var(--color-border);
     padding-bottom: 6px;
   }
 
   .apertura-info {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--color-text-muted);
     margin-bottom: 16px;
+
+    strong {
+      color: var(--color-text-main);
+    }
   }
 
   .grid-metodos {
@@ -61,20 +76,20 @@
     flex-direction: column;
     padding: 12px;
     border-radius: 8px;
-    background-color: #f7f9fa;
-    border: 1px solid #e1e4e6;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
     position: relative;
 
     mat-icon {
       position: absolute;
       right: 12px;
       top: 12px;
-      color: #999;
+      color: var(--color-text-muted);
     }
 
     .label {
       font-size: 0.8rem;
-      color: #777;
+      color: var(--color-text-muted);
       text-transform: uppercase;
       font-weight: 600;
     }
@@ -82,33 +97,35 @@
     .monto {
       font-size: 1.25rem;
       font-weight: bold;
-      color: #333;
+      color: var(--color-text-main);
       margin-top: 4px;
+      font-variant-numeric: tabular-nums;
     }
 
     .monto-tot {
       font-size: 1.4rem;
       font-weight: 800;
-      color: #2e7d32;
+      color: var(--status-listo, #4ade80);
       margin-top: 4px;
+      font-variant-numeric: tabular-nums;
     }
 
     &.cash {
-      border-left: 4px solid #4caf50;
+      border-left: 4px solid var(--status-listo, #4caf50);
     }
 
     &.card {
-      border-left: 4px solid #2196f3;
+      border-left: 4px solid var(--status-cocinando, #0288d1);
     }
 
     &.transfer {
-      border-left: 4px solid #ff9800;
+      border-left: 4px solid var(--status-pendiente, #ffb300);
     }
 
     &.total {
-      background-color: #e8f5e9;
-      border: 1px solid #c8e6c9;
-      border-left: 4px solid #2e7d32;
+      background-color: rgba(76, 175, 80, 0.12);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+      border-left: 4px solid var(--status-listo, #4caf50);
     }
   }
 
@@ -117,16 +134,21 @@
     align-items: center;
     gap: 8px;
     font-size: 0.9rem;
-    color: #555;
-    background-color: #f1f3f4;
+    color: var(--color-text-main);
+    background-color: var(--color-bg);
     padding: 8px 12px;
     border-radius: 6px;
+    border: 1px solid var(--color-border);
 
     mat-icon {
-      color: #666;
+      color: var(--color-text-muted);
       font-size: 18px;
       width: 18px;
       height: 18px;
+    }
+
+    strong {
+      color: var(--color-primary);
     }
   }
 }
@@ -136,8 +158,9 @@
     margin-top: 0;
     margin-bottom: 16px;
     font-size: 1.15rem;
-    color: #333;
-    border-bottom: 2px solid #eee;
+    font-weight: 800;
+    color: var(--color-text-main);
+    border-bottom: 2px solid var(--color-border);
     padding-bottom: 6px;
   }
 
@@ -148,17 +171,37 @@
     margin-bottom: 8px;
   }
 
+  /* Sobreescritura profunda para Angular Material Form Fields */
+  ::ng-deep {
+    .mat-mdc-text-field-wrapper {
+      background-color: var(--color-bg) !important;
+      border-radius: 8px;
+    }
+
+    .mat-mdc-input-element,
+    textarea.mat-mdc-input-element {
+      color: var(--color-text-main) !important;
+    }
+
+    .mat-mdc-floating-label,
+    .mat-mdc-form-field-label,
+    [matPrefix] {
+      color: var(--color-text-muted) !important;
+    }
+  }
+
   .full-width {
     width: 100%;
     margin-top: 12px;
   }
 
   .calculos-conciliacion {
-    background-color: #fcfcfc;
-    border: 1px dashed #ccc;
+    background-color: var(--color-bg);
+    border: 1px dashed var(--color-border);
     border-radius: 8px;
     padding: 14px;
     margin-bottom: 16px;
+    color: var(--color-text-main);
 
     .calc-row {
       display: flex;
@@ -169,10 +212,14 @@
       &:last-child {
         margin-bottom: 0;
       }
+
+      strong {
+        font-variant-numeric: tabular-nums;
+      }
     }
 
     .diferencia-row {
-      border-top: 1px solid #eee;
+      border-top: 1px solid var(--color-border);
       padding-top: 8px;
       margin-top: 8px;
       font-weight: bold;
@@ -182,11 +229,11 @@
       }
 
       &.negativa {
-        color: #c62828 !important;
+        color: var(--status-urgente, #f87171) !important;
       }
 
       &.positiva {
-        color: #2e7d32 !important;
+        color: var(--status-listo, #4ade80) !important;
       }
     }
   }
@@ -207,22 +254,26 @@
     }
 
     &.error {
-      background-color: #ffebee;
-      color: #c62828;
-      border: 1px solid #ffcdd2;
+      background-color: rgba(211, 47, 47, 0.15);
+      color: var(--status-urgente, #f87171);
+      border: 1px solid rgba(211, 47, 47, 0.3);
     }
 
     &.warning {
-      background-color: #fff8e1;
-      color: #f57f17;
-      border: 1px solid #ffe082;
+      background-color: rgba(255, 179, 0, 0.15);
+      color: var(--status-pendiente, #ffb300);
+      border: 1px solid rgba(255, 179, 0, 0.3);
     }
   }
 }
 
 mat-dialog-actions {
-  border-top: 1px solid #f1f3f4;
+  border-top: 1px solid var(--color-border);
   padding: 12px 24px !important;
   display: flex !important;
   gap: 12px !important;
+
+  button {
+    font-weight: 700;
+  }
 }

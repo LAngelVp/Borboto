@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -20,6 +20,7 @@ import { DesgloseMesaDialogComponent } from './components/desglose-mesa-dialog/d
 import { CrearEnvioDialogComponent } from './components/crear-envio-dialog/crear-envio-dialog';
 import { Mesa } from '../../core/models/mesa';
 import { CrearMostradorDialogComponent } from './components/crear-mostrador-dialog/crear-mostrador-dialog';
+import { FormatoNumeroMesaPipe } from '../../core/pipes/formato-numero-mesa.pipe';
 
 @Component({
   selector: 'app-mesas',
@@ -33,8 +34,10 @@ import { CrearMostradorDialogComponent } from './components/crear-mostrador-dial
     MatSelectModule,
     MatFormFieldModule,
     MesaFiltrosComponent,
-    MesaCardComponent
+    MesaCardComponent,
+    FormatoNumeroMesaPipe
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mesas.html',
   styleUrl: './mesas.scss'
 })
@@ -74,11 +77,15 @@ export class MesasComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result && result.confirmado) {
-        const usuarioId = this.authService.usuarioActivo()?.id || 1;
+        const usuarioActivo = this.authService.usuarioActivo();
+        const usuarioId = result.usuarioId || usuarioActivo?.id || 1;
+        const usuarioNombre = result.usuarioNombre || usuarioActivo?.nombre || 'Atención Caja';
         const clienteId = result.clienteId;
 
         this.mesaService.crearPedidoMostrador(usuarioId, clienteId).subscribe({
           next: (res) => {
+            const numeroLimpio = res.numero ? res.numero.split('-')[0] : '';
+
             const mesaVirtual: Mesa = {
               id: res.mesaId,
               numero: res.numero,
@@ -88,11 +95,12 @@ export class MesasComponent implements OnInit, OnDestroy {
               comensales: 1,
               minutosAbierta: 1,
               total: 0,
-              clienteNombre: result.nombre || 'Cliente Mostrador'
+              clienteNombre: result.nombre || 'Cliente Mostrador',
+              mesero: usuarioNombre
             };
 
             this.mesaService.seleccionarMesaActiva(mesaVirtual);
-            this.snackBar.open(`¡${res.numero} registrado con éxito!`, 'Cerrar', { duration: 3000 });
+            this.snackBar.open(`¡Pedido #${numeroLimpio} registrado con éxito!`, 'Cerrar', { duration: 3000 });
 
             this.router.navigate(['/comanda'], {
               queryParams: { mesaId: res.mesaId, comandaId: res.comandaId }
@@ -114,11 +122,15 @@ export class MesasComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result && result.confirmado) {
-        const usuarioId = this.authService.usuarioActivo()?.id || 1;
+        const usuarioActivo = this.authService.usuarioActivo();
+        const usuarioId = result.usuarioId || usuarioActivo?.id || 1;
+        const usuarioNombre = result.usuarioNombre || usuarioActivo?.nombre || 'Atención Caja';
         const clienteId = result.clienteId;
 
         this.mesaService.crearEnvio(usuarioId, clienteId).subscribe({
           next: (res) => {
+            const numeroLimpio = res.numero ? res.numero.split('-')[0] : '';
+
             const mesaVirtual: Mesa = {
               id: res.mesaId,
               numero: res.numero,
@@ -127,10 +139,11 @@ export class MesasComponent implements OnInit, OnDestroy {
               estado: 'PENDIENTE',
               comensales: 1,
               minutosAbierta: 1,
-              total: 0
+              total: 0,
+              mesero: usuarioNombre
             };
             this.mesaService.seleccionarMesaActiva(mesaVirtual);
-            this.snackBar.open(`¡${res.numero} registrado con éxito!`, 'Cerrar', { duration: 3000 });
+            this.snackBar.open(`¡Envío #${numeroLimpio} registrado con éxito!`, 'Cerrar', { duration: 3000 });
             this.router.navigate(['/comanda'], {
               queryParams: { mesaId: res.mesaId, comandaId: res.comandaId }
             });
@@ -177,9 +190,7 @@ export class MesasComponent implements OnInit, OnDestroy {
     }
   }
 
-  // 🔹 REUTILIZABLE: Funciona para Mesas Físicas, Pedidos de Mostrador y Envíos a Domicilio
   moverMesaModal(mesaOrigen: Mesa) {
-    // Filtramos solo las mesas físicas que están DISPONIBLES
     const mesasLibres = this.mesaService.mesas().filter(m =>
       m.estado === 'DISPONIBLE' &&
       m.zona !== 'Domicilio' &&
@@ -219,14 +230,16 @@ export class MesasComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe(res => {
       if (res?.confirmado) {
-        const usuarioId = this.authService.usuarioActivo()?.id || 1;
+        const usuarioActivo = this.authService.usuarioActivo();
+        const usuarioId = usuarioActivo?.id || 1;
         this.mesaService.abrirMesa(mesa.id, res.comensales, usuarioId).subscribe({
           next: (respuesta) => {
             const mesaActualizada: Mesa = {
               ...mesa,
               estado: 'PENDIENTE',
               comensales: res.comensales,
-              minutosAbierta: 1
+              minutosAbierta: 1,
+              mesero: usuarioActivo?.nombre || 'Atención'
             };
 
             this.mesaService.seleccionarMesaActiva(mesaActualizada);

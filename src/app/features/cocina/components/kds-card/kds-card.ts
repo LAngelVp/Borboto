@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,7 @@ import { TicketCocina } from '../../../../core/models/cocina';
   selector: 'app-kds-card',
   standalone: true,
   imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kds-card.html',
   styleUrl: './kds-card.scss'
 })

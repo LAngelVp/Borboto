@@ -31,16 +31,28 @@ export class ComandaService {
     return totalViejos + this.totalNuevosItems();
   });
 
-  private obtenerNombreCategoria(cat: any): string {
-    if (!cat) return '';
-    if (typeof cat === 'string') return cat.trim();
-    if (typeof cat === 'object' && cat.nombre) return cat.nombre.toString().trim();
-    return String(cat).trim();
+  // METODO EXTRA RESILIENTE PARA EXTRACTAR EL NOMBRE DE LA CATEGORIA
+  private obtenerNombreCategoria(producto: any): string {
+    if (!producto) return '';
+
+    // 1. Revisa si viene en la propiedad directa 'categoria' (objeto o string)
+    const cat = producto.categoria;
+    if (typeof cat === 'string' && cat.trim()) return cat.trim();
+    if (typeof cat === 'object' && cat?.nombre) return cat.nombre.toString().trim();
+
+    // 2. Revisa propiedades alternativas comunes del backend
+    if (producto.categoriaNombre) return producto.categoriaNombre.toString().trim();
+    if (producto.categoria_nombre) return producto.categoria_nombre.toString().trim();
+
+    // 3. Si sólo tiene el ID, retorna como fallback
+    if (producto.categoria_id) return `Categoría ${producto.categoria_id}`;
+
+    return '';
   }
 
   readonly categoriasDisponibles = computed(() => {
     const nombres = this.productos()
-      .map(p => this.obtenerNombreCategoria(p.categoria))
+      .map(p => this.obtenerNombreCategoria(p))
       .filter(n => n.length > 0);
     return ['TODOS', ...Array.from(new Set(nombres))];
   });
@@ -50,7 +62,7 @@ export class ComandaService {
     if (!seleccion || seleccion === 'todos') return this.productos();
 
     return this.productos().filter(p => {
-      const cat = this.obtenerNombreCategoria(p.categoria).toLowerCase();
+      const cat = this.obtenerNombreCategoria(p).toLowerCase();
       return cat === seleccion;
     });
   });
@@ -83,7 +95,8 @@ export class ComandaService {
               id: i.producto.id,
               nombre: i.producto.nombre,
               precio: Number(i.producto.precio),
-              categoria: i.producto.categoria
+              categoria: i.producto.categoria,
+              imagen_url: i.producto.imagen_url
             },
             cantidad: i.cantidad,
             subtotal: Number(i.subtotal),

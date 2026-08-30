@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import multer from 'multer';
+import sharp from 'sharp'; // 👈 1. Importar Sharp
+import path from 'path';
+import fs from 'fs';
 import Facturapi from 'facturapi';
 import { pool, sincronizarCombosComoProductos } from './src/db.ts';
 
@@ -13,8 +16,33 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de Multer para la subida de archivos CSD (.cer y .key) en memoria o carpeta temporal
-const upload = multer({ storage: multer.memoryStorage() });
+// ============================================================================
+// CONFIGURACIÓN DE ALMACENAMIENTO DE IMÁGENES OPTIMIZADO CON SHARP (WEBP)
+// ============================================================================
+
+// 1. Asegurar que la carpeta física 'uploads/productos' exista
+const uploadsDir = path.join(process.cwd(), 'uploads', 'productos');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// 2. Multer en MEMORIA para procesar la imagen con Sharp antes de escribir a disco
+const storageMemoria = multer.memoryStorage();
+
+const uploadImagen = multer({
+  storage: storageMemoria,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Límite de entrada: 10MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Formato no soportado. Solo se permiten archivos de imagen.'));
+    }
+  }
+});
+
+// 3. Multer en memoria para archivos de CSD (.cer y .key)
+const uploadCSD = multer({ storage: multer.memoryStorage() });
 
 // Servidor HTTP y Socket.IO
 const server = createServer(app);
@@ -39,8 +67,45 @@ io.on('connection', (socket) => {
 });
 
 // Middlewares
-app.use(cors()); // Permite peticiones desde Angular (http://127.0.0.1:4200)
+app.use(cors()); // Permite peticiones desde Angular
 app.use(express.json());
+
+// Servir la carpeta de imágenes públicamente
+// Ejemplo de acceso: http://localhost:3000/uploads/productos/1715428392-tacos.webp
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// ============================================================================
+// ENDPOINT DE SUBIDA DE IMÁGENES (CONVERSIÓN Y COMPRESIÓN A WEBP)
+// ============================================================================
+
+app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se envió ninguna imagen' });
+    }
+
+    // Nombre de archivo único garantizado con extensión .webp
+    const uniqueName = `prod-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+    const outputPath = path.join(uploadsDir, uniqueName);
+
+    // Procesamiento y optimización con Sharp
+    await sharp(req.file.buffer)
+      .resize(600, 600, {
+        fit: 'inside',              // Mantiene la proporción sin deformar ni recortar
+        withoutEnlargement: true    // Si la imagen es menor a 600px, no la escala hacia arriba
+      })
+      .toFormat('webp', { quality: 80 }) // Convierte a WebP con calidad optimizada del 80%
+      .toFile(outputPath);
+
+    // Retorna la nueva URL relativa .webp para guardarse en PostgreSQL
+    const url = `/uploads/productos/${uniqueName}`;
+    res.json({ url });
+
+  } catch (err: any) {
+    console.error('Error procesando la imagen con Sharp:', err.message);
+    res.status(500).json({ error: err.message || 'Error al optimizar la imagen' });
+  }
+});
 
 /* ==========================================================================
    1. ENDPOINTS DE MESAS Y ZONAS
@@ -210,18 +275,23 @@ app.use(express.json());
      2. ENDPOINTS DE MENÚ Y COMANDERO
      ========================================================================== */
 
-  app.get('/api/productos', async (_req, res) => {
+  // Endpoint para obtener los productos del menú (utilizado por ComandaService)
+  app.get('/api/productos', async (req, res) => {
     try {
-      const query = `
-        SELECT p.id, p.nombre, p.precio,
-              json_build_object('id', c.id, 'nombre', c.nombre) AS categoria,
-              c.icono
+      const { rows } = await pool.query(`
+        SELECT
+          p.id,
+          p.categoria_id,
+          p.nombre,
+          p.precio,
+          p.disponible,
+          p.imagen_url,
+          c.nombre AS "categoria"
         FROM productos p
-        JOIN categorias c ON p.categoria_id = c.id
+        LEFT JOIN categorias c ON p.categoria_id = c.id
         WHERE p.disponible = TRUE
-        ORDER BY c.orden, p.nombre;
-      `;
-      const { rows } = await pool.query(query);
+        ORDER BY c.orden ASC, p.nombre ASC
+      `);
       res.json(rows);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -235,7 +305,7 @@ app.use(express.json());
     try {
       await client.query('BEGIN');
 
-      // 1. Obtener o registrar la zona "Frente" o "Mostrador"
+      // 1. Obtener o registrar la zona "Mostrador"
       let zonaId: number;
       const zonaRes = await client.query("SELECT id FROM zonas WHERE UPPER(nombre) IN ('MOSTRADOR', 'FRENTE') LIMIT 1");
       if (zonaRes.rows.length === 0) {
@@ -245,33 +315,49 @@ app.use(express.json());
         zonaId = zonaRes.rows[0].id;
       }
 
-      // 2. Calcular el siguiente número correlativo del día (retorna solo el entero: 1, 2, 3...)
+      // 2. NUEVO: Obtener fecha actual en formato YYYYMMDD (usando la hora del servidor configurada en MX)
+      // Esto asegura que el sufijo sea consistente.
+      const fechaHoyRes = await client.query("SELECT to_char(CURRENT_DATE, 'YYYYMMDD') AS fecha");
+      const sufijoFecha = fechaHoyRes.rows[0].fecha; // Ej: "20260829"
+
+      // 3. NUEVO: Calcular el siguiente correlativo diario PUREMENTE NUMÉRICO
+      // Filtramos por zona_id Y por la fecha de creado_en para reiniciar a 1 cada día.
       const numRes = await client.query(`
         SELECT COALESCE(MAX(NULLIF(regexp_replace(numero, '\\D', '', 'g'), '')::integer), 0) + 1 AS proximo
         FROM mesas
         WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE
       `, [zonaId]);
 
-      const numeroPuro = numRes.rows[0].proximo.toString(); // "1", "2", etc.
+      const correlativoDiario = numRes.rows[0].proximo; // Ej: 1 (integer)
 
-      // 3. Registrar la mesa virtual con solo el número numérico
+      // 4. NUEVO: Construir el formato único para guardar en BD: "X-YYYYMMDD"
+      // Esto garantiza que UNIQUE(numero, zona_id) no se viole.
+      const numeroUnicoBD = `${correlativoDiario}-${sufijoFecha}`; // Ej: "1-20260829"
+
+      // 5. Registrar la mesa virtual usando el número único formateado
       const mesaRes = await client.query(`
         INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta, creado_en)
         VALUES ($1, $2, 1, 'PENDIENTE', 1, 1, NOW()) RETURNING id
-      `, [numeroPuro, zonaId]);
+      `, [numeroUnicoBD, zonaId]);
       const mesaId = mesaRes.rows[0].id;
 
-      // 4. Crear la comanda activa
+      // 6. Crear la comanda activa vinculando usuario_id y cliente_id
       const comandaRes = await client.query(`
-        INSERT INTO comandas (mesa_id, usuario_id, estado, total, cliente_id)
-        VALUES ($1, $2, 'ABIERTA', 0.00, $3) RETURNING id
+        INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total)
+        VALUES ($1, $2, $3, 'ABIERTA', 0.00) RETURNING id
       `, [mesaId, usuarioId || 1, clienteId || null]);
       const comandaId = comandaRes.rows[0].id;
 
       await client.query('COMMIT');
-      emitirCambioGlobal('actualizar_mesas');
 
-      res.status(201).json({ ok: true, mesaId, comandaId, numero: numeroPuro });
+      // Sockets (opcional)
+      if (typeof emitirCambioGlobal === 'function') {
+        emitirCambioGlobal('actualizar_mesas');
+      }
+
+      // Retornamos el correlativo limpio al front si lo necesita para navegación inmediata
+      res.status(201).json({ ok: true, mesaId, comandaId, numeroLimpo: correlativoDiario.toString() });
+
     } catch (error: any) {
       await client.query('ROLLBACK');
       console.error('Error al crear orden en mostrador:', error.message);
@@ -1057,11 +1143,19 @@ app.post('/api/caja/cobrar', async (req, res) => {
 
   // Crear Producto
   app.post('/api/productos', async (req, res) => {
-    const { categoria_id, nombre, precio, disponible } = req.body;
+    const { categoria_id, nombre, precio, disponible, imagen_url } = req.body;
     try {
       const { rows } = await pool.query(
-        `INSERT INTO productos (categoria_id, nombre, precio, disponible) VALUES ($1, $2, $3, $4) RETURNING *`,
-        [Number(categoria_id), nombre, Number(precio), disponible !== false]
+        `INSERT INTO productos (categoria_id, nombre, precio, disponible, imagen_url)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [
+          Number(categoria_id),
+          nombre,
+          Number(precio),
+          disponible !== false,
+          imagen_url || null
+        ]
       );
       res.status(201).json(rows[0]);
     } catch (err: any) {
@@ -1245,7 +1339,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
   app.get('/api/admin/productos', async (_req, res) => {
     try {
       const query = `
-        SELECT p.id, p.nombre, p.precio, p.disponible, p.categoria_id,
+        SELECT p.id, p.nombre, p.precio, p.disponible, p.imagen_url, p.categoria_id,
               c.nombre AS "categoriaNombre"
         FROM productos p
         JOIN categorias c ON p.categoria_id = c.id
@@ -1295,15 +1389,24 @@ app.post('/api/caja/cobrar', async (req, res) => {
   // Modificar Producto
   app.put('/api/productos/:id', async (req, res) => {
     const { id } = req.params;
-    const { categoria_id, nombre, precio, disponible } = req.body;
+    const { categoria_id, nombre, precio, disponible, imagen_url } = req.body;
     try {
       const { rows } = await pool.query(
-        `UPDATE productos SET categoria_id = $1, nombre = $2, precio = $3, disponible = $4 WHERE id = $5 RETURNING *`,
-        [Number(categoria_id), nombre, Number(precio), disponible !== false, id]
+        `UPDATE productos
+        SET categoria_id = $1, nombre = $2, precio = $3, disponible = $4, imagen_url = $5
+        WHERE id = $6
+        RETURNING *`,
+        [
+          Number(categoria_id),
+          nombre,
+          Number(precio),
+          disponible,
+          imagen_url || null,
+          id
+        ]
       );
-      if (rows.length === 0) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
-      }
+
+      emitirCambioGlobal('PRODUCTO_ACTUALIZADO', rows[0]);
       res.json(rows[0]);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1546,7 +1649,7 @@ app.get('/api/ajustes/facturacion', async (_req, res) => {
 // Guardar/Actualizar la configuración fiscal y procesar la subida de los archivos CSD
 app.post(
   '/api/ajustes/facturacion',
-  upload.fields([
+  uploadCSD.fields([
     { name: 'csdCer', maxCount: 1 },
     { name: 'csdKey', maxCount: 1 }
   ]),

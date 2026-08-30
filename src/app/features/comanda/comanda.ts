@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,6 +22,7 @@ import { MenuProductosComponent } from './components/menu-productos/menu-product
     OrdenResumenComponent,
     MenuProductosComponent
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comanda.html',
   styleUrl: './comanda.scss'
 })

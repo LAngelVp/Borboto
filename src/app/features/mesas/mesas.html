@@ -80,7 +80,6 @@
           @for (item of mesaService.pedidosMostrador(); track item.id) {
             <div class="envio-card mostrador-card" [class.abierto]="item.estado !== 'DISPONIBLE'">
               <div class="envio-header">
-                <!-- Formato sin la palabra "Mesa": Muestra "Mostrador #1" -->
                 <span class="envio-num"><mat-icon>storefront</mat-icon> Mostrador #{{ item.numero }}</span>
                 <span class="envio-estado-badge" [attr.data-estado]="item.estado">{{ item.estado }}</span>
               </div>
@@ -94,11 +93,12 @@
                   </div>
                 </div>
 
+                <!-- 👤 ATENDIDO POR / ATENCIÓN CAJA -->
                 <div class="info-row">
-                  <mat-icon>badge</mat-icon>
+                  <mat-icon>room_service</mat-icon>
                   <div class="info-text">
                     <span class="label">Atendido por</span>
-                    <span class="value highlight-waiter">{{ item.mesero || 'Caja / Atención' }}</span>
+                    <span class="value highlight-waiter">{{ item.mesero || authService.usuarioActivo()?.nombre || 'Atención Caja' }}</span>
                   </div>
                 </div>
               </div>
@@ -110,17 +110,14 @@
                 </div>
 
                 <div class="envio-actions">
-                  <!-- Botón Transferir Orden de Mostrador a Mesa de Salón -->
                   <button mat-icon-button color="primary" (click)="moverMesaModal(item)" title="Transferir Pedido a Mesa de Salón">
                     <mat-icon>sync_alt</mat-icon>
                   </button>
 
-                  <!-- Editar Comanda -->
                   <button mat-icon-button color="primary" (click)="onAccionMesa({ tipo: 'AGREGAR_COMANDA', mesa: item })" title="Ver / Editar Comanda">
                     <mat-icon>restaurant_menu</mat-icon>
                   </button>
 
-                  <!-- Cobrar -->
                   @if (item.total > 0) {
                     <button mat-flat-button color="accent" class="btn-cobrar-envio" (click)="onAccionMesa({ tipo: 'COBRAR', mesa: item })">
                       <mat-icon>payments</mat-icon> COBRAR
@@ -161,7 +158,6 @@
           @for (envio of mesaService.enviosDomicilio(); track envio.id) {
             <div class="envio-card" [class.abierto]="envio.estado !== 'DISPONIBLE'">
               <div class="envio-header">
-                <!-- Formato sin la palabra "Mesa": Muestra "Envío #1" -->
                 <span class="envio-num"><mat-icon>local_shipping</mat-icon> Envío #{{ envio.numero }}</span>
                 <span class="envio-estado-badge" [attr.data-estado]="envio.estado">{{ envio.estado }}</span>
               </div>
@@ -185,11 +181,12 @@
                   </div>
                 }
 
+                <!-- 👤 ATENDIDO POR / ATENCIÓN CAJA -->
                 <div class="info-row">
-                  <mat-icon>badge</mat-icon>
+                  <mat-icon>room_service</mat-icon>
                   <div class="info-text">
                     <span class="label">Atendido por</span>
-                    <span class="value highlight-waiter">{{ envio.mesero || 'Sin asignar' }}</span>
+                    <span class="value highlight-waiter">{{ envio.mesero || authService.usuarioActivo()?.nombre || 'Atención Caja' }}</span>
                   </div>
                 </div>
               </div>
@@ -201,7 +198,6 @@
                 </div>
 
                 <div class="envio-actions">
-                  <!-- Botón Transferir Envío a Domicilio a Mesa de Salón -->
                   <button mat-icon-button color="primary" (click)="moverMesaModal(envio)" title="Transferir Envío a Mesa de Salón">
                     <mat-icon>sync_alt</mat-icon>
                   </button>

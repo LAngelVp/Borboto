@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,6 +24,7 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
     MatSelectModule,
     FormsModule
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './desglose-cuenta.html',
   styleUrl: './desglose-cuenta.scss'
 })

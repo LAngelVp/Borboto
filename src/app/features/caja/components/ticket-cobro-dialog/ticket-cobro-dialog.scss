@@ -1,6 +1,13 @@
+:host {
+  display: block;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-main) !important;
+}
+
 .ticket-dialog-container {
   padding: 16px;
-  background-color: #ffffff;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-main) !important;
   border-radius: 16px;
   text-align: center;
 }
@@ -12,29 +19,31 @@
     font-size: 48px;
     width: 48px;
     height: 48px;
-    color: #4caf50;
+    color: var(--status-listo, #4caf50);
   }
 
   h2 {
     margin: 4px 0;
     font-weight: 800;
     font-size: 22px;
+    color: var(--color-text-main);
   }
 
   .sub-mesa {
     font-size: 13px;
-    color: #757575;
+    color: var(--color-text-muted);
   }
 }
 
 .receipt-paper {
-  background-color: #fafafa;
-  border: 1px dashed #cccccc;
+  background-color: var(--color-bg);
+  border: 1px dashed var(--color-border);
   padding: 16px;
   font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
   text-align: left;
   border-radius: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   .receipt-header {
     text-align: center;
@@ -43,12 +52,13 @@
       margin: 0;
       font-size: 16px;
       font-weight: bold;
+      color: var(--color-text-main);
     }
 
     .negocio-detail {
       margin: 2px 0 0 0;
       font-size: 11px;
-      color: #666;
+      color: var(--color-text-muted);
     }
 
     .receipt-space {
@@ -58,21 +68,38 @@
     .receipt-meta {
       margin: 2px 0 0 0;
       font-size: 12px;
-      color: #111;
+      color: var(--color-text-main);
     }
   }
-  padding: 16px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
-  border-radius: 8px;
-  margin-bottom: 20px;
 
-  .receipt-header h3 { margin: 0; font-size: 16px; }
-  .receipt-header p { margin: 2px 0; color: #666; font-size: 11px; }
-  .receipt-divider { margin: 8px 0; color: #999; }
-  .receipt-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-  .receipt-row.cambio { font-size: 14px; color: #2e7d32; }
-  .receipt-footer { margin-top: 12px; font-weight: bold; font-size: 11px; }
+  .receipt-divider {
+    margin: 8px 0;
+    color: var(--color-text-muted);
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    color: var(--color-text-main);
+
+    &.cambio {
+      font-size: 14px;
+      color: var(--status-listo, #4ade80);
+      font-weight: bold;
+    }
+  }
+
+  .receipt-footer {
+    margin-top: 12px;
+    font-weight: bold;
+    font-size: 11px;
+    text-align: center;
+    color: var(--color-text-main);
+  }
 }
 
 .dialog-actions {
@@ -83,5 +110,15 @@
   button {
     height: 44px;
     font-weight: 700;
+
+    &[mat-stroked-button] {
+      color: var(--color-text-main);
+      border-color: var(--color-border);
+    }
+
+    &[mat-flat-button] {
+      background-color: var(--color-primary) !important;
+      color: #ffffff !important;
+    }
   }
 }

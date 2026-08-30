@@ -5,6 +5,7 @@ export interface Producto {
   categoria: string;
   icono?: string;
   disponible?: boolean;
+  imagen_url?: string;
 }
 
 export interface ItemComanda {

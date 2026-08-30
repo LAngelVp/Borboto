@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -24,6 +24,7 @@ export interface DialogDataAbrirMesa {
     MatInputModule,
     MatFormFieldModule
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './abrir-mesa-dialog.html',
   styleUrl: './abrir-mesa-dialog.scss'
 })

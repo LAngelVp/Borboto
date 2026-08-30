@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,6 +8,7 @@ import { AjustesService, DatosTransferencia } from '../../../../core/services/aj
 @Component({
   selector: 'app-datos-transferencia-dialog',
   imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './datos-transferencia-dialog.html',
   styleUrl: './datos-transferencia-dialog.scss'
 })

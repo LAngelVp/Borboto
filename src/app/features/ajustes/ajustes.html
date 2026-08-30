@@ -48,6 +48,25 @@
                 </mat-select>
               </mat-form-field>
 
+              <!-- 📸 CAMPO DE IMAGEN EDITAR -->
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Imagen del Producto</mat-label>
+                <input matInput [(ngModel)]="prod.imagen_url" name="editProdImagen" placeholder="https://... o carga desde tu PC">
+                <button mat-icon-button matSuffix type="button" (click)="fileInputEdit.click()" title="Subir desde la computadora">
+                  <mat-icon class="upload-btn-icon">cloud_upload</mat-icon>
+                </button>
+              </mat-form-field>
+              <input #fileInputEdit type="file" (change)="onFileSelected($event)" accept="image/*" style="display: none;">
+
+              @if (prod.imagen_url) {
+                <div class="image-preview">
+                  <img [src]="obtenerUrlImagen(prod.imagen_url)" alt="Previsualización">
+                  <button type="button" class="btn-remove-img" (click)="limpiarImagen()" title="Quitar imagen">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              }
+
               <div class="checkbox-container">
                 <label class="custom-checkbox">
                   <input type="checkbox" [(ngModel)]="prod.disponible" name="editProdDisp">
@@ -88,6 +107,25 @@
                   }
                 </mat-select>
               </mat-form-field>
+
+              <!-- 📸 CAMPO DE IMAGEN CREAR -->
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Imagen del Producto</mat-label>
+                <input matInput [(ngModel)]="nuevoProducto.imagen_url" name="prodImagen" placeholder="https://... o carga desde tu PC">
+                <button mat-icon-button matSuffix type="button" (click)="fileInputCreate.click()" title="Subir desde la computadora">
+                  <mat-icon class="upload-btn-icon">cloud_upload</mat-icon>
+                </button>
+              </mat-form-field>
+              <input #fileInputCreate type="file" (change)="onFileSelected($event)" accept="image/*" style="display: none;">
+
+              @if (nuevoProducto.imagen_url) {
+                <div class="image-preview">
+                  <img [src]="obtenerUrlImagen(nuevoProducto.imagen_url)" alt="Previsualización">
+                  <button type="button" class="btn-remove-img" (click)="limpiarImagen()" title="Quitar imagen">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              }
 
               <div class="form-actions">
                 <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoProducto.nombre || nuevoProducto.precio === null || !nuevoProducto.categoria_id">
@@ -160,7 +198,7 @@
           }
         </div>
 
-        <!-- Derecha: Listas de Menú y Categorías (CRUD) -->
+        <!-- Derecha: Listado del Menú y Categorías (CRUD) -->
         <div class="form-card col-lg">
           <div class="card-header">
             <h3>Listado del Menú y Categorías</h3>
@@ -196,6 +234,17 @@
             <div class="crud-items-grid">
               @for (p of productos(); track p.id) {
                 <div class="crud-row-item" [class.inactive]="!p.disponible">
+                  <!-- Miniatura de la imagen -->
+                  <div class="prod-thumb">
+                    @if (p.imagen_url) {
+                      <img [src]="obtenerUrlImagen(p.imagen_url)" [alt]="p.nombre" class="thumb-img">
+                    } @else {
+                      <div class="thumb-placeholder">
+                        <mat-icon>restaurant</mat-icon>
+                      </div>
+                    }
+                  </div>
+
                   <div class="row-text">
                     <span class="font-bold">{{ p.nombre }}</span>
                     <span class="secondary-info">({{ p['categoriaNombre'] || 'Sin categoría' }})</span>
@@ -204,6 +253,7 @@
                       <span class="no-disp-badge">No disponible</span>
                     }
                   </div>
+
                   <div class="row-actions">
                     <button type="button" class="btn-icon edit" (click)="habilitarEdicionProducto(p)" title="Editar Producto">
                       <mat-icon>edit</mat-icon>

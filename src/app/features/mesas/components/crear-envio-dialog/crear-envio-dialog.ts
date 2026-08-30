@@ -113,7 +113,8 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
   styles: [`
     .dialog-container {
       padding: 16px;
-      background-color: #ffffff;
+      background-color: var(--color-surface) !important;
+      color: var(--color-text-main) !important;
     }
     .dialog-title {
       display: flex;
@@ -121,7 +122,7 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
       gap: 10px;
       font-size: 20px;
       font-weight: 800;
-      color: var(--color-primary, #e65100);
+      color: var(--color-primary) !important;
       margin-bottom: 16px;
     }
     .dialog-content {
@@ -134,9 +135,36 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
         margin: 0 0 8px 0;
         font-size: 13px;
         text-transform: uppercase;
-        color: var(--color-text-muted, #5f6368);
+        color: var(--color-text-muted) !important;
         letter-spacing: 0.5px;
         font-weight: 700;
+      }
+    }
+
+    /* Sobreescritura profunda de estilos para Material Form Fields */
+    ::ng-deep {
+      .mat-mdc-text-field-wrapper {
+        background-color: var(--color-bg) !important;
+        border-radius: 8px;
+      }
+
+      .mat-mdc-input-element,
+      textarea.mat-mdc-input-element,
+      .mat-mdc-select-value {
+        color: var(--color-text-main) !important;
+      }
+
+      .mat-mdc-floating-label,
+      .mat-mdc-select-placeholder {
+        color: var(--color-text-muted) !important;
+      }
+
+      .mat-mdc-form-field-disabled {
+        .mat-mdc-input-element,
+        textarea.mat-mdc-input-element {
+          color: var(--color-text-muted) !important;
+          opacity: 0.8;
+        }
       }
     }
 
@@ -147,12 +175,12 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
       padding: 8px 12px;
       position: sticky;
       top: 0;
-      background: #ffffff;
+      background: var(--color-surface) !important;
       z-index: 10;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--color-border);
 
       .search-icon {
-        color: #94a3b8;
+        color: var(--color-text-muted) !important;
         font-size: 20px;
         width: 20px;
         height: 20px;
@@ -164,11 +192,11 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
         outline: none;
         width: 100%;
         font-size: 13px;
-        color: #1e293b;
+        color: var(--color-text-main) !important;
         background: transparent;
 
         &::placeholder {
-          color: #94a3b8;
+          color: var(--color-text-muted) !important;
         }
       }
 
@@ -181,20 +209,20 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
           font-size: 16px;
           width: 16px;
           height: 16px;
-          color: #64748b;
+          color: var(--color-text-muted) !important;
         }
       }
     }
 
     .no-results {
       font-size: 12px;
-      color: #94a3b8;
+      color: var(--color-text-muted) !important;
       text-align: center;
     }
 
     .divider {
       height: 1px;
-      background-color: #e2e8f0;
+      background-color: var(--color-border);
       margin: 8px 0;
     }
     .w-full {

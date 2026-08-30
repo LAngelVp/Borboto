@@ -4,10 +4,7 @@
     (selectionChange)="onCategoriaChange($event)"
     class="categorias-bar">
     @for (cat of comandaService.categoriasDisponibles(); track cat) {
-      <mat-chip-option
-        [value]="cat"
-        [selected]="comandaService.categoriaSeleccionada() === cat"
-        (click)="seleccionarCategoria(cat)">
+      <mat-chip-option [value]="cat">
         {{ cat }}
       </mat-chip-option>
     }
@@ -17,9 +14,23 @@
   <div class="productos-grid">
     @for (p of comandaService.productosFiltrados(); track p.id) {
       <div class="producto-btn" (click)="onAgregar(p)">
-        <mat-icon class="prod-icon">{{ p.icono || 'restaurant' }}</mat-icon>
-        <span class="prod-nombre">{{ p.nombre }}</span>
-        <span class="prod-precio">${{ p.precio | number:'1.2-2' }}</span>
+        <div class="media-container">
+          @if (p.imagen_url) {
+            <img
+              [src]="obtenerUrlImagen(p.imagen_url)"
+              [alt]="p.nombre"
+              class="prod-img" />
+          } @else {
+            <div class="prod-icon-wrapper">
+              <mat-icon class="prod-icon">{{ p.icono || 'restaurant' }}</mat-icon>
+            </div>
+          }
+        </div>
+
+        <div class="prod-info">
+          <span class="prod-nombre">{{ p.nombre }}</span>
+          <span class="prod-precio">${{ p.precio | number:'1.2-2' }}</span>
+        </div>
       </div>
     }
   </div>

@@ -97,30 +97,131 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
     </div>
   `,
   styles: [`
-    .dialog-container { padding: 16px; background-color: #ffffff; }
+    .dialog-container {
+      padding: 16px;
+      background-color: var(--color-surface) !important;
+      color: var(--color-text-main) !important;
+    }
     .dialog-title {
-      display: flex; align-items: center; gap: 10px; font-size: 20px;
-      font-weight: 800; color: #0288d1; margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 800;
+      color: #0288d1 !important;
+      margin-bottom: 16px;
     }
-    .dialog-content { display: flex; flex-direction: column; gap: 12px; }
+    .dialog-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
     .form-section h3 {
-      margin: 0 0 8px 0; font-size: 13px; text-transform: uppercase;
-      color: #5f6368; letter-spacing: 0.5px; font-weight: 700;
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      color: var(--color-text-muted) !important;
+      letter-spacing: 0.5px;
+      font-weight: 700;
     }
+
+    /* Sobreescritura profunda de Angular Material MDC */
+    ::ng-deep {
+      .mat-mdc-text-field-wrapper {
+        background-color: var(--color-bg) !important;
+        border-radius: 8px;
+      }
+
+      .mat-mdc-input-element,
+      .mat-mdc-select-value {
+        color: var(--color-text-main) !important;
+      }
+
+      .mat-mdc-floating-label,
+      .mat-mdc-select-placeholder {
+        color: var(--color-text-muted) !important;
+      }
+
+      .mat-mdc-form-field-disabled {
+        .mat-mdc-input-element {
+          color: var(--color-text-muted) !important;
+          opacity: 0.8;
+        }
+      }
+    }
+
     .search-input-box {
-      display: flex; align-items: center; padding: 8px 12px;
-      position: sticky; top: 0; background: #ffffff; z-index: 10;
-      border-bottom: 1px solid #e2e8f0;
-      .search-icon { color: #94a3b8; font-size: 20px; width: 20px; height: 20px; margin-right: 8px; }
-      .search-input { border: none; outline: none; width: 100%; font-size: 13px; color: #1e293b; background: transparent; }
-      .btn-clear { width: 24px; height: 24px; line-height: 24px; mat-icon { font-size: 16px; width: 16px; height: 16px; color: #64748b; } }
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      position: sticky;
+      top: 0;
+      background: var(--color-surface) !important;
+      z-index: 10;
+      border-bottom: 1px solid var(--color-border);
+
+      .search-icon {
+        color: var(--color-text-muted) !important;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        margin-right: 8px;
+      }
+
+      .search-input {
+        border: none;
+        outline: none;
+        width: 100%;
+        font-size: 13px;
+        color: var(--color-text-main) !important;
+        background: transparent;
+
+        &::placeholder {
+          color: var(--color-text-muted) !important;
+        }
+      }
+
+      .btn-clear {
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+          color: var(--color-text-muted) !important;
+        }
+      }
     }
-    .no-results { font-size: 12px; color: #94a3b8; text-align: center; }
-    .divider { height: 1px; background-color: #e2e8f0; margin: 8px 0; }
-    .w-full { width: 100%; }
+
+    .no-results {
+      font-size: 12px;
+      color: var(--color-text-muted) !important;
+      text-align: center;
+    }
+
+    .divider {
+      height: 1px;
+      background-color: var(--color-border);
+      margin: 8px 0;
+    }
+
+    .w-full {
+      width: 100%;
+    }
+
     .dialog-actions {
-      display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;
-      button { font-weight: 700; border-radius: 8px; height: 40px; }
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+
+      button {
+        font-weight: 700;
+        border-radius: 8px;
+        height: 40px;
+      }
     }
   `]
 })

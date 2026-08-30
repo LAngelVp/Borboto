@@ -1,4 +1,4 @@
-import { Component, inject, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,7 @@ import { MesaService } from '../../../../core/services/mesa';
   selector: 'app-mesa-filtros',
   standalone: true,
   imports: [CommonModule, MatChipsModule, MatButtonModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mesa-filtros.html',
   styleUrl: './mesa-filtros.scss'
 })

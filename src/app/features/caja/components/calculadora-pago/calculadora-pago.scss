@@ -2,10 +2,12 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
+  color: var(--color-text-main);
   padding: 16px;
   border-radius: 12px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .metodos-grid {
@@ -19,19 +21,34 @@
     align-items: center;
     justify-content: center;
     height: 64px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
-    background-color: #ffffff;
+    background-color: var(--color-surface);
     cursor: pointer;
     font-weight: 700;
-    color: #5f6368;
+    color: var(--color-text-muted);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 
-    mat-icon { font-size: 24px; width: 24px; height: 24px; margin-bottom: 4px; }
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+      margin-bottom: 4px;
+      color: inherit;
+    }
+
+    &:hover {
+      background-color: var(--color-hover);
+    }
 
     &.active {
-      background-color: #fff3e0;
-      border-color: var(--color-primary, #e65100);
-      color: var(--color-primary, #e65100);
+      background-color: rgba(230, 81, 0, 0.15);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+
+      mat-icon {
+        color: var(--color-primary);
+      }
     }
   }
 }
@@ -42,18 +59,38 @@
   gap: 12px;
 
   .display-box {
-    background-color: #f4f6f8;
+    background-color: var(--color-bg);
     padding: 12px;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
+    border: 1px solid var(--color-border);
 
-    .label { font-size: 11px; font-weight: 700; color: #757575; text-transform: uppercase; }
-    .valor { font-size: 24px; font-weight: 800; color: #1a1a1a; }
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+    }
+
+    .valor {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--color-text-main);
+      font-variant-numeric: tabular-nums;
+    }
 
     &.cambio.suficiente {
-      background-color: #e8f5e9;
-      .valor { color: #2e7d32; }
+      background-color: rgba(76, 175, 80, 0.15);
+      border-color: rgba(76, 175, 80, 0.3);
+
+      .label {
+        color: var(--status-listo, #4ade80);
+      }
+
+      .valor {
+        color: var(--status-listo, #4ade80);
+      }
     }
   }
 }
@@ -65,12 +102,21 @@
 
   .btn-billete {
     height: 40px;
-    border: 1px solid #c8e6c9;
-    background-color: #f1f8e9;
-    color: #33691e;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    background-color: rgba(76, 175, 80, 0.12);
+    color: var(--status-listo, #4ade80);
     font-weight: 800;
     border-radius: 6px;
     cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+
+    &:hover {
+      background-color: rgba(76, 175, 80, 0.25);
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
   }
 }
 
@@ -81,22 +127,59 @@
 
   .btn-key {
     height: 52px;
-    border: 1px solid #e0e0e0;
-    background-color: #ffffff;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-text-main);
     font-size: 20px;
     font-weight: 800;
     border-radius: 8px;
     cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
 
-    &.action { background-color: #f5f5f5; color: #d32f2f; }
+    &:hover {
+      background-color: var(--color-hover);
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+
+    &.action {
+      background-color: rgba(211, 47, 47, 0.12);
+      color: var(--status-urgente, #f87171);
+      border-color: rgba(211, 47, 47, 0.3);
+
+      mat-icon {
+        color: var(--status-urgente, #f87171);
+      }
+
+      &:hover {
+        background-color: rgba(211, 47, 47, 0.25);
+      }
+    }
   }
 }
 
 .terminal-msg {
   text-align: center;
   padding: 48px 16px;
-  color: #455a64;
+  color: var(--color-text-muted);
 
-  mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 12px; color: var(--color-primary, #e65100); }
-  p { font-size: 16px; margin: 0; }
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    color: var(--color-primary);
+  }
+
+  p {
+    font-size: 16px;
+    margin: 0;
+    color: var(--color-text-main);
+
+    strong {
+      color: var(--color-primary);
+    }
+  }
 }

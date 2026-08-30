@@ -15,6 +15,7 @@ export interface ProductoAdmin {
   nombre: string;
   precio: number;
   disponible?: boolean;
+  imagen_url?: string;
   categoriaNombre?: string;
 }
 

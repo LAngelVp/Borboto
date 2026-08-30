@@ -1,42 +1,44 @@
-<h2 mat-dialog-title class="dialog-title">
-  <mat-icon>receipt_long</mat-icon> Desglose de Cuenta - Mesa {{ data.mesa.numero }}
-</h2>
+<div class="dialog-container">
+  <h2 mat-dialog-title class="dialog-title">
+    <mat-icon>receipt_long</mat-icon> Desglose de Cuenta - Mesa {{ data.mesa.numero }}
+  </h2>
 
-<mat-dialog-content>
-  <div class="estado-badge">
-    Estado actual: <strong>{{ data.mesa.estado }}</strong>
-  </div>
+  <mat-dialog-content class="dialog-content">
+    <div class="estado-badge">
+      Estado actual: <strong>{{ data.mesa.estado }}</strong>
+    </div>
 
-  @if (cargando()) {
-    <p class="loading-msg">Cargando productos...</p>
-  } @else if (items().length === 0) {
-    <p class="empty-msg">No hay productos consumidos registrados en esta mesa.</p>
-  } @else {
-    <div class="items-list">
-      @for (item of items(); track item.producto.id) {
-        <div class="item-row">
-          <span class="cant">{{ item.cantidad }}x</span>
-          <span class="nombre">{{ item.producto.nombre }}</span>
-          <span class="precio">${{ item.subtotal | number:'1.2-2' }}</span>
-        </div>
-        @if (item.notas) {
-          <small class="notas">* {{ item.notas }}</small>
+    @if (cargando()) {
+      <p class="loading-msg">Cargando productos...</p>
+    } @else if (items().length === 0) {
+      <p class="empty-msg">No hay productos consumidos registrados en esta mesa.</p>
+    } @else {
+      <div class="items-list">
+        @for (item of items(); track item.producto.id) {
+          <div class="item-row">
+            <span class="cant">{{ item.cantidad }}x</span>
+            <span class="nombre">{{ item.producto.nombre }}</span>
+            <span class="precio">${{ item.subtotal | number:'1.2-2' }}</span>
+          </div>
+          @if (item.notas) {
+            <small class="notas">* {{ item.notas }}</small>
+          }
         }
-      }
-    </div>
+      </div>
 
-    <div class="total-bar">
-      <span>Total acumulado:</span>
-      <strong>${{ total() | number:'1.2-2' }}</strong>
-    </div>
-  }
-</mat-dialog-content>
+      <div class="total-bar">
+        <span>Total acumulado:</span>
+        <strong>${{ total() | number:'1.2-2' }}</strong>
+      </div>
+    }
+  </mat-dialog-content>
 
-<mat-dialog-actions align="end">
-  @if (items().length > 0 && (authService.usuarioActivo()?.rol === 'ADMIN' || authService.usuarioActivo()?.rol === 'CAJERO')) {
-    <button mat-raised-button color="warn" (click)="cancelarComandaMesa()">
-      <mat-icon>delete_forever</mat-icon> Cancelar Comanda
-    </button>
-  }
-  <button mat-flat-button color="primary" (click)="dialogRef.close()">Cerrar</button>
-</mat-dialog-actions>
+  <mat-dialog-actions align="end" class="dialog-actions">
+    @if (items().length > 0 && (authService.usuarioActivo()?.rol === 'ADMIN' || authService.usuarioActivo()?.rol === 'CAJERO')) {
+      <button mat-raised-button color="warn" (click)="cancelarComandaMesa()">
+        <mat-icon>delete_forever</mat-icon> Cancelar Comanda
+      </button>
+    }
+    <button mat-flat-button color="primary" (click)="dialogRef.close()">Cerrar</button>
+  </mat-dialog-actions>
+</div>

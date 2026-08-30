@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { BillingComponent } from '../../features/billing-component/billing-component';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -40,6 +41,10 @@ export class AjustesComponent implements OnInit {
   private readonly cajaService = inject(CajaService);
   protected readonly authService = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly http = inject(HttpClient);
+
+  // URL base del servidor backend Express
+  private readonly API_URL = 'http://localhost:3000';
 
   // Catálogos e inicialización con Signals
   readonly categorias = signal<CategoriaAdmin[]>([]);
@@ -55,7 +60,8 @@ export class AjustesComponent implements OnInit {
     categoria_id: 0,
     nombre: '',
     precio: 0,
-    disponible: true
+    disponible: true,
+    imagen_url: ''
   };
 
   nuevaCategoria: CategoriaAdmin = {
@@ -118,7 +124,7 @@ export class AjustesComponent implements OnInit {
     activo: true
   };
 
-  // Estados de Edición Activa (para edición inline/modales)
+  // Estados de Edición Activa
   productoEditando = signal<ProductoAdmin | null>(null);
   categoriaEditando = signal<CategoriaAdmin | null>(null);
   mesaEditando = signal<MesaAdmin | null>(null);
@@ -148,6 +154,54 @@ export class AjustesComponent implements OnInit {
       next: (data) => this.cortesHistory.set(data),
       error: (err) => console.error('Error al cargar historial de cortes:', err)
     });
+  }
+
+  // --- MÉTODOS Y MANEJO DE IMÁGENES ---
+
+  onFileSelected(event: any) {
+    const file: File = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('imagen', file);
+
+    this.http.post<{ url: string }>(`${this.API_URL}/api/productos/upload`, formData).subscribe({
+      next: (res) => {
+        const prod = this.productoEditando();
+        if (prod) {
+          this.productoEditando.set({
+            ...prod,
+            imagen_url: res.url
+          });
+        } else {
+          this.nuevoProducto.imagen_url = res.url;
+        }
+        this.snackBar.open('Imagen subida correctamente al servidor.', 'Cerrar', { duration: 2000 });
+      },
+      error: (err) => {
+        this.snackBar.open(err.error?.error || 'Error al subir la imagen al servidor.', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
+  obtenerUrlImagen(url?: string | null): string {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `${this.API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
+  limpiarImagen() {
+    const editando = this.productoEditando();
+    if (editando) {
+      this.productoEditando.set({
+        ...editando,
+        imagen_url: ''
+      });
+    } else {
+      this.nuevoProducto.imagen_url = '';
+    }
   }
 
   // --- CARGAS INDIVIDUALES ---
@@ -241,7 +295,8 @@ export class AjustesComponent implements OnInit {
           categoria_id: this.categorias()[0]?.id || 0,
           nombre: '',
           precio: 0,
-          disponible: true
+          disponible: true,
+          imagen_url: ''
         };
         this.cargarProductos();
       },
@@ -249,8 +304,13 @@ export class AjustesComponent implements OnInit {
     });
   }
 
-  habilitarEdicionProducto(p: ProductoAdmin) {
-    this.productoEditando.set({ ...p });
+  // HABILITAR EDICIÓN CON SOPORTE PARA MÚLTIPLES NOMBRES DE CAMPOS EN LA BD/API
+  habilitarEdicionProducto(p: any) {
+    const imagenNormalizada = p.imagen_url || p.imagen || p.imagenUrl || '';
+    this.productoEditando.set({
+      ...p,
+      imagen_url: imagenNormalizada
+    });
   }
 
   guardarEdicionProducto() {
@@ -297,7 +357,7 @@ export class AjustesComponent implements OnInit {
           orden: 0
         };
         this.cargarCategorias();
-        this.cargarProductos(); // las categorías cambian
+        this.cargarProductos();
       },
       error: () => this.snackBar.open('Error al intentar dar de alta la categoría.', 'Cerrar', { duration: 3000 })
     });

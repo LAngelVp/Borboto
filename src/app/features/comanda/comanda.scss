@@ -5,11 +5,21 @@
   padding: 20px;
   height: calc(100vh - 84px);
   box-sizing: border-box;
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  transition: background-color 0.25s ease, color 0.25s ease;
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
+    height: auto;
   }
 }
 
-.seccion-menu { height: 100%; overflow: hidden; }
-.seccion-ticket { height: 100%; }
+.seccion-menu {
+  height: 100%;
+  overflow: hidden;
+}
+
+.seccion-ticket {
+  height: 100%;
+}

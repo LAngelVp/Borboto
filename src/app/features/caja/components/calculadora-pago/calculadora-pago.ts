@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,6 +11,7 @@ import { DatosTransferenciaDialogComponent } from '../datos-transferencia-dialog
   selector: 'app-calculadora-pago',
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './calculadora-pago.html',
   styleUrl: './calculadora-pago.scss'
 })
