@@ -275,6 +275,70 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
      2. ENDPOINTS DE MENÚ Y COMANDERO
      ========================================================================== */
 
+  // Endpoint para importar productos masivamente desde CSV/Excel
+  app.post('/api/productos/importar-lote', async (req, res) => {
+    const { productos } = req.body; // Recibe el arreglo de productos
+
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({ error: 'No se enviaron productos válidos.' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      let insertadosCount = 0;
+
+      for (const prod of productos) {
+        const nombreCategoria = (prod.categoria || 'General').trim();
+
+        // 1. Obtener o crear la categoría automáticamente si no existe
+        let catRes = await client.query('SELECT id FROM categorias WHERE LOWER(nombre) = LOWER($1)', [nombreCategoria]);
+        let categoriaId: number;
+
+        if (catRes.rows.length === 0) {
+          const nuevaCat = await client.query(
+            'INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, 0) RETURNING id',
+            [nombreCategoria, 'restaurant']
+          );
+          categoriaId = nuevaCat.rows[0].id;
+        } else {
+          categoriaId = catRes.rows[0].id;
+        }
+
+        // 2. Insertar el producto
+        await client.query(
+          `INSERT INTO productos (categoria_id, nombre, precio, disponible, clave_sat)
+          VALUES ($1, $2, $3, $4, $5)`,
+          [
+            categoriaId,
+            prod.nombre.trim(),
+            Number(prod.precio),
+            prod.disponible !== false,
+            prod.clave_sat || null
+          ]
+        );
+
+        insertadosCount++;
+      }
+
+      await client.query('COMMIT');
+
+      // Emitir socket para refrescar el menú en los comandero si aplica
+      if (typeof emitirCambioGlobal === 'function') {
+        emitirCambioGlobal('actualizar_productos');
+      }
+
+      res.status(201).json({ ok: true, agregados: insertadosCount });
+    } catch (err: any) {
+      await client.query('ROLLBACK');
+      console.error('Error en importación masiva de productos:', err.message);
+      res.status(500).json({ error: err.message || 'Error al importar los productos.' });
+    } finally {
+      client.release();
+    }
+  });
+
   // Endpoint para obtener los productos del menú (utilizado por ComandaService)
   app.get('/api/productos', async (req, res) => {
     try {

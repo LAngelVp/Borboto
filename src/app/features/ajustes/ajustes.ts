@@ -15,6 +15,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AjustesService, CategoriaAdmin, ProductoAdmin, MesaAdmin, ZonaAdmin, DatosNegocio, DatosTransferencia, Cliente, Promocion } from '../../core/services/ajustes.service';
 import { AuthService, Usuario } from '../../core/services/auth.service';
 import { CajaService } from '../../core/services/caja-service';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-ajustes',
@@ -283,6 +284,87 @@ export class AjustesComponent implements OnInit {
       },
       error: (err) => console.error('Error al cargar datos de transferencia:', err)
     });
+  }
+  // --- IMPORTAR PRODUCTOS ---
+
+  // Método que procesa el archivo subido (CSV o Excel)
+  onFileSelectedImportarProductos(event: Event) {
+    const target = event.target as HTMLInputElement;
+    if (!target.files || target.files.length === 0) return;
+
+    const file = target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        // Tomamos la primera hoja del libro
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Convertimos las filas a un arreglo de objetos JSON
+        const productosRaw: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (productosRaw.length === 0) {
+          this.snackBar.open('El archivo no contiene registros.', 'Cerrar', { duration: 3000 });
+          return;
+        }
+
+        // Mapeamos los datos para asegurar los nombres de propiedades esperados
+        const productosProcesados = productosRaw.map(row => ({
+          nombre: row.Nombre || row.nombre || '',
+          categoria: row.Categoria || row.categoria || 'General',
+          precio: Number(row.Precio || row.precio || 0),
+          disponible: row.Disponible !== undefined ? String(row.Disponible).toLowerCase() !== 'false' && row.Disponible !== 0 : true,
+          clave_sat: row.ClaveSAT || row.clave_sat || null
+        })).filter(p => p.nombre.trim().length > 0 && p.precio >= 0);
+
+        if (productosProcesados.length === 0) {
+          this.snackBar.open('No se encontraron productos válidos en el archivo.', 'Cerrar', { duration: 3000 });
+          return;
+        }
+
+        // Enviamos el lote al backend
+        this.importarProductosLote(productosProcesados);
+
+      } catch (err) {
+        console.error('Error leyendo archivo Excel/CSV:', err);
+        this.snackBar.open('Error al leer el archivo. Asegúrate de que sea un formato válido (.xlsx, .csv).', 'Cerrar', { duration: 4000 });
+      } finally {
+        target.value = ''; // Limpiar el input para permitir re-subir el mismo archivo si se desea
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  // Petición al backend
+  private importarProductosLote(productos: any[]) {
+    this.http.post<{ agregados: number }>('http://localhost:3000/api/productos/importar-lote', { productos }).subscribe({
+      next: (res) => {
+        this.snackBar.open(`¡Se importaron ${res.agregados} productos con éxito!`, 'Cerrar', { duration: 4000 });
+        // Aquí puedes invocar tu método local para recargar la lista de productos
+        // this.cargarProductos();
+      },
+      error: (err) => {
+        console.error('Error al importar lote:', err);
+        this.snackBar.open('Error al guardar los productos importados en la base de datos.', 'Cerrar', { duration: 4000 });
+      }
+    });
+  }
+
+  // Método auxiliar para descargar una plantilla CSV de ejemplo
+  descargarPlantillaEjemplo() {
+    const contenidoCsv = 'Nombre,Categoria,Precio,Disponible,ClaveSAT\nTacos al Pastor,Entradas,25.00,true,01010101\nRefresco 600ml,Bebidas,30.00,true,01010101';
+    const blob = new Blob([contenidoCsv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plantilla_productos_borboto.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // --- CRUD PRODUCTOS ---

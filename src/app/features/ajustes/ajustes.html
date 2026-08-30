@@ -23,6 +23,26 @@
       <div class="tab-content row-layout">
         <!-- Izquierda: Formulario de Productos -->
         <div class="form-card col-sm">
+          <!-- Botón de Importar Productos -->
+          <div class="acciones-productos-row" style="display: flex; gap: 10px; margin-bottom: 16px;">
+            <!-- Input de archivo oculto -->
+            <input
+              type="file"
+              #fileInput
+              (change)="onFileSelectedImportarProductos($event)"
+              accept=".csv, .xlsx, .xls"
+              style="display: none;">
+
+            <!-- Botón que activa la selección de archivo -->
+            <button mat-stroked-button color="primary" (click)="fileInput.click()">
+              <mat-icon>file_upload</mat-icon> Importar Productos (CSV / Excel)
+            </button>
+
+            <!-- Botón opcional para descargar plantilla de ejemplo -->
+            <button mat-button (click)="descargarPlantillaEjemplo()" title="Descargar plantilla de ejemplo">
+              <mat-icon>download</mat-icon> Plantilla Ejemplo
+            </button>
+          </div>
           @if (productoEditando(); as prod) {
             <div class="card-header border-orange">
               <h3>Editar Producto</h3>
