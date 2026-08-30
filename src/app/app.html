@@ -1,3 +1,8 @@
+<!--
+  Desarrollador: Luis Angel Vallejo
+  Funcionalidad: Plantilla principal de la aplicación que renderiza de forma condicional la barra de navegación (Navbar) si existe un usuario autenticado, y proporciona el contenedor principal (<router-outlet>) para la navegación de rutas en Angular.
+-->
+
 <!-- Solo renderizar navbar si hay un usuario logueado -->
 @if (authService.usuarioActivo()) {
   <app-navbar></app-navbar>

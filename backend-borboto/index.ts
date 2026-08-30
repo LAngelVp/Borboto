@@ -1,3 +1,11 @@
+/**
+ * Desarrollador: Luis Angel Vallejo
+ * Funcionalidad General: Servidor Backend API REST y WebSockets para el sistema Borboto POS.
+ * Encargado de gestionar la persistencia en PostgreSQL, la comunicación en tiempo real con Socket.IO,
+ * la optimización de imágenes con Sharp, la integración con Facturapi para facturación electrónica (CFDI 4.0),
+ * y la exposición de todos los endpoints necesarios para el comandero, caja, cocina (KDS) y panel de administración.
+ */
+
 // src/index.ts
 import express from 'express';
 import cors from 'cors';

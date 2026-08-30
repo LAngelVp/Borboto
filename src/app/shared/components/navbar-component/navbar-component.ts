@@ -1,3 +1,10 @@
+/**
+ * Desarrollador: Luis Angel Vallejo
+ * Funcionalidad: Lógica del componente de la barra de navegación (Navbar).
+ * Maneja las interacciones del usuario en el encabezado global del POS,
+ * incluyendo el cambio de tema (claro/oscuro), la apertura del diálogo de cambio de turno y la finalización de sesión.
+ */
+
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
