@@ -23,26 +23,16 @@
       <div class="tab-content row-layout">
         <!-- Izquierda: Formulario de Productos -->
         <div class="form-card col-sm">
-          <!-- Botón de Importar Productos -->
           <div class="acciones-productos-row" style="display: flex; gap: 10px; margin-bottom: 16px;">
-            <!-- Input de archivo oculto -->
-            <input
-              type="file"
-              #fileInput
-              (change)="onFileSelectedImportarProductos($event)"
-              accept=".csv, .xlsx, .xls"
-              style="display: none;">
-
-            <!-- Botón que activa la selección de archivo -->
+            <input type="file" #fileInput (change)="onFileSelectedImportarProductos($event)" accept=".csv, .xlsx, .xls" style="display: none;">
             <button mat-stroked-button color="primary" (click)="fileInput.click()">
               <mat-icon>file_upload</mat-icon> Importar Productos (CSV / Excel)
             </button>
-
-            <!-- Botón opcional para descargar plantilla de ejemplo -->
             <button mat-button (click)="descargarPlantillaEjemplo()" title="Descargar plantilla de ejemplo">
               <mat-icon>download</mat-icon> Plantilla Ejemplo
             </button>
           </div>
+
           @if (productoEditando(); as prod) {
             <div class="card-header border-orange">
               <h3>Editar Producto</h3>
@@ -68,7 +58,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- 📸 CAMPO DE IMAGEN EDITAR -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Imagen del Producto</mat-label>
                 <input matInput [(ngModel)]="prod.imagen_url" name="editProdImagen" placeholder="https://... o carga desde tu PC">
@@ -95,12 +84,8 @@
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!prod.nombre || prod.precio === null">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionProducto()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!prod.nombre || prod.precio === null">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionProducto()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -128,7 +113,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- 📸 CAMPO DE IMAGEN CREAR -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Imagen del Producto</mat-label>
                 <input matInput [(ngModel)]="nuevoProducto.imagen_url" name="prodImagen" placeholder="https://... o carga desde tu PC">
@@ -179,32 +163,18 @@
                 <input matInput type="number" [(ngModel)]="catEdit.orden" name="editCatOrden">
               </mat-form-field>
 
-              <!-- 🖨️ DESTINO DE IMPRESIÓN EDITAR -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Destino de Impresión</mat-label>
                 <mat-select [(ngModel)]="catEdit.destino_impresion" name="editCatDestino" required>
-                  <mat-option value="COCINA">
-                    <mat-icon style="vertical-align: middle; margin-right: 8px;">restaurant</mat-icon>
-                    Cocina (Alimentos / Platillos)
-                  </mat-option>
-                  <mat-option value="BARRA">
-                    <mat-icon style="vertical-align: middle; margin-right: 8px;">local_bar</mat-icon>
-                    Barra (Bebidas / Coctelería)
-                  </mat-option>
-                  <mat-option value="NINGUNO">
-                    <mat-icon style="vertical-align: middle; margin-right: 8px;">block</mat-icon>
-                    Sin Impresión
-                  </mat-option>
+                  <mat-option value="COCINA"><mat-icon>restaurant</mat-icon> Cocina (Alimentos)</mat-option>
+                  <mat-option value="BARRA"><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option>
+                  <mat-option value="NINGUNO"><mat-icon>block</mat-icon> Sin Impresión</mat-option>
                 </mat-select>
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!catEdit.nombre">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionCategoria()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!catEdit.nombre">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionCategoria()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -228,22 +198,12 @@
                 <input matInput type="number" [(ngModel)]="nuevaCategoria.orden" name="catOrden" placeholder="0">
               </mat-form-field>
 
-              <!-- 🖨️ DESTINO DE IMPRESIÓN CREAR -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Destino de Impresión</mat-label>
                 <mat-select [(ngModel)]="nuevaCategoria.destino_impresion" name="catDestino" required>
-                  <mat-option value="COCINA">
-                    <mat-icon style="vertical-align: middle; margin-right: 8px;">restaurant</mat-icon>
-                    Cocina (Alimentos / Platillos)
-                  </mat-option>
-                  <mat-option value="BARRA">
-                    <mat-icon style="vertical-align: middle; margin-right: 8px;">local_bar</mat-icon>
-                    Barra (Bebidas / Coctelería)
-                  </mat-option>
-                  <mat-option value="NINGUNO">
-                    <mat-icon style="vertical-align: middle; margin-right: 8px;">block</mat-icon>
-                    Sin Impresión
-                  </mat-option>
+                  <mat-option value="COCINA"><mat-icon>restaurant</mat-icon> Cocina (Alimentos)</mat-option>
+                  <mat-option value="BARRA"><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option>
+                  <mat-option value="NINGUNO"><mat-icon>block</mat-icon> Sin Impresión</mat-option>
                 </mat-select>
               </mat-form-field>
 
@@ -264,46 +224,36 @@
           </div>
 
           <div class="scrollable-crud-list">
-            <!-- Sección de Categorías -->
             <h4 class="section-subtitle"><mat-icon>folder</mat-icon> Categorías Existentes</h4>
             <div class="crud-items-grid">
               @for (cat of categorias(); track cat.id) {
                 <div class="crud-row-item">
                   <span class="row-text font-bold">
-                    <mat-icon class="inline-icon">{{ cat.icono || 'restaurant' }}</mat-icon>
-                    {{ cat.nombre }}
+                    <mat-icon class="inline-icon">{{ cat.icono || 'restaurant' }}</mat-icon> {{ cat.nombre }}
                     <span class="badge">Orden: {{ cat.orden || 0 }}</span>
                     <span class="badge" [style.background-color]="cat.destino_impresion === 'BARRA' ? '#e3f2fd' : '#fbe9e7'" [style.color]="cat.destino_impresion === 'BARRA' ? '#1565c0' : '#d84315'">
                       🖨️ {{ cat.destino_impresion || 'COCINA' }}
                     </span>
                   </span>
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionCategoria(cat)" title="Editar Categoria">
-                      <mat-icon>edit</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionCategoria(cat)" title="Editar Categoria"><mat-icon>edit</mat-icon></button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarCategoria(cat.id!)" title="Eliminar Categoria">
-                        <mat-icon>delete</mat-icon>
-                      </button>
+                      <button type="button" class="btn-icon delete" (click)="eliminarCategoria(cat.id!)" title="Eliminar Categoria"><mat-icon>delete</mat-icon></button>
                     }
                   </div>
                 </div>
               }
             </div>
 
-            <!-- Sección de Productos -->
             <h4 class="section-subtitle"><mat-icon>fastfood</mat-icon> Menú de Platillos / Bebidas</h4>
             <div class="crud-items-grid">
               @for (p of productos(); track p.id) {
                 <div class="crud-row-item" [class.inactive]="!p.disponible">
-                  <!-- Miniatura de la imagen -->
                   <div class="prod-thumb">
                     @if (p.imagen_url) {
                       <img [src]="obtenerUrlImagen(p.imagen_url)" [alt]="p.nombre" class="thumb-img">
                     } @else {
-                      <div class="thumb-placeholder">
-                        <mat-icon>restaurant</mat-icon>
-                      </div>
+                      <div class="thumb-placeholder"><mat-icon>restaurant</mat-icon></div>
                     }
                   </div>
 
@@ -311,19 +261,13 @@
                     <span class="font-bold">{{ p.nombre }}</span>
                     <span class="secondary-info">({{ p['categoriaNombre'] || 'Sin categoría' }})</span>
                     <span class="price-info">${{ p.precio | number:'1.2-2' }}</span>
-                    @if (!p.disponible) {
-                      <span class="no-disp-badge">No disponible</span>
-                    }
+                    @if (!p.disponible) { <span class="no-disp-badge">No disponible</span> }
                   </div>
 
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionProducto(p)" title="Editar Producto">
-                      <mat-icon>edit</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionProducto(p)" title="Editar Producto"><mat-icon>edit</mat-icon></button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarProducto(p.id!)" title="Eliminar Producto">
-                        <mat-icon>delete</mat-icon>
-                      </button>
+                      <button type="button" class="btn-icon delete" (click)="eliminarProducto(p.id!)" title="Eliminar Producto"><mat-icon>delete</mat-icon></button>
                     }
                   </div>
                 </div>
@@ -343,7 +287,6 @@
         <span>Salón y Mesas</span>
       </ng-template>
       <div class="tab-content row-layout">
-        <!-- Izquierda: Formulario de Mesas -->
         <div class="form-card col-sm">
           @if (mesaEditando(); as me) {
             <div class="card-header border-orange">
@@ -371,12 +314,8 @@
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!me.numero || !me.zona_id">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionMesa()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!me.numero || !me.zona_id">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionMesa()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -413,7 +352,6 @@
           }
         </div>
 
-        <!-- Centro: Formulario de Zonas (Salas) -->
         <div class="form-card col-sm">
           @if (zonaEditando(); as ze) {
             <div class="card-header border-orange">
@@ -427,12 +365,8 @@
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!ze.nombre">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionZona()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!ze.nombre">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionZona()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -455,7 +389,6 @@
           }
         </div>
 
-        <!-- Derecha: Listado de Distribución del Salón -->
         <div class="form-card col-md">
           <div class="card-header">
             <h3>Distribución del Establecimiento</h3>
@@ -463,29 +396,21 @@
           </div>
 
           <div class="scrollable-crud-list">
-            <!-- Sección de Zonas -->
-            <h4 class="section-subtitle"><mat-icon>storefont</mat-icon> Zonas del Restaurante</h4>
+            <h4 class="section-subtitle"><mat-icon>storefront</mat-icon> Zonas del Restaurante</h4>
             <div class="crud-items-grid">
               @for (z of zonas(); track z.id) {
                 <div class="crud-row-item">
-                  <span class="row-text font-bold">
-                    <mat-icon class="inline-icon">layers</mat-icon> {{ z.nombre }}
-                  </span>
+                  <span class="row-text font-bold"><mat-icon class="inline-icon">layers</mat-icon> {{ z.nombre }}</span>
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionZona(z)" title="Editar Zona">
-                      <mat-icon>edit</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionZona(z)" title="Editar Zona"><mat-icon>edit</mat-icon></button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarZona(z.id)" title="Eliminar Zona">
-                        <mat-icon>delete</mat-icon>
-                      </button>
+                      <button type="button" class="btn-icon delete" (click)="eliminarZona(z.id)" title="Eliminar Zona"><mat-icon>delete</mat-icon></button>
                     }
                   </div>
                 </div>
               }
             </div>
 
-            <!-- Sección de Mesas -->
             <h4 class="section-subtitle"><mat-icon>table_restaurant</mat-icon> Mesas Disponibles</h4>
             <div class="crud-items-grid">
               @for (m of mesas(); track m.id) {
@@ -495,13 +420,9 @@
                     <span class="secondary-info">({{ m['zona'] }}) - Capacidad: {{ m.capacidad }} personas</span>
                   </div>
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionMesa(m)" title="Editar Mesa">
-                      <mat-icon>edit</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionMesa(m)" title="Editar Mesa"><mat-icon>edit</mat-icon></button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarMesa(m.id!)" title="Eliminar Mesa">
-                        <mat-icon>delete</mat-icon>
-                      </button>
+                      <button type="button" class="btn-icon delete" (click)="eliminarMesa(m.id!)" title="Eliminar Mesa"><mat-icon>delete</mat-icon></button>
                     }
                   </div>
                 </div>
@@ -647,8 +568,6 @@
         <span>Directorio de Clientes</span>
       </ng-template>
       <div class="tab-content row-layout">
-
-        <!-- Formulario de Clientes (Agregar / Editar) -->
         <div class="form-card col-sm">
           @if (clienteEditando(); as cliEdit) {
             <div class="card-header border-orange">
@@ -682,12 +601,8 @@
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!cliEdit.nombre">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionCliente()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!cliEdit.nombre">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionCliente()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -730,7 +645,6 @@
           }
         </div>
 
-        <!-- Directorio / Cartera de Clientes (CRUD) -->
         <div class="form-card col-md">
           <div class="card-header">
             <h3>Cartera de Clientes Registrados</h3>
@@ -740,9 +654,7 @@
           <div class="client-list scrollable-crud-list">
             @for (c of clientes(); track c.id) {
               <div class="client-item-card">
-                <div class="client-avatar">
-                  <mat-icon>person</mat-icon>
-                </div>
+                <div class="client-avatar"><mat-icon>person</mat-icon></div>
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name">{{ c.nombre }}</span>
@@ -750,26 +662,14 @@
                       <span class="meta-tag"><mat-icon class="sub-icon">phone</mat-icon>{{ c.telefono }}</span>
                     }
                   </div>
-                  @if (c.email) {
-                    <p class="meta-text"><mat-icon class="sub-icon">email</mat-icon> {{ c.email }}</p>
-                  }
-                  @if (c.direccion) {
-                    <p class="meta-text"><mat-icon class="sub-icon">location_on</mat-icon> {{ c.direccion }}</p>
-                  }
-                  @if (c.notas) {
-                    <div class="meta-notes">
-                      <strong>Nota:</strong> {{ c.notas }}
-                    </div>
-                  }
+                  @if (c.email) { <p class="meta-text"><mat-icon class="sub-icon">email</mat-icon> {{ c.email }}</p> }
+                  @if (c.direccion) { <p class="meta-text"><mat-icon class="sub-icon">location_on</mat-icon> {{ c.direccion }}</p> }
+                  @if (c.notas) { <div class="meta-notes"><strong>Nota:</strong> {{ c.notas }}</div> }
                 </div>
                 <div class="client-actions">
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionCliente(c)" title="Editar Cliente">
-                    <mat-icon>edit</mat-icon>
-                  </button>
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionCliente(c)" title="Editar Cliente"><mat-icon>edit</mat-icon></button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarCliente(c.id!)" title="Eliminar Cliente">
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon delete" (click)="eliminarCliente(c.id!)" title="Eliminar Cliente"><mat-icon>delete</mat-icon></button>
                   }
                 </div>
               </div>
@@ -781,7 +681,6 @@
             }
           </div>
         </div>
-
       </div>
     </mat-tab>
 
@@ -792,8 +691,6 @@
         <span>Promociones y Combos</span>
       </ng-template>
       <div class="tab-content row-layout">
-
-        <!-- Formulario (Crear o Editar Promoción) -->
         <div class="form-card col-sm">
           @if (promocionEditando(); as promoEdit) {
             <div class="card-header border-orange">
@@ -820,7 +717,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- 🔹 SELECTOR DE ALCANCE (EDICIÓN) -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Aplicar A*</mat-label>
                 <mat-select [(ngModel)]="promoEdit.aplica_a" name="editPromoAplicaA" required>
@@ -870,12 +766,8 @@
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!promoEdit.nombre || !promoEdit.codigo || promoEdit.valor === null">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionPromocion()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!promoEdit.nombre || !promoEdit.codigo || promoEdit.valor === null">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionPromocion()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -903,7 +795,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- 🔹 SELECTOR DE ALCANCE (CREACIÓN) -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Aplicar A*</mat-label>
                 <mat-select [(ngModel)]="nuevaPromocion.aplica_a" name="promoAplicaA" required>
@@ -954,7 +845,6 @@
           }
         </div>
 
-        <!-- Listado de Promociones (CRUD) -->
         <div class="form-card col-md">
           <div class="card-header">
             <h3>Ofertas y Campañas Comerciales</h3>
@@ -964,15 +854,11 @@
           <div class="scrollable-crud-list">
             @for (p of promociones(); track p.id) {
               <div class="client-item-card" [class.inactive]="!p.activo">
-                <div class="client-avatar">
-                  <mat-icon>local_offer</mat-icon>
-                </div>
+                <div class="client-avatar"><mat-icon>local_offer</mat-icon></div>
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name font-bold">{{ p.nombre }}</span>
-                    <span class="meta-tag">
-                      <mat-icon class="sub-icon">fingerprint</mat-icon> {{ p.codigo }}
-                    </span>
+                    <span class="meta-tag"><mat-icon class="sub-icon">fingerprint</mat-icon> {{ p.codigo }}</span>
                   </div>
                   <p class="meta-text">
                     <mat-icon class="sub-icon">auto_awesome</mat-icon>
@@ -984,7 +870,6 @@
                     }
                   </p>
 
-                  <!-- 🔹 INDICADOR DE ALCANCE EN LA TARJETA -->
                   <p class="meta-text">
                     <mat-icon class="sub-icon">category</mat-icon>
                     <strong>Aplica a: </strong>
@@ -995,21 +880,13 @@
                     }
                   </p>
 
-                  @if (p.descripcion) {
-                    <p class="meta-text"><mat-icon class="sub-icon">notes</mat-icon> {{ p.descripcion }}</p>
-                  }
-                  @if (!p.activo) {
-                    <div style="margin-top: 6px;"><span class="no-disp-badge">Inactiva</span></div>
-                  }
+                  @if (p.descripcion) { <p class="meta-text"><mat-icon class="sub-icon">notes</mat-icon> {{ p.descripcion }}</p> }
+                  @if (!p.activo) { <div style="margin-top: 6px;"><span class="no-disp-badge">Inactiva</span></div> }
                 </div>
                 <div class="client-actions">
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionPromocion(p)" title="Editar Promoción">
-                    <mat-icon>edit</mat-icon>
-                  </button>
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionPromocion(p)" title="Editar Promoción"><mat-icon>edit</mat-icon></button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarPromocion(p.id!)" title="Eliminar Promoción">
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon delete" (click)="eliminarPromocion(p.id!)" title="Eliminar Promoción"><mat-icon>delete</mat-icon></button>
                   }
                 </div>
               </div>
@@ -1021,7 +898,6 @@
             }
           </div>
         </div>
-
       </div>
     </mat-tab>
 
@@ -1032,7 +908,6 @@
         <span>Empleados y Roles</span>
       </ng-template>
       <div class="tab-content row-layout">
-        <!-- Izquierda: Formulario Empleados -->
         <div class="form-card col-sm">
           @if (empleadoEditando(); as emp) {
             <div class="card-header border-orange">
@@ -1068,12 +943,8 @@
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!emp.nombre || !emp.pin">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionEmpleado()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!emp.nombre || !emp.pin">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionEmpleado()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -1111,7 +982,6 @@
           }
         </div>
 
-        <!-- Derecha: Listado de Empleados (CRUD) -->
         <div class="form-card col-md">
           <div class="card-header">
             <h3>Nómina y Personal Registrado</h3>
@@ -1121,29 +991,19 @@
           <div class="scrollable-crud-list">
             @for (emp of empleados(); track emp.id) {
               <div class="client-item-card" [class.inactive]="!emp.activo">
-                <div class="client-avatar">
-                  <mat-icon>badge</mat-icon>
-                </div>
+                <div class="client-avatar"><mat-icon>badge</mat-icon></div>
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name font-bold">{{ emp.nombre }}</span>
-                    <span class="meta-tag">
-                      <mat-icon class="sub-icon">security</mat-icon> {{ emp.rol }}
-                    </span>
+                    <span class="meta-tag"><mat-icon class="sub-icon">security</mat-icon> {{ emp.rol }}</span>
                   </div>
                   <p class="meta-text"><mat-icon class="sub-icon">password</mat-icon> PIN configurado: (••••)</p>
-                  @if (!emp.activo) {
-                    <div style="margin-top: 6px;"><span class="no-disp-badge">Inactivo</span></div>
-                  }
+                  @if (!emp.activo) { <div style="margin-top: 6px;"><span class="no-disp-badge">Inactivo</span></div> }
                 </div>
                 <div class="client-actions">
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionEmpleado(emp)" title="Editar Colaborador">
-                    <mat-icon>edit</mat-icon>
-                  </button>
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionEmpleado(emp)" title="Editar Colaborador"><mat-icon>edit</mat-icon></button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarEmpleado(emp.id)" title="Eliminar Colaborador">
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon delete" (click)="eliminarEmpleado(emp.id)" title="Eliminar Colaborador"><mat-icon>delete</mat-icon></button>
                   }
                 </div>
               </div>
@@ -1230,7 +1090,6 @@
         <span>Facturación CFDI</span>
       </ng-template>
       <div class="tab-content" style="padding: 24px;">
-        <!-- Componente Integrado de Configuración Fiscal y Facturación -->
         <app-billing-component></app-billing-component>
       </div>
     </mat-tab>
@@ -1242,8 +1101,6 @@
         <span>Impresoras</span>
       </ng-template>
       <div class="tab-content row-layout" style="padding: 24px;">
-
-        <!-- Izquierda: Formulario Crear / Editar Impresora -->
         <div class="form-card col-sm">
           @if (impresoraEditando(); as impEdit) {
             <div class="card-header border-orange">
@@ -1274,7 +1131,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- NUEVO: ANCHO DE PAPEL EN EDITAR -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Ancho de Papel Térmico</mat-label>
                 <mat-select [(ngModel)]="impEdit.ancho_papel" name="editImpAncho" required>
@@ -1283,7 +1139,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- CAMPOS CONDICIONALES EDITAR: RED -->
               @if (impEdit.tipo === 'RED') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Dirección IP de Red</mat-label>
@@ -1296,7 +1151,6 @@
                 </mat-form-field>
               }
 
-              <!-- CAMPOS CONDICIONALES EDITAR: USB -->
               @if (impEdit.tipo === 'USB') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Nombre de Impresora en el Sistema (USB)</mat-label>
@@ -1313,12 +1167,8 @@
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!impEdit.nombre || (impEdit.tipo !== 'SIMULACION' && !impEdit.ip_o_puerto)">
-                  Guardar
-                </button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionImpresora()">
-                  Cancelar
-                </button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!impEdit.nombre || (impEdit.tipo !== 'SIMULACION' && !impEdit.ip_o_puerto)">Guardar</button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionImpresora()">Cancelar</button>
               </div>
             </form>
           } @else {
@@ -1350,7 +1200,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- NUEVO: ANCHO DE PAPEL EN CREAR -->
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Ancho de Papel Térmico</mat-label>
                 <mat-select [(ngModel)]="nuevaImpresora.ancho_papel" name="impAncho" required>
@@ -1359,7 +1208,6 @@
                 </mat-select>
               </mat-form-field>
 
-              <!-- CAMPOS CONDICIONALES CREAR: RED -->
               @if (nuevaImpresora.tipo === 'RED') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Dirección IP de Red</mat-label>
@@ -1372,7 +1220,6 @@
                 </mat-form-field>
               }
 
-              <!-- CAMPOS CONDICIONALES CREAR: USB -->
               @if (nuevaImpresora.tipo === 'USB') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Nombre de Impresora en el Sistema (USB)</mat-label>
@@ -1390,7 +1237,6 @@
           }
         </div>
 
-        <!-- Derecha: Listado de Impresoras Registradas -->
         <div class="form-card col-md">
           <div class="card-header">
             <h3>Impresoras del Establecimiento</h3>
@@ -1400,41 +1246,28 @@
           <div class="scrollable-crud-list">
             @for (imp of impresoras(); track imp.id) {
               <div class="client-item-card" [class.inactive]="!imp.activa">
-                <div class="client-avatar">
-                  <mat-icon>print</mat-icon>
-                </div>
+                <div class="client-avatar"><mat-icon>print</mat-icon></div>
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name font-bold">{{ imp.nombre }}</span>
-                    <span class="meta-tag">
-                      <mat-icon class="sub-icon">place</mat-icon> {{ imp.destino }}
-                    </span>
+                    <span class="meta-tag"><mat-icon class="sub-icon">place</mat-icon> {{ imp.destino }}</span>
                   </div>
                   <p class="meta-text">
                     <mat-icon class="sub-icon">lan</mat-icon>
                     <strong>Conexión: </strong> {{ imp.tipo }}
-                    @if (imp.tipo === 'RED') {
-                      ({{ imp.ip_o_puerto }}:{{ imp.puerto_tcp || 9100 }})
-                    } @else if (imp.tipo === 'USB') {
-                      ({{ imp.ip_o_puerto }})
-                    }
+                    @if (imp.tipo === 'RED') { ({{ imp.ip_o_puerto }}:{{ imp.puerto_tcp || 9100 }}) }
+                    @else if (imp.tipo === 'USB') { ({{ imp.ip_o_puerto }}) }
                     | <strong>Papel:</strong> {{ imp.ancho_papel || '80mm' }}
                   </p>
-                  @if (!imp.activa) {
-                    <div style="margin-top: 6px;"><span class="no-disp-badge">Desactivada</span></div>
-                  }
+                  @if (!imp.activa) { <div style="margin-top: 6px;"><span class="no-disp-badge">Desactivada</span></div> }
                 </div>
                 <div class="client-actions" style="display: flex; gap: 4px;">
                   <button type="button" class="btn-icon" (click)="probarImpresora(imp.id!)" title="Probar Impresión">
                     <mat-icon style="color: #1976d2;">play_circle</mat-icon>
                   </button>
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionImpresora(imp)" title="Editar Impresora">
-                    <mat-icon>edit</mat-icon>
-                  </button>
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionImpresora(imp)" title="Editar Impresora"><mat-icon>edit</mat-icon></button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarImpresora(imp.id!)" title="Eliminar Impresora">
-                      <mat-icon>delete</mat-icon>
-                    </button>
+                    <button type="button" class="btn-icon delete" (click)="eliminarImpresora(imp.id!)" title="Eliminar Impresora"><mat-icon>delete</mat-icon></button>
                   }
                 </div>
               </div>
@@ -1446,7 +1279,115 @@
             }
           </div>
         </div>
+      </div>
+    </mat-tab>
 
+    <!-- 🔹 PESTAÑA 11: LICENCIA DEL SISTEMA (CORREGIDA VISUALMENTE) -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">verified_user</mat-icon>
+        <span>Licencia del Sistema</span>
+      </ng-template>
+      <div class="tab-content" style="padding: 24px;">
+        <div class="form-card width-xl mx-auto" style="max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #eee; padding-bottom: 16px; margin-bottom: 24px;">
+            <div>
+              <h3 style="margin: 0 0 4px 0; color: #1565c0; font-size: 1.4rem; display: flex; align-items: center; gap: 8px;">
+                <mat-icon style="color: #1565c0;">security</mat-icon> Estado de Licencia y Renovación Preventiva
+              </h3>
+              <p style="margin: 0; color: #666; font-size: 0.9rem;">
+                Administra la vigencia del software para garantizar la operatividad continua del punto de venta.
+              </p>
+            </div>
+
+            <!-- BADGE DINÁMICO DE ESTADO Y DÍAS RESTANTES -->
+            @if (infoLicencia(); as lic) {
+              <div style="text-align: right;">
+                @if (lic.valida && (lic.diasRestantes ?? 0) > 15) {
+                  <span style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">check_circle</mat-icon>
+                    Licencia Activa: {{ lic.diasRestantes }} días restantes
+                  </span>
+                } @else if (lic.valida && (lic.diasRestantes ?? 0) <= 15) {
+                  <span style="background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">warning</mat-icon>
+                    Por vencer: {{ lic.diasRestantes }} días restantes
+                  </span>
+                } @else {
+                  <span style="background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">error</mat-icon>
+                    Licencia Inválida o Expirada
+                  </span>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- DETALLES DE TITULAR Y FECHA -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+            <div style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 16px; border-radius: 8px;">
+              <span style="font-size: 0.8rem; color: #6c757d; font-weight: bold; text-transform: uppercase;">Cliente / Titular</span>
+              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem;">
+                {{ infoLicencia()?.cliente || 'No registrado' }}
+              </p>
+            </div>
+
+            <div style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 16px; border-radius: 8px;">
+              <span style="font-size: 0.8rem; color: #6c757d; font-weight: bold; text-transform: uppercase;">Fecha de Expiración</span>
+              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem;">
+                {{ infoLicencia()?.vencimiento || 'Indefinida' }}
+              </p>
+            </div>
+          </div>
+
+          <!-- HARDWARE ID LOCAL CON BOTÓN COPIAR -->
+          <div style="background: #eef6fc; border: 1px dashed #1e88e5; padding: 16px; border-radius: 8px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <span style="font-size: 0.85rem; color: #1565c0; font-weight: bold;">Hardware ID (Tarjeta Madre Local):</span>
+              <p style="margin: 2px 0 0 0; font-family: monospace; font-size: 1.1rem; color: #0d47a1; font-weight: bold;">
+                {{ hardwareIdLocal() }}
+              </p>
+            </div>
+            <button mat-stroked-button color="primary" type="button" (click)="copiarHardwareId()" style="background: #ffffff; color: #1976d2; border-color: #1976d2;">
+              <mat-icon>content_copy</mat-icon> Copiar Identificador
+            </button>
+          </div>
+
+          <!-- FORMULARIO DE INGRESO DE NUEVA CLAVE -->
+          <form (submit)="renovarLicencia(); $event.preventDefault()">
+            <h4 style="margin: 0 0 8px 0; color: #333333; font-size: 1.1rem; display: flex; align-items: center; gap: 6px;">
+              <mat-icon style="color: #1565c0;">key</mat-icon> Ingresar Clave de Renovación
+            </h4>
+            <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #555555;">
+              Ingresa la nueva clave proporcionada por tu proveedor antes de la fecha límite para extender la validez del sistema sin interrupciones operativas.
+            </p>
+
+            <div style="margin-bottom: 20px;">
+              <textarea
+                [(ngModel)]="nuevaClaveLicencia"
+                name="keyLicInput"
+                rows="5"
+                placeholder="Pega aquí la nueva clave de licencia..."
+                style="width: 100%; box-sizing: border-box; background-color: #f8f9fa; color: #111111; border: 2px solid #0288d1; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.85rem; resize: vertical; outline: none;">
+              </textarea>
+            </div>
+
+            <!-- BOTÓN DESTACADO Y VISIBLE -->
+            <div style="display: flex; justify-content: flex-end;">
+              <button
+                type="submit"
+                [disabled]="!nuevaClaveLicencia.trim() || cargandoLicencia"
+                [style.background-color]="!nuevaClaveLicencia.trim() || cargandoLicencia ? '#cccccc' : '#0288d1'"
+                [style.cursor]="!nuevaClaveLicencia.trim() || cargandoLicencia ? 'not-allowed' : 'pointer'"
+                style="color: #ffffff; border: none; padding: 12px 28px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;">
+                <mat-icon style="font-size: 20px; width: 20px; height: 20px;">verified</mat-icon>
+                {{ cargandoLicencia ? 'Verificando Clave...' : 'Validar y Aplicar Licencia' }}
+              </button>
+            </div>
+          </form>
+
+        </div>
       </div>
     </mat-tab>
 

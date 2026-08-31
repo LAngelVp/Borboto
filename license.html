@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>BORBOTO POS - Activación de Licencia</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    h2 { color: #0288d1; margin-top: 0; font-size: 20px; }
+    p { font-size: 13px; color: #b0bec5; margin-bottom: 8px; }
+    .hw-container {
+      background-color: #1e1e1e;
+      border: 1px dashed #0288d1;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #00e676;
+      text-align: center;
+      margin-bottom: 16px;
+      user-select: all;
+    }
+    textarea {
+      width: 100%;
+      height: 110px;
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #fff;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 11px;
+      resize: none;
+      box-sizing: border-box;
+    }
+    textarea:focus { outline: none; border-color: #0288d1; }
+    .btn-submit {
+      margin-top: 16px;
+      background-color: #0288d1;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-submit:hover { background-color: #039be5; }
+    .error-msg {
+      color: #ff5252;
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h2>BORBOTO POS - Licencia Requerida</h2>
+  <p>Proporciona el siguiente Hardware ID al proveedor para recibir tu clave de activación:</p>
+
+  <div id="hwIdBox" class="hw-container">OBTENIENDO...</div>
+
+  <p>Ingresa tu clave de licencia activa:</p>
+  <textarea id="licenseInput" placeholder="Pega aquí la clave entregada por tu proveedor..."></textarea>
+
+  <div id="errorBox" class="error-msg"></div>
+
+  <button class="btn-submit" onclick="activar()">Activar e Iniciar Sistema</button>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    ipcRenderer.on('init-license-view', (event, data) => {
+      document.getElementById('hwIdBox').innerText = data.hardwareId;
+      if (data.error) {
+        document.getElementById('errorBox').innerText = `⚠️ ${data.error}`;
+      }
+    });
+
+    function activar() {
+      const input = document.getElementById('licenseInput').value.trim();
+      if (!input) {
+        document.getElementById('errorBox').innerText = '⚠️ Ingresa una clave válida.';
+        return;
+      }
+      ipcRenderer.send('submit-license-key', input);
+    }
+
+    ipcRenderer.on('submit-license-key-response', (event, res) => {
+      if (!res.success) {
+        document.getElementById('errorBox').innerText = `❌ ${res.error}`;
+      }
+    });
+  </script>
+</body>
+</html>

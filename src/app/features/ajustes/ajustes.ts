@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BillingComponent } from '../../features/billing-component/billing-component';
 import { CommonModule } from '@angular/common';
@@ -17,6 +17,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { CajaService } from '../../core/services/caja-service';
 import { PrinterService, Impresora } from '../../core/services/printer.service';
 import * as XLSX from 'xlsx';
+
+declare var window: any;
 
 @Component({
   selector: 'app-ajustes',
@@ -45,6 +47,7 @@ export class AjustesComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly http = inject(HttpClient);
   private readonly printerService = inject(PrinterService);
+  private readonly zone = inject(NgZone); // 👈 Forzar actualización fuera del evento IPC
 
   private readonly API_URL = 'http://127.0.0.1:3000';
 
@@ -56,6 +59,19 @@ export class AjustesComponent implements OnInit {
   readonly empleados = signal<any[]>([]);
   readonly cortesHistory = signal<any[]>([]);
   readonly impresoras = signal<Impresora[]>([]);
+
+  // 🔹 ESTADOS Y SIGNALS DE LICENCIA
+  readonly infoLicencia = signal<{
+    valida: boolean;
+    cliente?: string;
+    vencimiento?: string;
+    diasRestantes?: number;
+    motivo?: string;
+  } | null>(null);
+
+  readonly hardwareIdLocal = signal<string>('OBTENIENDO...');
+  nuevaClaveLicencia: string = '';
+  cargandoLicencia: boolean = false;
 
   nuevaImpresora: Impresora = {
     nombre: '',
@@ -117,7 +133,6 @@ export class AjustesComponent implements OnInit {
     notas: ''
   };
 
-  // 🔹 Modelo de Promoción inicializado con campos de alcance
   readonly promociones = signal<Promocion[]>([]);
   nuevaPromocion: Promocion = {
     nombre: '',
@@ -149,6 +164,7 @@ export class AjustesComponent implements OnInit {
 
   ngOnInit() {
     this.cargarDatosFormularios();
+    this.consultarEstadoLicencia();
   }
 
   private cargarDatosFormularios() {
@@ -162,6 +178,73 @@ export class AjustesComponent implements OnInit {
     this.cargarHistorialCortes();
     this.cargarDatosAdicionales();
     this.cargarImpresoras();
+  }
+
+  // 🔹 CONTROL Y RENOVACIÓN DE LICENCIA (IPC + NGZONE)
+  async consultarEstadoLicencia() {
+    if (window.require) {
+      try {
+        const { ipcRenderer } = window.require('electron');
+
+        // 1. Consultar Hardware ID y Estado
+        const hwId = await ipcRenderer.invoke('get-hardware-id');
+        const status = await ipcRenderer.invoke('get-license-status');
+
+        // 2. 💡 Forzar renderizado inmediato dentro de NgZone
+        this.zone.run(() => {
+          this.hardwareIdLocal.set(hwId || 'NO_DISPONIBLE');
+          this.infoLicencia.set(status);
+        });
+      } catch (err) {
+        console.error('Error al conectar con Electron IPC:', err);
+      }
+    } else {
+      this.zone.run(() => {
+        this.hardwareIdLocal.set('4C4C4544-0035-3710-8031-B2C04F343033');
+        this.infoLicencia.set({
+          valida: true,
+          cliente: 'Restaurante Borboto Demo',
+          vencimiento: '2026-12-31',
+          diasRestantes: 120
+        });
+      });
+    }
+  }
+
+  renovarLicencia() {
+    const clave = this.nuevaClaveLicencia.trim();
+    if (!clave) {
+      this.snackBar.open('Ingresa una clave de licencia válida.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+
+    if (!window.require) {
+      this.snackBar.open('Esta función requiere ejecutarse dentro de Electron.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+
+    this.cargandoLicencia = true;
+    const { ipcRenderer } = window.require('electron');
+
+    ipcRenderer.once('submit-license-key-response', (_: any, res: { success: boolean; error?: string }) => {
+      this.zone.run(() => {
+        this.cargandoLicencia = false;
+        if (res.success) {
+          this.snackBar.open('¡Licencia renovada y activada correctamente!', 'Aceptar', { duration: 5000 });
+          this.nuevaClaveLicencia = '';
+          this.consultarEstadoLicencia();
+        } else {
+          this.snackBar.open(`❌ Fallo al aplicar la licencia: ${res.error || 'Clave inválida'}`, 'Cerrar', { duration: 6000 });
+        }
+      });
+    });
+
+    ipcRenderer.send('submit-license-key', clave);
+  }
+
+  copiarHardwareId() {
+    navigator.clipboard.writeText(this.hardwareIdLocal());
+    this.snackBar.open('Hardware ID copiado al portapapeles.', 'Cerrar', { duration: 2000 });
   }
 
   cargarHistorialCortes() {
@@ -665,7 +748,8 @@ export class AjustesComponent implements OnInit {
     this.clienteEditando.set(null);
   }
 
-  // 🔹 CRUD PROMOCIONES ACTUALIZADO
+  // --- CRUD PROMOCIONES ---
+
   guardarPromocion() {
     this.ajustesService.crearPromocion(this.nuevaPromocion).subscribe({
       next: (p) => {
@@ -778,7 +862,8 @@ export class AjustesComponent implements OnInit {
     this.empleadoEditando.set(null);
   }
 
-  // Impresoras
+  // --- IMPRESORAS ---
+
   cargarImpresoras() {
     this.printerService.getImpresoras().subscribe({
       next: (data) => this.impresoras.set(data),

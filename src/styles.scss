@@ -114,6 +114,31 @@ html, body {
   &:hover:not(.mdc-list-item--disabled),
   &.mat-mdc-option-active,
   &.mdc-list-item--selected:not(.mdc-list-item--disabled) {
-    background-color: var(--color-hover) !important; // Fondo sutil adaptativo según el tema activo
+    background-color: var(--color-hover) !important;
   }
+}
+
+/* ==========================================================================
+   ESTILOS PERSONALIZADOS PARA NOTIFICACIONES / TOASTS (SNACKBAR)
+   ========================================================================== */
+
+/* Fondo gris claro sólido, opaco y con sombra para eliminar la transparencia */
+.mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  background-color: #E8ECEF !important; /* Gris claro sólido */
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid #B0BEC5 !important;
+  border-radius: 8px !important;
+}
+
+/* Texto negro / gris muy oscuro de alta legibilidad */
+.mat-mdc-snack-bar-container .mdc-snackbar__label {
+  color: #111827 !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+}
+
+/* Botón de acción (ej. "Cerrar" / "Aceptar") */
+.mat-mdc-snack-bar-container .mdc-snackbar__action .mdc-button__label {
+  color: #0288D1 !important;
+  font-weight: 700 !important;
 }
