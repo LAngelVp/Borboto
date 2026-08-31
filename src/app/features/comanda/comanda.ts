@@ -4,12 +4,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog'; // 👈 1. Importar MatDialog
 
 import { ComandaService } from '../../core/services/comanda';
 import { MesaService } from '../../core/services/mesa';
 import { AuthService } from '../../core/services/auth.service';
 import { OrdenResumenComponent } from './components/orden-resumen/orden-resumen';
 import { MenuProductosComponent } from './components/menu-productos/menu-productos';
+import { TicketModal } from '../ticket-modal/ticket-modal'; // 👈 2. Importar TicketModal
 
 @Component({
   selector: 'app-comanda',
@@ -19,6 +21,7 @@ import { MenuProductosComponent } from './components/menu-productos/menu-product
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
+    MatDialogModule,
     OrdenResumenComponent,
     MenuProductosComponent
   ],
@@ -33,6 +36,7 @@ export class Comanda implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog); // 👈 Inyectar MatDialog
 
   comandaId = 0;
   mesaId = 0;
@@ -44,7 +48,6 @@ export class Comanda implements OnInit {
       this.mesaId = Number(params['mesaId']) || 0;
       this.comandaId = Number(params['comandaId']) || 0;
 
-      // 🔹 Al entrar a /comanda?mesaId=X se recuperan y enlistan los productos guardados
       if (this.mesaId > 0) {
         this.comandaService.cargarComandaActivaPorMesa(this.mesaId);
       }
@@ -59,11 +62,27 @@ export class Comanda implements OnInit {
 
     const usuarioId = this.authService.usuarioActivo()?.id;
     this.comandaService.enviarComandaACocina(this.comandaId, this.mesaId, usuarioId).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.snackBar.open('¡Comanda actualizada y enviada a cocina!', 'Cerrar', { duration: 3000 });
         this.comandaService.limpiarComanda();
         this.mesaService.cargarMesas();
-        this.router.navigate(['/mesas']);
+
+        // Si el backend devuelve la comanda simulada la previsualizamos en el modal
+        if (res?.ticketTexto) {
+          const dialogRef = this.dialog.open(TicketModal, {
+            width: '360px',
+            data: {
+              contenidoTicket: res.ticketTexto,
+              titulo: 'Comanda Enviada (Simulación)'
+            }
+          });
+
+          dialogRef.afterClosed().subscribe(() => {
+            this.router.navigate(['/mesas']);
+          });
+        } else {
+          this.router.navigate(['/mesas']);
+        }
       },
       error: () => this.snackBar.open('Error al guardar comanda en base de datos', 'Cerrar', { duration: 3000 })
     });

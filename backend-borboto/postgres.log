@@ -1,0 +1,42 @@
+2026-08-30 16:50:37.606 CST [31848] LOG:  starting PostgreSQL 18.4 on x86_64-windows, compiled by msvc-19.44.35227, 64-bit
+2026-08-30 16:50:37.621 CST [31848] LOG:  could not bind IPv6 address "::1": Only one usage of each socket address (protocol/network address/port) is normally permitted.
+	
+2026-08-30 16:50:37.621 CST [31848] HINT:  Is another postmaster already running on port 58432? If not, wait a few seconds and retry.
+2026-08-30 16:50:37.621 CST [31848] LOG:  could not bind IPv4 address "127.0.0.1": Only one usage of each socket address (protocol/network address/port) is normally permitted.
+	
+2026-08-30 16:50:37.621 CST [31848] HINT:  Is another postmaster already running on port 58432? If not, wait a few seconds and retry.
+2026-08-30 16:50:37.622 CST [31848] WARNING:  could not create listen socket for "localhost"
+2026-08-30 16:50:37.622 CST [31848] FATAL:  could not create any TCP/IP sockets
+2026-08-30 16:50:37.627 CST [31848] LOG:  database system is shut down
+2026-08-30 16:52:55.347 CST [23616] LOG:  starting PostgreSQL 18.4 on x86_64-windows, compiled by msvc-19.44.35227, 64-bit
+2026-08-30 16:52:55.364 CST [23616] LOG:  could not bind IPv6 address "::1": Only one usage of each socket address (protocol/network address/port) is normally permitted.
+	
+2026-08-30 16:52:55.364 CST [23616] HINT:  Is another postmaster already running on port 58432? If not, wait a few seconds and retry.
+2026-08-30 16:52:55.364 CST [23616] LOG:  could not bind IPv4 address "127.0.0.1": Only one usage of each socket address (protocol/network address/port) is normally permitted.
+	
+2026-08-30 16:52:55.364 CST [23616] HINT:  Is another postmaster already running on port 58432? If not, wait a few seconds and retry.
+2026-08-30 16:52:55.364 CST [23616] WARNING:  could not create listen socket for "localhost"
+2026-08-30 16:52:55.364 CST [23616] FATAL:  could not create any TCP/IP sockets
+2026-08-30 16:52:55.370 CST [23616] LOG:  database system is shut down
+2026-08-30 16:55:05.266 CST [12212] LOG:  starting PostgreSQL 18.4 on x86_64-windows, compiled by msvc-19.44.35227, 64-bit
+2026-08-30 16:55:05.268 CST [12212] LOG:  could not bind IPv4 address "127.0.0.1": Only one usage of each socket address (protocol/network address/port) is normally permitted.
+	
+2026-08-30 16:55:05.268 CST [12212] HINT:  Is another postmaster already running on port 58432? If not, wait a few seconds and retry.
+2026-08-30 16:55:05.268 CST [12212] WARNING:  could not create listen socket for "127.0.0.1"
+2026-08-30 16:55:05.268 CST [12212] FATAL:  could not create any TCP/IP sockets
+2026-08-30 16:55:05.272 CST [12212] LOG:  database system is shut down
+2026-08-30 16:57:09.936 CST [21072] LOG:  starting PostgreSQL 18.4 on x86_64-windows, compiled by msvc-19.44.35227, 64-bit
+2026-08-30 16:57:09.940 CST [21072] LOG:  listening on IPv4 address "127.0.0.1", port 58432
+2026-08-30 16:57:10.188 CST [17712] LOG:  database system was shut down at 2026-08-30 16:57:02 CST
+2026-08-30 16:57:10.469 CST [21072] LOG:  database system is ready to accept connections
+2026-08-30 16:57:56.046 CST [22544] FATAL:  role "postgres" does not exist
+2026-08-30 17:02:10.160 CST [9160] LOG:  checkpoint starting: time
+2026-08-30 17:02:13.938 CST [9160] LOG:  checkpoint complete: wrote 35 buffers (0.2%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=3.755 s, sync=0.010 s, total=3.778 s; sync files=11, longest=0.003 s, average=0.001 s; distance=245 kB, estimate=245 kB; lsn=0/182EB48, redo lsn=0/182EAF0
+2026-08-30 17:03:06.264 CST [29304] FATAL:  role "postgres" does not exist
+2026-08-30 17:03:06.374 CST [6892] LOG:  could not receive data from client: An existing connection was forcibly closed by the remote host.
+	
+2026-08-30 17:03:36.556 CST [15080] FATAL:  role "postgres" does not exist
+2026-08-30 17:07:10.942 CST [9160] LOG:  checkpoint starting: time
+2026-08-30 17:07:51.631 CST [27820] ERROR:  relation "categorias" does not exist at character 16
+2026-08-30 17:07:51.631 CST [27820] STATEMENT:  SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1
+2026-08-30 17:08:57.357 CST [9160] LOG:  checkpoint complete: wrote 994 buffers (6.1%), wrote 1 SLRU buffers; 1 WAL file(s) added, 0 removed, 0 recycled; write=106.139 s, sync=0.158 s, total=106.415 s; sync files=308, longest=0.003 s, average=0.001 s; distance=4709 kB, estimate=4709 kB; lsn=0/1CEFFF0, redo lsn=0/1CC8158

@@ -27,108 +27,109 @@ export class MesaService {
   readonly filtroMostradorEstado = signal<string>('ACTIVOS');
   readonly filtroMostradorFecha = signal<string>('TODOS');
 
+  private evaluarFiltroFecha(fechaRaw: string | undefined, fechaFiltro: string): boolean {
+    if (fechaFiltro === 'TODOS' || !fechaRaw) return true;
+
+    const fechaMesa = new Date(fechaRaw);
+    const hoy = new Date();
+
+    if (fechaFiltro === 'HOY') {
+      return fechaMesa.getDate() === hoy.getDate() &&
+             fechaMesa.getMonth() === hoy.getMonth() &&
+             fechaMesa.getFullYear() === hoy.getFullYear();
+    }
+
+    if (fechaFiltro === 'AYER') {
+      const ayer = new Date();
+      ayer.setDate(hoy.getDate() - 1);
+      return fechaMesa.getDate() === ayer.getDate() &&
+             fechaMesa.getMonth() === ayer.getMonth() &&
+             fechaMesa.getFullYear() === ayer.getFullYear();
+    }
+
+    if (fechaFiltro === 'ESTE_MES') {
+      return fechaMesa.getMonth() === hoy.getMonth() &&
+             fechaMesa.getFullYear() === hoy.getFullYear();
+    }
+
+    return true;
+  }
+
   // 🔹 Pedidos a domicilio activos y filtrados
   readonly enviosDomicilio = computed(() => {
     const estado = this.filtroEnvioEstado();
     const fechaFiltro = this.filtroEnvioFecha();
 
     return this.mesas().filter(mesa => {
-      const zonaUpper = (mesa.zona || '').toUpperCase().trim();
+      const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
       if (zonaUpper !== 'DOMICILIO') return false;
 
-      // 1. Filtro por estado
       let cumpleEstado = true;
       if (estado === 'ACTIVOS') {
-        cumpleEstado = mesa.estado !== 'DISPONIBLE';
+        cumpleEstado = mesa.estado !== 'DISPONIBLE' && mesa.estado !== 'LIBRE';
       } else if (estado !== 'TODOS') {
         cumpleEstado = mesa.estado === estado;
       }
 
-      // 2. Filtro por fecha
-      let cumpleFecha = true;
-      if (fechaFiltro !== 'TODOS' && mesa.creadoEn) {
-        const fechaMesa = new Date(mesa.creadoEn);
-        const hoy = new Date();
-
-        if (fechaFiltro === 'HOY') {
-          cumpleFecha = fechaMesa.getDate() === hoy.getDate() &&
-                        fechaMesa.getMonth() === hoy.getMonth() &&
-                        fechaMesa.getFullYear() === hoy.getFullYear();
-        } else if (fechaFiltro === 'AYER') {
-          const ayer = new Date();
-          ayer.setDate(hoy.getDate() - 1);
-          cumpleFecha = fechaMesa.getDate() === ayer.getDate() &&
-                        fechaMesa.getMonth() === ayer.getMonth() &&
-                        fechaMesa.getFullYear() === ayer.getFullYear();
-        } else if (fechaFiltro === 'ESTE_MES') {
-          cumpleFecha = fechaMesa.getMonth() === hoy.getMonth() &&
-                        fechaMesa.getFullYear() === hoy.getFullYear();
-        }
-      }
-
-      return cumpleEstado && cumpleFecha;
+      return cumpleEstado && this.evaluarFiltroFecha(mesa.creadoEn, fechaFiltro);
     });
   });
 
-  // 🔹 Pedidos de Mostrador activos y filtrados (Insensible a Mayúsculas / Minúsculas)
+  // 🔹 Pedidos de Mostrador activos y filtrados
   readonly pedidosMostrador = computed(() => {
     const estado = this.filtroMostradorEstado();
     const fechaFiltro = this.filtroMostradorFecha();
 
     return this.mesas().filter(mesa => {
-      const zonaUpper = (mesa.zona || '').toUpperCase().trim();
-      // Acepta tanto 'MOSTRADOR' como 'FRENTE'
-      if (zonaUpper !== 'MOSTRADOR' && zonaUpper !== 'FRENTE') return false;
+      const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
+      if (zonaUpper !== 'MOSTRADOR') return false;
 
-      // 1. Filtro por estado
       let cumpleEstado = true;
       if (estado === 'ACTIVOS') {
-        cumpleEstado = mesa.estado !== 'DISPONIBLE';
+        cumpleEstado = mesa.estado !== 'DISPONIBLE' && mesa.estado !== 'LIBRE';
       } else if (estado !== 'TODOS') {
         cumpleEstado = mesa.estado === estado;
       }
 
-      // 2. Filtro por fecha
-      let cumpleFecha = true;
-      if (fechaFiltro !== 'TODOS' && mesa.creadoEn) {
-        const fechaMesa = new Date(mesa.creadoEn);
-        const hoy = new Date();
+      return cumpleEstado && this.evaluarFiltroFecha(mesa.creadoEn, fechaFiltro);
+    });
+  });
 
-        if (fechaFiltro === 'HOY') {
-          cumpleFecha = fechaMesa.getDate() === hoy.getDate() &&
-                        fechaMesa.getMonth() === hoy.getMonth() &&
-                        fechaMesa.getFullYear() === hoy.getFullYear();
-        } else if (fechaFiltro === 'AYER') {
-          const ayer = new Date();
-          ayer.setDate(hoy.getDate() - 1);
-          cumpleFecha = fechaMesa.getDate() === ayer.getDate() &&
-                        fechaMesa.getMonth() === ayer.getMonth() &&
-                        fechaMesa.getFullYear() === ayer.getFullYear();
-        } else if (fechaFiltro === 'ESTE_MES') {
-          cumpleFecha = fechaMesa.getMonth() === hoy.getMonth() &&
-                        fechaMesa.getFullYear() === hoy.getFullYear();
+  // 🔹 Cómputo dinámico de mesas de salón filtradas
+    readonly mesasFiltradas = computed(() => {
+      const todasMesas = this.mesas();
+      const estadoFiltro = (this.filtroEstado() || 'TODOS').toUpperCase().trim();
+      const filtroZonaRaw = (this.filtroZona() || 'TODAS').toString().trim();
+
+      let zonaFiltroNombre = filtroZonaRaw.toUpperCase();
+      if (filtroZonaRaw !== 'TODAS' && !isNaN(Number(filtroZonaRaw))) {
+        const zonaEncontrada = this.zonas().find(z => z.id === Number(filtroZonaRaw));
+        if (zonaEncontrada) {
+          zonaFiltroNombre = zonaEncontrada.nombre.toUpperCase().trim();
         }
       }
 
-      return cumpleEstado && cumpleFecha;
+      return todasMesas.filter(mesa => {
+        const zonaNombreMesa = (mesa.zona || '').toString().toUpperCase().trim();
+
+        // Descartar SOLO si la zona es explícitamente de envíos a domicilio
+        if (zonaNombreMesa === 'DOMICILIO' || zonaNombreMesa === 'DELIVERY') {
+          return false;
+        }
+
+        const estadoMesa = (mesa.estado || 'DISPONIBLE').toString().toUpperCase().trim() === 'LIBRE'
+          ? 'DISPONIBLE'
+          : (mesa.estado || 'DISPONIBLE').toString().toUpperCase().trim();
+
+        const cumpleEstado = estadoFiltro === 'TODOS' || estadoMesa === estadoFiltro;
+
+        const cumpleZona = zonaFiltroNombre === 'TODAS' ||
+                          zonaNombreMesa === zonaFiltroNombre ||
+                          ((mesa as any).zonaId && String((mesa as any).zonaId) === filtroZonaRaw);
+
+        return cumpleEstado && cumpleZona;
+      });
     });
-  });
-
-  // 🔹 Cómputo dinámico de mesas filtradas por Zona y Estado (excluyendo Domicilio y Mostrador)
-  readonly mesasFiltradas = computed(() => {
-    const estado = this.filtroEstado();
-    const zona = this.filtroZona();
-
-    return this.mesas().filter(mesa => {
-      const zonaUpper = (mesa.zona || '').toUpperCase().trim();
-      // Excluir mesas virtuales del salón
-      if (zonaUpper === 'DOMICILIO' || zonaUpper === 'MOSTRADOR' || zonaUpper === 'FRENTE') return false;
-
-      const cumpleEstado = estado === 'TODOS' || mesa.estado === estado;
-      const cumpleZona = zona === 'TODAS' || zonaUpper === zona.toUpperCase().trim();
-      return cumpleEstado && cumpleZona;
-    });
-  });
 
   constructor() {
     this.cargarMesas();
@@ -160,19 +161,23 @@ export class MesaService {
     this.filtroMostradorFecha.set(fecha);
   }
 
-  // Cargar mesas desde PostgreSQL
   cargarMesas() {
     this.http.get<Mesa[]>(`${this.apiUrl}/mesas`).subscribe({
-      next: (data) => this.mesas.set(data || []),
-      error: (err) => console.error('Error cargando mesas:', err)
+      next: (data) => {
+        console.log('📡 [DEBUG HTTP] Mesas cargadas desde backend:', data);
+        this.mesas.set(data || []);
+      },
+      error: (err) => console.error('❌ [DEBUG HTTP] Error cargando mesas:', err)
     });
   }
 
-  // Cargar zonas físicas del establecimiento desde PostgreSQL
   cargarZonas() {
     this.http.get<Zona[]>(`${this.apiUrl}/zonas`).subscribe({
-      next: (data) => this.zonas.set(data || []),
-      error: (err) => console.error('Error cargando zonas:', err)
+      next: (data) => {
+        console.log('📡 [DEBUG HTTP] Zonas cargadas desde backend:', data);
+        this.zonas.set(data || []);
+      },
+      error: (err) => console.error('❌ [DEBUG HTTP] Error cargando zonas:', err)
     });
   }
 

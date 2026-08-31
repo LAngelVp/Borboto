@@ -14,6 +14,9 @@ import { DesgloseCuentaComponent } from './components/desglose-cuenta/desglose-c
 import { CalculadoraPagoComponent } from './components/calculadora-pago/calculadora-pago';
 import { CorteCajaDialog } from './components/corte-caja-dialog/corte-caja-dialog';
 
+// 👈 1. Importar el componente del modal
+import { TicketModal } from '../ticket-modal/ticket-modal';
+
 @Component({
   selector: 'app-caja',
   standalone: true,
@@ -63,16 +66,34 @@ export class Caja implements OnInit {
 
     const usuarioId = this.authService.usuarioActivo()?.id;
     this.cajaService.cobrarYCerrarMesa(usuarioId).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         let msj = '¡Pago procesado y mesa liberada con éxito!';
 
         if (this.cajaService.solicitaFactura() && res?.autofactura?.codigo) {
           msj += ` Ticket de autofactura: ${res.autofactura.codigo}`;
         }
 
-        this.snackBar.open(msj, 'Cerrar', { duration: 4000 });
+        this.snackBar.open(msj, 'Cerrar', { duration: 3000 });
         this.mesaService.cargarMesas();
-        this.router.navigate(['/mesas']);
+
+        // 👈 2. Abrir la simulación del ticket en pantalla antes de redirigir
+        if (res?.ticketTexto) {
+          const dialogRef = this.dialog.open(TicketModal, {
+            width: '360px',
+            disableClose: false,
+            data: {
+              contenidoTicket: res.ticketTexto,
+              titulo: 'Ticket de Cobro (Simulación)'
+            }
+          });
+
+          // Redirigir al tablero de mesas al cerrar el modal
+          dialogRef.afterClosed().subscribe(() => {
+            this.router.navigate(['/mesas']);
+          });
+        } else {
+          this.router.navigate(['/mesas']);
+        }
       },
       error: () => this.snackBar.open('Error al procesar el cobro', 'Cerrar', { duration: 3000 })
     });

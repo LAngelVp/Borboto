@@ -7,6 +7,7 @@ export interface CategoriaAdmin {
   nombre: string;
   icono?: string;
   orden?: number;
+  destino_impresion?: 'COCINA' | 'BARRA' | 'NINGUNO';
 }
 
 export interface ProductoAdmin {
@@ -63,12 +64,16 @@ export interface Cliente {
   creado_en?: Date;
 }
 
+// 🔹 Interfaz Promocion extendida con campos de alcance
 export interface Promocion {
   id?: number;
   nombre: string;
   codigo?: string;
   tipo: 'COMBO_PRECIO' | 'DESCUENTO_PORCENTAJE' | 'DESCUENTO_MONTO';
   valor: number;
+  aplica_a?: 'TOTAL_ORDEN' | 'CATEGORIA' | 'PRODUCTO';
+  categoria_id?: number | null;
+  producto_id?: number | null;
   descripcion?: string;
   activo?: boolean;
 }
@@ -85,7 +90,7 @@ export interface FacturacionConfig {
   codigoPostal: string;
   emailNotificaciones?: string;
   diasVigenciaTicket: number;
-  tieneCsd?: boolean; // Indica si ya se subieron los sellos del SAT
+  tieneCsd?: boolean;
 }
 
 export interface PruebaConexionPayload {
@@ -220,28 +225,15 @@ export class AjustesService {
     return this.http.delete<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/promociones/${id}`);
   }
 
-  // ==========================================
-  // FACTURACIÓN ELECTRÓNICA (CFDI 4.0)
-  // ==========================================
-
-  /**
-   * Obtiene la configuración fiscal actual guardada en el servidor local.
-   */
+  // Facturación Electrónica (CFDI 4.0)
   getConfiguracionFacturacion(): Observable<FacturacionConfig> {
     return this.http.get<FacturacionConfig>(`${this.apiUrl}/ajustes/facturacion`);
   }
 
-  /**
-   * Guarda o actualiza los datos fiscales de facturación.
-   * Acepta `FormData` para soportar la subida de los archivos CSD (.cer y .key).
-   */
   guardarConfiguracionFacturacion(formData: FormData): Observable<{ ok: boolean; mensaje: string }> {
     return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/ajustes/facturacion`, formData);
   }
 
-  /**
-   * Realiza una prueba de ping/autenticación con Facturapi pasando la API Key ingresada.
-   */
   probarConexionFacturapi(payload: PruebaConexionPayload): Observable<{ ok: boolean; mensaje: string }> {
     return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/ajustes/facturacion/test`, payload);
   }

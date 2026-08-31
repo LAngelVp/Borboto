@@ -1,0 +1,23 @@
+<h2 mat-dialog-title style="display: flex; align-items: center; gap: 8px; margin: 0;">
+  <mat-icon style="color: #1976d2;">receipt</mat-icon>
+  <span>{{ data.titulo || 'Vista Previa de Ticket (Simulación)' }}</span>
+</h2>
+
+<mat-dialog-content style="padding: 16px 8px; max-height: 70vh;">
+  <!-- Ajusta dinámicamente la clase CSS de ancho -->
+  <div class="ticket-papel-termico" [ngClass]="data.anchoPapel === '58mm' ? 'papel-58mm' : 'papel-80mm'">
+    <div class="ticket-header">
+      <h2>BORBOTO POS</h2>
+      <p>*** MODO SIMULACIÓN ***</p>
+    </div>
+
+    <pre class="ticket-texto-monospaced">{{ data.contenidoTicket }}</pre>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" style="gap: 8px; padding: 12px 16px;">
+  <button mat-button mat-dialog-close>Cerrar</button>
+  <button mat-flat-button color="primary" (click)="imprimirConNavegador()">
+    <mat-icon>print</mat-icon> Imprimir
+  </button>
+</mat-dialog-actions>

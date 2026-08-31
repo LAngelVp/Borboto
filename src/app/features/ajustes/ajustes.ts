@@ -13,8 +13,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { AjustesService, CategoriaAdmin, ProductoAdmin, MesaAdmin, ZonaAdmin, DatosNegocio, DatosTransferencia, Cliente, Promocion } from '../../core/services/ajustes.service';
-import { AuthService, Usuario } from '../../core/services/auth.service';
+import { AuthService } from '../../core/services/auth.service';
 import { CajaService } from '../../core/services/caja-service';
+import { PrinterService, Impresora } from '../../core/services/printer.service';
 import * as XLSX from 'xlsx';
 
 @Component({
@@ -43,11 +44,10 @@ export class AjustesComponent implements OnInit {
   protected readonly authService = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly http = inject(HttpClient);
+  private readonly printerService = inject(PrinterService);
 
-  // URL base del servidor backend Express
-  private readonly API_URL = 'http://localhost:3000';
+  private readonly API_URL = 'http://127.0.0.1:3000';
 
-  // Catálogos e inicialización con Signals
   readonly categorias = signal<CategoriaAdmin[]>([]);
   readonly productos = signal<ProductoAdmin[]>([]);
   readonly zonas = signal<ZonaAdmin[]>([]);
@@ -55,8 +55,18 @@ export class AjustesComponent implements OnInit {
   readonly clientes = signal<Cliente[]>([]);
   readonly empleados = signal<any[]>([]);
   readonly cortesHistory = signal<any[]>([]);
+  readonly impresoras = signal<Impresora[]>([]);
 
-  // Modelos de Creación
+  nuevaImpresora: Impresora = {
+    nombre: '',
+    destino: 'COCINA',
+    tipo: 'SIMULACION',
+    ip_o_puerto: '192.168.1.100',
+    puerto_tcp: 9100,
+    ancho_papel: '80mm',
+    activa: true
+  };
+
   nuevoProducto: ProductoAdmin = {
     categoria_id: 0,
     nombre: '',
@@ -68,7 +78,8 @@ export class AjustesComponent implements OnInit {
   nuevaCategoria: CategoriaAdmin = {
     nombre: '',
     icono: 'restaurant',
-    orden: 0
+    orden: 0,
+    destino_impresion: 'COCINA'
   };
 
   nuevaZonaNombre = signal<string>('');
@@ -106,18 +117,20 @@ export class AjustesComponent implements OnInit {
     notas: ''
   };
 
-  // Promociones
+  // 🔹 Modelo de Promoción inicializado con campos de alcance
   readonly promociones = signal<Promocion[]>([]);
   nuevaPromocion: Promocion = {
     nombre: '',
     codigo: '',
     tipo: 'DESCUENTO_PORCENTAJE',
     valor: 0,
+    aplica_a: 'TOTAL_ORDEN',
+    categoria_id: null,
+    producto_id: null,
     descripcion: '',
     activo: true
   };
 
-  // Empleados
   nuevoEmpleado = {
     nombre: '',
     pin: '',
@@ -125,7 +138,6 @@ export class AjustesComponent implements OnInit {
     activo: true
   };
 
-  // Estados de Edición Activa
   productoEditando = signal<ProductoAdmin | null>(null);
   categoriaEditando = signal<CategoriaAdmin | null>(null);
   mesaEditando = signal<MesaAdmin | null>(null);
@@ -133,6 +145,7 @@ export class AjustesComponent implements OnInit {
   clienteEditando = signal<Cliente | null>(null);
   promocionEditando = signal<Promocion | null>(null);
   empleadoEditando = signal<any | null>(null);
+  impresoraEditando = signal<Impresora | null>(null);
 
   ngOnInit() {
     this.cargarDatosFormularios();
@@ -148,6 +161,7 @@ export class AjustesComponent implements OnInit {
     this.cargarEmpleados();
     this.cargarHistorialCortes();
     this.cargarDatosAdicionales();
+    this.cargarImpresoras();
   }
 
   cargarHistorialCortes() {
@@ -156,8 +170,6 @@ export class AjustesComponent implements OnInit {
       error: (err) => console.error('Error al cargar historial de cortes:', err)
     });
   }
-
-  // --- MÉTODOS Y MANEJO DE IMÁGENES ---
 
   onFileSelected(event: any) {
     const file: File = event.target.files[0];
@@ -204,8 +216,6 @@ export class AjustesComponent implements OnInit {
       this.nuevoProducto.imagen_url = '';
     }
   }
-
-  // --- CARGAS INDIVIDUALES ---
 
   private cargarCategorias() {
     this.ajustesService.getCategorias().subscribe({
@@ -285,9 +295,7 @@ export class AjustesComponent implements OnInit {
       error: (err) => console.error('Error al cargar datos de transferencia:', err)
     });
   }
-  // --- IMPORTAR PRODUCTOS ---
 
-  // Método que procesa el archivo subido (CSV o Excel)
   onFileSelectedImportarProductos(event: Event) {
     const target = event.target as HTMLInputElement;
     if (!target.files || target.files.length === 0) return;
@@ -300,11 +308,9 @@ export class AjustesComponent implements OnInit {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
 
-        // Tomamos la primera hoja del libro
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
-        // Convertimos las filas a un arreglo de objetos JSON
         const productosRaw: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         if (productosRaw.length === 0) {
@@ -312,7 +318,6 @@ export class AjustesComponent implements OnInit {
           return;
         }
 
-        // Mapeamos los datos para asegurar los nombres de propiedades esperados
         const productosProcesados = productosRaw.map(row => ({
           nombre: row.Nombre || row.nombre || '',
           categoria: row.Categoria || row.categoria || 'General',
@@ -326,27 +331,24 @@ export class AjustesComponent implements OnInit {
           return;
         }
 
-        // Enviamos el lote al backend
         this.importarProductosLote(productosProcesados);
 
       } catch (err) {
         console.error('Error leyendo archivo Excel/CSV:', err);
         this.snackBar.open('Error al leer el archivo. Asegúrate de que sea un formato válido (.xlsx, .csv).', 'Cerrar', { duration: 4000 });
       } finally {
-        target.value = ''; // Limpiar el input para permitir re-subir el mismo archivo si se desea
+        target.value = '';
       }
     };
 
     reader.readAsArrayBuffer(file);
   }
 
-  // Petición al backend
   private importarProductosLote(productos: any[]) {
-    this.http.post<{ agregados: number }>('http://localhost:3000/api/productos/importar-lote', { productos }).subscribe({
+    this.http.post<{ agregados: number }>('http://127.0.0.1:3000/api/productos/importar-lote', { productos }).subscribe({
       next: (res) => {
         this.snackBar.open(`¡Se importaron ${res.agregados} productos con éxito!`, 'Cerrar', { duration: 4000 });
-        // Aquí puedes invocar tu método local para recargar la lista de productos
-        // this.cargarProductos();
+        this.cargarProductos();
       },
       error: (err) => {
         console.error('Error al importar lote:', err);
@@ -355,7 +357,6 @@ export class AjustesComponent implements OnInit {
     });
   }
 
-  // Método auxiliar para descargar una plantilla CSV de ejemplo
   descargarPlantillaEjemplo() {
     const contenidoCsv = 'Nombre,Categoria,Precio,Disponible,ClaveSAT\nTacos al Pastor,Entradas,25.00,true,01010101\nRefresco 600ml,Bebidas,30.00,true,01010101';
     const blob = new Blob([contenidoCsv], { type: 'text/csv;charset=utf-8;' });
@@ -386,7 +387,6 @@ export class AjustesComponent implements OnInit {
     });
   }
 
-  // HABILITAR EDICIÓN CON SOPORTE PARA MÚLTIPLES NOMBRES DE CAMPOS EN LA BD/API
   habilitarEdicionProducto(p: any) {
     const imagenNormalizada = p.imagen_url || p.imagen || p.imagenUrl || '';
     this.productoEditando.set({
@@ -436,7 +436,8 @@ export class AjustesComponent implements OnInit {
         this.nuevaCategoria = {
           nombre: '',
           icono: 'restaurant',
-          orden: 0
+          orden: 0,
+          destino_impresion: 'COCINA'
         };
         this.cargarCategorias();
         this.cargarProductos();
@@ -446,7 +447,10 @@ export class AjustesComponent implements OnInit {
   }
 
   habilitarEdicionCategoria(cat: CategoriaAdmin) {
-    this.categoriaEditando.set({ ...cat });
+    this.categoriaEditando.set({
+      ...cat,
+      destino_impresion: cat.destino_impresion || 'COCINA'
+    });
   }
 
   guardarEdicionCategoria() {
@@ -661,8 +665,7 @@ export class AjustesComponent implements OnInit {
     this.clienteEditando.set(null);
   }
 
-  // --- CRUD PROMOCIONES ---
-
+  // 🔹 CRUD PROMOCIONES ACTUALIZADO
   guardarPromocion() {
     this.ajustesService.crearPromocion(this.nuevaPromocion).subscribe({
       next: (p) => {
@@ -672,6 +675,9 @@ export class AjustesComponent implements OnInit {
           codigo: '',
           tipo: 'DESCUENTO_PORCENTAJE',
           valor: 0,
+          aplica_a: 'TOTAL_ORDEN',
+          categoria_id: null,
+          producto_id: null,
           descripcion: '',
           activo: true
         };
@@ -682,7 +688,12 @@ export class AjustesComponent implements OnInit {
   }
 
   habilitarEdicionPromocion(p: Promocion) {
-    this.promocionEditando.set({ ...p });
+    this.promocionEditando.set({
+      ...p,
+      aplica_a: p.aplica_a || 'TOTAL_ORDEN',
+      categoria_id: p.categoria_id || null,
+      producto_id: p.producto_id || null
+    });
   }
 
   guardarEdicionPromocion() {
@@ -765,5 +776,71 @@ export class AjustesComponent implements OnInit {
 
   cancelarEdicionEmpleado() {
     this.empleadoEditando.set(null);
+  }
+
+  // Impresoras
+  cargarImpresoras() {
+    this.printerService.getImpresoras().subscribe({
+      next: (data) => this.impresoras.set(data),
+      error: (err) => console.error('Error al cargar impresoras:', err)
+    });
+  }
+
+  guardarImpresora() {
+    this.printerService.crearImpresora(this.nuevaImpresora).subscribe({
+      next: (imp) => {
+        this.snackBar.open(`Impresora "${imp.nombre}" guardada.`, 'Cerrar', { duration: 3000 });
+        this.nuevaImpresora = {
+          nombre: '',
+          destino: 'COCINA',
+          tipo: 'SIMULACION',
+          ip_o_puerto: '192.168.1.100',
+          puerto_tcp: 9100,
+          activa: true
+        };
+        this.cargarImpresoras();
+      },
+      error: () => this.snackBar.open('Error al guardar la impresora.', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  habilitarEdicionImpresora(imp: Impresora) {
+    this.impresoraEditando.set({ ...imp });
+  }
+
+  guardarEdicionImpresora() {
+    const editado = this.impresoraEditando();
+    if (!editado || !editado.id) return;
+
+    this.printerService.actualizarImpresora(editado.id, editado).subscribe({
+      next: (imp) => {
+        this.snackBar.open(`Impresora "${imp.nombre}" actualizada.`, 'Cerrar', { duration: 3000 });
+        this.impresoraEditando.set(null);
+        this.cargarImpresoras();
+      },
+      error: () => this.snackBar.open('Error al actualizar la impresora.', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  eliminarImpresora(id: number) {
+    if (!confirm('¿Deseas eliminar esta configuración de impresora?')) return;
+    this.printerService.eliminarImpresora(id).subscribe({
+      next: () => {
+        this.snackBar.open('Impresora eliminada.', 'Cerrar', { duration: 3000 });
+        this.cargarImpresoras();
+      },
+      error: () => this.snackBar.open('Error al eliminar impresora.', 'Cerrar', { duration: 3000 })
+    });
+  }
+
+  probarImpresora(id: number) {
+    this.printerService.probarImpresora(id).subscribe({
+      next: (res) => this.snackBar.open(res.mensaje, 'Cerrar', { duration: 4000 }),
+      error: (err) => this.snackBar.open(err.error?.error || 'Error al probar impresora.', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  cancelarEdicionImpresora() {
+    this.impresoraEditando.set(null);
   }
 }

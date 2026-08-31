@@ -3,6 +3,7 @@
  * Funcionalidad General: Servidor Backend API REST y WebSockets para el sistema Borboto POS.
  * Encargado de gestionar la persistencia en PostgreSQL, la comunicación en tiempo real con Socket.IO,
  * la optimización de imágenes con Sharp, la integración con Facturapi para facturación electrónica (CFDI 4.0),
+ * el módulo independiente de impresión ESC/POS para producción (Cocina/Barra) y Caja,
  * y la exposición de todos los endpoints necesarios para el comandero, caja, cocina (KDS) y panel de administración.
  */
 
@@ -13,11 +14,15 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import multer from 'multer';
-import sharp from 'sharp'; // 👈 1. Importar Sharp
+import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 import Facturapi from 'facturapi';
 import { pool, sincronizarCombosComoProductos } from './src/db.ts';
+
+// Importación del módulo de impresión
+import { PrinterService } from './src/modules/printer/printer.service.ts';
+import printerRoutes from './src/modules/printer/printer.routes.ts';
 
 dotenv.config();
 
@@ -77,9 +82,9 @@ io.on('connection', (socket) => {
 // Middlewares
 app.use(cors()); // Permite peticiones desde Angular
 app.use(express.json());
+app.use('/api/impresoras', printerRoutes);
 
 // Servir la carpeta de imágenes públicamente
-// Ejemplo de acceso: http://localhost:3000/uploads/productos/1715428392-tacos.webp
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ============================================================================
@@ -118,33 +123,44 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
 /* ==========================================================================
    1. ENDPOINTS DE MESAS Y ZONAS
    ========================================================================== */
+  // GET /api/mesas - Obtener todas las mesas con su zona y total
+  // GET /api/mesas
+app.get('/api/mesas', async (_req, res) => {
+  try {
+    const query = `
+      SELECT m.id,
+             m.numero,
+             COALESCE(z.nombre, 'Sin Zona') AS zona,
+             m.capacidad,
+             COALESCE(m.estado, 'DISPONIBLE') AS estado,
+             COALESCE(m.comensales, 0) AS comensales,
+             COALESCE(m.minutos_abierta, 0) AS "minutosAbierta",
+             COALESCE(c.total, 0.00) AS total,
+             c.id AS "comandaId",
+             c.cliente_id AS "clienteId",
+             cli.nombre AS "clienteNombre",
+             cli.direccion AS "clienteDireccion",
+             u.nombre AS mesero,
+             m.creado_en AS "creadoEn"
+      FROM mesas m
+      LEFT JOIN zonas z ON m.zona_id = z.id
+      LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado != 'CERRADA'
+      LEFT JOIN clientes cli ON c.cliente_id = cli.id
+      LEFT JOIN usuarios u ON c.usuario_id = u.id
+      ORDER BY m.id ASC;
+    `;
+    const { rows } = await pool.query(query);
 
-  // Obtener todas las mesas con su zona y el total de la comanda abierta
-  app.get('/api/mesas', async (_req, res) => {
-    try {
-      const query = `
-        SELECT m.id, m.numero, z.nombre AS zona, m.capacidad, m.estado,
-              m.comensales, m.minutos_abierta AS "minutosAbierta",
-              COALESCE(c.total, 0.00) AS total,
-              c.id AS "comandaId",
-              c.cliente_id AS "clienteId",
-              cli.nombre AS "clienteNombre",
-              cli.direccion AS "clienteDireccion",
-              u.nombre AS mesero,
-              m.creado_en AS "creadoEn"
-        FROM mesas m
-        JOIN zonas z ON m.zona_id = z.id
-        LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado != 'CERRADA'
-        LEFT JOIN clientes cli ON c.cliente_id = cli.id
-        LEFT JOIN usuarios u ON c.usuario_id = u.id
-        ORDER BY m.id ASC;
-      `;
-      const { rows } = await pool.query(query);
-      res.json(rows);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+    // 🔍 LOG DE DEPURACIÓN EN TERMINAL
+    console.log('🔍 [BACKEND /api/mesas] Cantidad de filas obtenidas:', rows.length);
+    console.log('🔍 [BACKEND /api/mesas] Ejemplo de primera mesa:', rows[0]);
+
+    res.json(rows);
+  } catch (err: any) {
+    console.error('❌ Error en GET /api/mesas:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
   // Abrir una mesa (Asignar comensales y crear comanda ABIERTA)
   app.post('/api/mesas/:id/abrir', async (req, res) => {
@@ -285,7 +301,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
 
   // Endpoint para importar productos masivamente desde CSV/Excel
   app.post('/api/productos/importar-lote', async (req, res) => {
-    const { productos } = req.body; // Recibe el arreglo de productos
+    const { productos } = req.body;
 
     if (!Array.isArray(productos) || productos.length === 0) {
       return res.status(400).json({ error: 'No se enviaron productos válidos.' });
@@ -300,7 +316,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
       for (const prod of productos) {
         const nombreCategoria = (prod.categoria || 'General').trim();
 
-        // 1. Obtener o crear la categoría automáticamente si no existe
         let catRes = await client.query('SELECT id FROM categorias WHERE LOWER(nombre) = LOWER($1)', [nombreCategoria]);
         let categoriaId: number;
 
@@ -314,7 +329,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
           categoriaId = catRes.rows[0].id;
         }
 
-        // 2. Insertar el producto
         await client.query(
           `INSERT INTO productos (categoria_id, nombre, precio, disponible, clave_sat)
           VALUES ($1, $2, $3, $4, $5)`,
@@ -332,7 +346,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
 
       await client.query('COMMIT');
 
-      // Emitir socket para refrescar el menú en los comandero si aplica
       if (typeof emitirCambioGlobal === 'function') {
         emitirCambioGlobal('actualizar_productos');
       }
@@ -347,7 +360,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Endpoint para obtener los productos del menú (utilizado por ComandaService)
+  // Endpoint para obtener los productos del menú
   app.get('/api/productos', async (req, res) => {
     try {
       const { rows } = await pool.query(`
@@ -370,6 +383,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
+  // POST /api/mostrador/crear - Crear pedido rápido de mostrador
   app.post('/api/mostrador/crear', async (req, res) => {
     const { usuarioId, clienteId } = req.body;
     const client = await pool.connect();
@@ -377,63 +391,60 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     try {
       await client.query('BEGIN');
 
-      // 1. Obtener o registrar la zona "Mostrador"
+      // 1. Obtener o crear dinámicamente la zona 'Mostrador' (Evita asignar por error zona_id = 1 "Frente")
+      let zonaRes = await client.query(
+        `SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'MOSTRADOR'`
+      );
+
       let zonaId: number;
-      const zonaRes = await client.query("SELECT id FROM zonas WHERE UPPER(nombre) IN ('MOSTRADOR', 'FRENTE') LIMIT 1");
+
       if (zonaRes.rows.length === 0) {
-        const nuevaZona = await client.query("INSERT INTO zonas (nombre) VALUES ('Mostrador') RETURNING id");
+        const nuevaZona = await client.query(
+          `INSERT INTO zonas (nombre) VALUES ('Mostrador') RETURNING id`
+        );
         zonaId = nuevaZona.rows[0].id;
       } else {
         zonaId = zonaRes.rows[0].id;
       }
 
-      // 2. NUEVO: Obtener fecha actual en formato YYYYMMDD (usando la hora del servidor configurada en MX)
-      // Esto asegura que el sufijo sea consistente.
-      const fechaHoyRes = await client.query("SELECT to_char(CURRENT_DATE, 'YYYYMMDD') AS fecha");
-      const sufijoFecha = fechaHoyRes.rows[0].fecha; // Ej: "20260829"
+      // 2. Generar el número correlativo para la orden
+      const numRes = await client.query(
+        `SELECT COALESCE(MAX(id), 0) + 1 AS num FROM mesas`
+      );
+      const numeroOrden = `M-${numRes.rows[0].num}`;
 
-      // 3. NUEVO: Calcular el siguiente correlativo diario PUREMENTE NUMÉRICO
-      // Filtramos por zona_id Y por la fecha de creado_en para reiniciar a 1 cada día.
-      const numRes = await client.query(`
-        SELECT COALESCE(MAX(NULLIF(regexp_replace(numero, '\\D', '', 'g'), '')::integer), 0) + 1 AS proximo
-        FROM mesas
-        WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE
-      `, [zonaId]);
+      // 3. Insertar la mesa virtual en la ZONA MOSTRADOR (no en Frente)
+      const mesaRes = await client.query(
+        `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
+        VALUES ($1, $2, 1, 'PENDIENTE', 1, 1)
+        RETURNING id, numero`,
+        [numeroOrden, zonaId]
+      );
 
-      const correlativoDiario = numRes.rows[0].proximo; // Ej: 1 (integer)
-
-      // 4. NUEVO: Construir el formato único para guardar en BD: "X-YYYYMMDD"
-      // Esto garantiza que UNIQUE(numero, zona_id) no se viole.
-      const numeroUnicoBD = `${correlativoDiario}-${sufijoFecha}`; // Ej: "1-20260829"
-
-      // 5. Registrar la mesa virtual usando el número único formateado
-      const mesaRes = await client.query(`
-        INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta, creado_en)
-        VALUES ($1, $2, 1, 'PENDIENTE', 1, 1, NOW()) RETURNING id
-      `, [numeroUnicoBD, zonaId]);
       const mesaId = mesaRes.rows[0].id;
 
-      // 6. Crear la comanda activa vinculando usuario_id y cliente_id
-      const comandaRes = await client.query(`
-        INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total)
-        VALUES ($1, $2, $3, 'ABIERTA', 0.00) RETURNING id
-      `, [mesaId, usuarioId || 1, clienteId || null]);
-      const comandaId = comandaRes.rows[0].id;
+      // 4. Crear la comanda en estado ABIERTA
+      const comandaRes = await client.query(
+        `INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total)
+        VALUES ($1, $2, $3, 'ABIERTA', 0.00)
+        RETURNING id`,
+        [mesaId, usuarioId || 1, clienteId || null]
+      );
 
       await client.query('COMMIT');
 
-      // Sockets (opcional)
-      if (typeof emitirCambioGlobal === 'function') {
-        emitirCambioGlobal('actualizar_mesas');
-      }
+      // Notificar actualización por WebSockets
+      emitirCambioGlobal('actualizar_mesas');
 
-      // Retornamos el correlativo limpio al front si lo necesita para navegación inmediata
-      res.status(201).json({ ok: true, mesaId, comandaId, numeroLimpo: correlativoDiario.toString() });
-
-    } catch (error: any) {
+      res.status(201).json({
+        ok: true,
+        mesaId: Number(mesaId),
+        comandaId: comandaRes.rows[0].id,
+        numero: numeroOrden
+      });
+    } catch (err: any) {
       await client.query('ROLLBACK');
-      console.error('Error al crear orden en mostrador:', error.message);
-      res.status(500).json({ error: error.message || 'Error al procesar orden de mostrador' });
+      res.status(500).json({ error: err.message });
     } finally {
       client.release();
     }
@@ -443,7 +454,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
      DESGLOSE DE CUENTA Y ADICIÓN DE PRODUCTOS
      ========================================================================== */
 
-  // Obtener los productos guardados de la comanda activa de la mesa en cualquier estado
+  // Obtener los productos guardados de la comanda activa de la mesa
   app.get('/api/comandas/activa/:mesaId', async (req, res) => {
     const { mesaId } = req.params;
     try {
@@ -480,7 +491,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Obtener todos los usuarios activos (para cambiar turno)
+  // Obtener todos los usuarios activos
   app.get('/api/usuarios', async (_req, res) => {
     try {
       const { rows } = await pool.query('SELECT id, nombre, rol, pin, activo FROM usuarios ORDER BY nombre');
@@ -490,7 +501,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Crear primer usuario como administrador si no existe ningún usuario
+  // Crear primer usuario como administrador
   app.post('/api/auth/register-first-admin', async (req, res) => {
     const { nombre, pin } = req.body;
     if (!nombre || !pin) {
@@ -512,7 +523,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Crear Empleado (Admin panel)
+  // Crear Empleado
   app.post('/api/usuarios', async (req, res) => {
     const { nombre, pin, rol, activo } = req.body;
     if (!nombre || !pin || !rol) {
@@ -529,7 +540,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Editar Empleado (Admin panel)
+  // Editar Empleado
   app.put('/api/usuarios/:id', async (req, res) => {
     const { id } = req.params;
     const { nombre, pin, rol, activo } = req.body;
@@ -547,20 +558,17 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Eliminar Empleado (Marcar como inactivo o eliminar de forma segura)
+  // Eliminar Empleado
   app.delete('/api/usuarios/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      // Verificamos si tiene comandas asociadas
       const { rows: comandas } = await pool.query('SELECT COUNT(*)::int AS count FROM comandas WHERE usuario_id = $1', [id]);
 
       if (comandas[0].count > 0) {
-        // Si tiene transacciones u órdenes previas, simplemente lo marcamos como inactivo (soft delete)
         await pool.query('UPDATE usuarios SET activo = FALSE WHERE id = $1', [id]);
         return res.json({ ok: true, mensaje: 'El colaborador cuenta con historial operativo. Se ha inhabilitado y marcado como inactivo.' });
       }
 
-      // Si no tiene registros vinculados, lo removemos de forma definitiva
       await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
       res.json({ ok: true, mensaje: 'Empleado eliminado exitosamente de la base de datos' });
     } catch (err: any) {
@@ -568,7 +576,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Validar inicio de sesión / turno mediante PIN
+  // Validar inicio de sesión mediante PIN
   app.post('/api/auth/login', async (req, res) => {
     const { pin } = req.body;
     try {
@@ -582,58 +590,80 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Crear y abrir un nuevo envío a domicilio (No requiere mesa preseleccionada)
-  app.post('/api/envios/crear', async (req, res) => {
-    const { usuarioId, clienteId } = req.body;
-    const client = await pool.connect();
+  // Crear envío a domicilio
+  // POST /api/envios/crear
+app.post('/api/envios/crear', async (req, res) => {
+  const { usuarioId, clienteId } = req.body;
+  const client = await pool.connect();
 
-    try {
-      await client.query('BEGIN');
+  try {
+    await client.query('BEGIN');
 
-      // 1. Obtener o registrar la zona "Domicilio"
-      let zonaId: number;
-      const zonaRes = await client.query("SELECT id FROM zonas WHERE UPPER(nombre) = 'DOMICILIO' LIMIT 1");
-      if (zonaRes.rows.length === 0) {
-        const nuevaZona = await client.query("INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id");
-        zonaId = nuevaZona.rows[0].id;
-      } else {
-        zonaId = zonaRes.rows[0].id;
-      }
+    // 1. Obtener o crear dinámicamente la zona 'Domicilio'
+    let zonaRes = await client.query(
+      `SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'DOMICILIO'`
+    );
 
-      // 2. Calcular el consecutivo numérico del día para Domicilio
-      const numRes = await client.query(`
-        SELECT COALESCE(MAX(NULLIF(regexp_replace(numero, '\\D', '', 'g'), '')::integer), 0) + 1 AS proximo
-        FROM mesas
-        WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE
-      `, [zonaId]);
-
-      const numeroPuro = numRes.rows[0].proximo.toString(); // "1", "2", etc.
-
-      // 3. Insertar la comanda de envío con solo el número
-      const mesaRes = await client.query(`
-        INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta, creado_en)
-        VALUES ($1, $2, 1, 'PENDIENTE', 1, 1, NOW()) RETURNING id
-      `, [numeroPuro, zonaId]);
-      const mesaId = mesaRes.rows[0].id;
-
-      const comandaRes = await client.query(`
-        INSERT INTO comandas (mesa_id, usuario_id, estado, total, cliente_id)
-        VALUES ($1, $2, 'ABIERTA', 0.00, $3) RETURNING id
-      `, [mesaId, usuarioId || 1, clienteId || null]);
-
-      await client.query('COMMIT');
-      emitirCambioGlobal('actualizar_mesas');
-
-      res.status(201).json({ ok: true, mesaId, comandaId: comandaRes.rows[0].id, numero: numeroPuro });
-    } catch (err: any) {
-      await client.query('ROLLBACK');
-      res.status(500).json({ error: err.message });
-    } finally {
-      client.release();
+    let zonaId: number;
+    if (zonaRes.rows.length === 0) {
+      const nuevaZona = await client.query(
+        `INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id`
+      );
+      zonaId = nuevaZona.rows[0].id;
+    } else {
+      zonaId = zonaRes.rows[0].id;
     }
-  });
 
-  // Marcar la mesa como SERVIDO (Al entregar la comida)
+    // 2. Generar el número correlativo de envío de forma segura (consecutivo del día)
+    const numRes = await client.query(
+      `SELECT COUNT(*)::integer + 1 AS proximo
+       FROM mesas
+       WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE`,
+      [zonaId]
+    );
+
+    const consecutivo = numRes.rows[0].proximo;
+    const numeroOrden = `E-${consecutivo}`;
+
+    // 3. Crear la mesa virtual en la ZONA DOMICILIO
+    const mesaRes = await client.query(
+      `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
+       VALUES ($1, $2, 1, 'PENDIENTE', 1, 1)
+       RETURNING id, numero`,
+      [numeroOrden, zonaId]
+    );
+
+    const mesaId = mesaRes.rows[0].id;
+
+    // 4. Crear la comanda en estado ABIERTA
+    const comandaRes = await client.query(
+      `INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total)
+       VALUES ($1, $2, $3, 'ABIERTA', 0.00)
+       RETURNING id`,
+      [mesaId, usuarioId || 1, clienteId || null]
+    );
+
+    await client.query('COMMIT');
+
+    // Notificar cambio dinámico por WebSockets
+    emitirCambioGlobal('actualizar_mesas');
+
+    res.status(201).json({
+      ok: true,
+      mesaId: Number(mesaId),
+      comandaId: comandaRes.rows[0].id,
+      numero: numeroOrden
+    });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en POST /api/envios/crear:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+  // Marcar mesa como SERVIDO
   app.post('/api/mesas/:mesaId/servir', async (req, res) => {
     const { mesaId } = req.params;
     try {
@@ -645,7 +675,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Acumular o guardar nuevos productos en la comanda (Pasa mesa a 'EN COCINA')
+  // Acumular o guardar nuevos productos en la comanda
   app.post('/api/comandas', async (req, res) => {
     const { comandaId, mesaId, items, usuarioId } = req.body;
 
@@ -699,7 +729,24 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
       await client.query('COMMIT');
       emitirCambioGlobal('actualizar_mesas');
       emitirCambioGlobal('actualizar_cocina');
-      res.json({ ok: true, totalAdicional, comandaId: idComandaActual });
+
+      // 👈 PASO DE IMPRESIÓN PROCESADA DE PRODUCCIÓN (COCINA Y BARRA)
+      let ticketTextoRes: string | null = null;
+      try {
+        const resPrinter = await PrinterService.imprimirComandaProduccion(idComandaActual);
+        if (resPrinter && (resPrinter as any).ticketTexto) {
+          ticketTextoRes = (resPrinter as any).ticketTexto;
+        }
+      } catch (errPrinter: any) {
+        console.error('⚠️ Error en segundo plano al imprimir comanda de producción:', errPrinter.message);
+      }
+
+      res.json({
+        ok: true,
+        totalAdicional,
+        comandaId: idComandaActual,
+        ticketTexto: ticketTextoRes
+      });
     } catch (err: any) {
       await client.query('ROLLBACK');
       res.status(500).json({ error: err.message });
@@ -708,7 +755,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Cancelar una comanda abierta y liberar la mesa correspondiente
+  // Cancelar comanda abierta
   app.post('/api/comandas/:comandaId/cancelar', async (req, res) => {
     const { comandaId } = req.params;
     const { usuarioId, notas } = req.body;
@@ -717,7 +764,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     try {
       await client.query('BEGIN');
 
-      // 1. Verificar si la comanda existe y no está cerrada
       const comandaRes = await client.query('SELECT mesa_id, estado FROM comandas WHERE id = $1', [comandaId]);
       if (comandaRes.rows.length === 0) {
         return res.status(404).json({ error: 'La comanda especificada no existe.' });
@@ -728,19 +774,16 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
         return res.status(400).json({ error: 'Solo se pueden cancelar comandas abiertas.' });
       }
 
-      // 2. Cambiar estado de la comanda a CANCELADA
       await client.query(
         `UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
         [comandaId]
       );
 
-      // 3. Liberar la mesa correspondiente
       await client.query(
         `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
         [mesa_id]
       );
 
-      // 4. Marcar todos los ítems como completados para KDS
       await client.query(
         `UPDATE comanda_items SET completado = TRUE, notas = COALESCE($1 || ' - ', '') || COALESCE(notas, '') WHERE comanda_id = $2`,
         [notas || 'CANCELADO POR USUARIO', comandaId]
@@ -758,7 +801,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Asociar cliente a una comanda activa
+  // Asociar cliente a comanda
   app.patch('/api/comandas/:comandaId/cliente', async (req, res) => {
     const { comandaId } = req.params;
     const { clienteId } = req.body;
@@ -773,7 +816,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
 
       await pool.query('UPDATE comandas SET cliente_id = $1 WHERE id = $2', [clienteId || null, comandaId]);
 
-      // Obtener los datos del cliente
       let clientInfo = null;
       if (clienteId) {
         const { rows: cli } = await pool.query('SELECT id, nombre, puntos_acumulados AS "clientePuntos", es_frecuente AS "clienteEsFrecuente", visitas_count AS "clienteVisitas" FROM clientes WHERE id = $1', [clienteId]);
@@ -796,7 +838,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
   // GET /api/cocina/tickets
   app.get('/api/cocina/tickets', async (_req, res) => {
     try {
-      // 1. Consulta simplificada: Trae todas las comandas abiertas
       const queryComandas = `
         SELECT c.id,
               c.mesa_id AS "mesaId",
@@ -814,7 +855,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
 
       const ticketsConItems = [];
 
-      // 2. Trae los ítems de cada comanda
       for (const ticket of tickets) {
         const itemsQuery = `
           SELECT ci.id, p.nombre, ci.cantidad, ci.notas, COALESCE(ci.completado, false) AS completado, ci.estado_kds
@@ -825,7 +865,6 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
         `;
         const { rows: items } = await pool.query(itemsQuery, [ticket.id]);
 
-        // Solo enviamos a cocina las comandas que tengan al menos 1 producto
         if (items.length > 0) {
           ticket.items = items;
           ticketsConItems.push(ticket);
@@ -838,7 +877,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Cambiar estado individual de un ítem (Tachar/Destachar platillo)
+  // Tachar/Destachar platillo
   app.patch('/api/cocina/items/:itemId/toggle', async (req, res) => {
     const { itemId } = req.params;
     try {
@@ -853,7 +892,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-  // Despachar ticket completo (Pasa la mesa a 'LISTO PARA SERVIR')
+  // Despachar ticket completo
   app.post('/api/cocina/tickets/:comandaId/despachar', async (req, res) => {
     const { comandaId } = req.params;
     const client = await pool.connect();
@@ -913,7 +952,7 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req, res
     }
   });
 
-// Procesar Pago, Generar Recibo de Autofactura y Liberar Mesa (Pasa a 'DISPONIBLE')
+// Procesar Pago, Generar Recibo de Autofactura y Liberar Mesa
 app.post('/api/caja/cobrar', async (req, res) => {
   const {
     comandaId,
@@ -928,14 +967,13 @@ app.post('/api/caja/cobrar', async (req, res) => {
     descuento,
     promocionId,
     puntosCanjeados,
-    solicitaFactura // 1. Recibir la bandera desde el cliente (Angular)
+    solicitaFactura
   } = req.body;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener la configuración fiscal activa guardada en PostgreSQL
     const configRes = await client.query(
       `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto
       FROM configuracion_facturacion WHERE id = 1`
@@ -945,7 +983,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     const apiKeyActiva = configFiscal?.modo_produccion ? configFiscal.api_key_live : configFiscal?.api_key_test;
     const claveSatDefecto = configFiscal?.clave_sat_defecto || '01010101';
 
-    // 2. Registrar el pago en la base de datos local
     const pagoRes = await client.query(
       `INSERT INTO pagos (comanda_id, usuario_id, metodo_pago, total_cuenta, monto_recibido, cambio, dividir_cuenta, partes_iguales, descuento, promocion_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
@@ -953,13 +990,10 @@ app.post('/api/caja/cobrar', async (req, res) => {
     );
 
     const pagoId = pagoRes.rows[0].id;
-
     let datosAutofactura = null;
 
-    // 3. SOLO invocar a Facturapi si se tiene API Key Y el usuario activó la casilla "solicitaFactura"
     if (solicitaFactura && apiKeyActiva) {
       try {
-        // Mapear los ítems de la comanda para Facturapi
         const itemsRes = await client.query(
           `SELECT ci.cantidad, ci.precio_unitario, p.nombre, p.clave_sat AS prod_clave, cat.clave_sat AS cat_clave
           FROM comanda_items ci
@@ -969,12 +1003,10 @@ app.post('/api/caja/cobrar', async (req, res) => {
           [comandaId]
         );
 
-        // Mapear el método de pago local a la clave del SAT
-        let paymentForm = '01'; // Efectivo
-        if (metodoPago === 'TARJETA') paymentForm = '04'; // Tarjeta de crédito/débito
-        if (metodoPago === 'TRANSFERENCIA') paymentForm = '03'; // Transferencia electrónica
+        let paymentForm = '01';
+        if (metodoPago === 'TARJETA') paymentForm = '04';
+        if (metodoPago === 'TRANSFERENCIA') paymentForm = '03';
 
-        // Construir lista de productos con jerarquía de clave SAT (Producto -> Categoría -> Negocio)
         const lineItemsFacturapi = itemsRes.rows.map((row: any) => ({
           quantity: Number(row.cantidad),
           product: {
@@ -992,7 +1024,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
           items: lineItemsFacturapi
         });
 
-        // Guardar la información del recibo devuelto para el ticket y QR
         await client.query(
           `INSERT INTO tickets_autofactura
           (pago_id, facturapi_receipt_id, codigo_ticket, url_autofactura, total, fecha_expiracion)
@@ -1007,11 +1038,9 @@ app.post('/api/caja/cobrar', async (req, res) => {
         };
       } catch (fError: any) {
         console.error('⚠️ No se pudo generar el recibo en Facturapi:', fError.message);
-        // Continuamos con el flujo para garantizar que la caja registre la venta localmente
       }
     }
 
-    // 4. Actualizar puntos de lealtad y visitas del cliente
     const comandaInfo = await client.query('SELECT cliente_id FROM comandas WHERE id = $1', [comandaId]);
     const clienteId = comandaInfo.rows[0]?.cliente_id;
     if (clienteId) {
@@ -1035,7 +1064,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
       );
     }
 
-    // 5. Cerrar la comanda y liberar la mesa
     await client.query(
       `UPDATE comandas SET estado = 'CERRADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
       [comandaId]
@@ -1049,11 +1077,22 @@ app.post('/api/caja/cobrar', async (req, res) => {
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
 
-    // 6. Responder con los datos del pago y la información de autofactura para el ticket impreso
+    // 👈 PROCESAR E IMPRIMIR EL TICKET DE COBRO
+    let ticketTextoCobro: string | null = null;
+    try {
+      const resCobroPrinter = await PrinterService.imprimirTicketCobro(pagoId);
+      if (resCobroPrinter && typeof resCobroPrinter === 'object' && (resCobroPrinter as any).ticketTexto) {
+        ticketTextoCobro = (resCobroPrinter as any).ticketTexto;
+      }
+    } catch (errPrinter: any) {
+      console.error('⚠️ Error en segundo plano al imprimir ticket de cobro:', errPrinter.message);
+    }
+
     res.json({
       ok: true,
       ticketId: pagoId,
-      autofactura: datosAutofactura
+      autofactura: datosAutofactura,
+      ticketTexto: ticketTextoCobro // 👈 Retornar la cadena del ticket para Angular
     });
 
   } catch (err: any) {
@@ -1065,11 +1104,10 @@ app.post('/api/caja/cobrar', async (req, res) => {
   }
 });
 
-  // Obtener información del corte de caja actual para un usuario
+  // Obtener información del corte de caja
   app.get('/api/caja/corte/actual/:usuarioId', async (req, res) => {
     const { usuarioId } = req.params;
     try {
-      // 1. Encontrar la fecha del último corte de caja
       const lastCorteQuery = `
         SELECT fecha_cierre FROM cortes_caja
         WHERE usuario_id = $1
@@ -1079,7 +1117,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
       const lastCorteRes = await pool.query(lastCorteQuery, [usuarioId]);
       const lastCorteFecha = lastCorteRes.rows.length > 0 ? lastCorteRes.rows[0].fecha_cierre : null;
 
-      // 2. Traer todos los pagos hechos por este usuario después de su último corte (o todos si no tiene)
       let pagosQuery = `
         SELECT p.id, p.total_cuenta AS total, p.metodo_pago AS metodo, p.fecha, m.numero AS mesa
         FROM pagos p
@@ -1097,7 +1134,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
       pagosQuery += ' ORDER BY p.fecha ASC';
       const { rows: pagos } = await pool.query(pagosQuery, queryParams);
 
-      // 3. Calcular totales
       let efectivo = 0;
       let tarjeta = 0;
       let transferencia = 0;
@@ -1170,7 +1206,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Obtener el historial de cortes de caja
+  // Obtener historial de cortes
   app.get('/api/caja/cortes/historial', async (_req, res) => {
     try {
       const query = `
@@ -1190,7 +1226,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
      5. ENDPOINTS ADMINISTRATIVOS (AJUSTES POS, CLIENTES, CONFIGURACIÓN)
      ========================================================================== */
 
-  // Categorías
   app.get('/api/categorias', async (_req, res) => {
     try {
       const { rows } = await pool.query('SELECT * FROM categorias ORDER BY orden, nombre');
@@ -1213,7 +1248,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Crear Producto
   app.post('/api/productos', async (req, res) => {
     const { categoria_id, nombre, precio, disponible, imagen_url } = req.body;
     try {
@@ -1235,7 +1269,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Zonas
   app.get('/api/zonas', async (_req, res) => {
     try {
       const { rows } = await pool.query('SELECT * FROM zonas ORDER BY id');
@@ -1245,16 +1278,39 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Crear Mesa
   app.post('/api/mesas', async (req, res) => {
     const { numero, zona_id, capacidad } = req.body;
     try {
-      const { rows } = await pool.query(
-        `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
-        VALUES ($1, $2, $3, 'DISPONIBLE', 0, 0) RETURNING *`,
-        [numero, Number(zona_id), Number(capacidad) || 4]
-      );
+      const query = `
+        WITH nueva_mesa AS (
+          INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta)
+          VALUES ($1, $2, $3, 'DISPONIBLE', 0, 0)
+          RETURNING *
+        )
+        SELECT
+          m.id,
+          m.numero,
+          COALESCE(z.nombre, 'Sin Zona') AS zona,
+          m.capacidad,
+          m.estado,
+          m.comensales,
+          m.minutos_abierta AS "minutosAbierta",
+          0.00 AS total,
+          m.creado_en AS "creadoEn"
+        FROM nueva_mesa m
+        LEFT JOIN zonas z ON m.zona_id = z.id;
+      `;
+
+      const { rows } = await pool.query(query, [
+        numero,
+        Number(zona_id),
+        Number(capacidad) || 4
+      ]);
+
+      // Notificar a todos los clientes por WebSockets
       emitirCambioGlobal('actualizar_mesas');
+
+      // Retornar la mesa formateada con el campo `zona` incluido
       res.status(201).json(rows[0]);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1268,7 +1324,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // 1. Obtener siguiente correlativo de Mostrador del día
       const countRes = await client.query(`
         SELECT COUNT(*) + 1 AS num
         FROM mesas
@@ -1277,7 +1332,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
       const numCorrelativo = countRes.rows[0].num;
       const numeroStr = `Mostrador #${numCorrelativo}`;
 
-      // 2. Insertar Mesa Virtual
       const mesaRes = await client.query(`
         INSERT INTO mesas (numero, zona, capacidad, estado, created_at)
         VALUES ($1, 'Mostrador', 1, 'PENDIENTE', NOW())
@@ -1285,7 +1339,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
       `, [numeroStr]);
       const mesaId = mesaRes.rows[0].id;
 
-      // 3. Crear Comanda asociada
       const comandaRes = await client.query(`
         INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, created_at)
         VALUES ($1, $2, $3, 'PENDIENTE', NOW())
@@ -1304,7 +1357,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Datos de Negocio
   app.get('/api/ajustes/negocio', async (_req, res) => {
     try {
       const { rows } = await pool.query('SELECT * FROM datos_negocio WHERE id = 1');
@@ -1349,7 +1401,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Datos de Transferencia Bancaria
   app.get('/api/ajustes/transferencia', async (_req, res) => {
     try {
       const { rows } = await pool.query('SELECT * FROM datos_transferencia WHERE id = 1');
@@ -1379,7 +1430,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Clientes (Envío, Clientes de Confianza)
   app.get('/api/clientes', async (_req, res) => {
     try {
       const { rows } = await pool.query('SELECT * FROM clientes ORDER BY nombre ASC');
@@ -1403,11 +1453,10 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  /* ==========================================================================
-     6. ENDPOINTS COMPLETOS CON SOPORTE CRUD PARA EL PANEL ADMINISTRATIVO
-     ========================================================================== */
+/* ==========================================================================
+   6. ENDPOINTS PANEL ADMINISTRATIVO
+   ========================================================================== */
 
-  // Admin - Obtener TODOS los productos (disponibles e indisponibles)
   app.get('/api/admin/productos', async (_req, res) => {
     try {
       const query = `
@@ -1424,7 +1473,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Modificar Categoría
   app.put('/api/categorias/:id', async (req, res) => {
     const { id } = req.params;
     const { nombre, icono, orden } = req.body;
@@ -1442,11 +1490,9 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Eliminar Categoría
   app.delete('/api/categorias/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      // Verificar si tiene productos asociados
       const countRes = await pool.query('SELECT COUNT(*) FROM productos WHERE categoria_id = $1', [id]);
       if (parseInt(countRes.rows[0].count) > 0) {
         return res.status(400).json({ error: 'No es posible eliminar la categoría porque contiene productos activos.' });
@@ -1458,7 +1504,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Modificar Producto
   app.put('/api/productos/:id', async (req, res) => {
     const { id } = req.params;
     const { categoria_id, nombre, precio, disponible, imagen_url } = req.body;
@@ -1485,7 +1530,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Eliminar Producto
   app.delete('/api/productos/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -1504,7 +1548,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Crear Zona (Salón)
   app.post('/api/zonas', async (req, res) => {
     const { nombre } = req.body;
     try {
@@ -1518,7 +1561,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Modificar Zona
   app.put('/api/zonas/:id', async (req, res) => {
     const { id } = req.params;
     const { nombre } = req.body;
@@ -1536,7 +1578,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Eliminar Zona
   app.delete('/api/zonas/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -1551,7 +1592,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Modificar Mesa
   app.put('/api/mesas/:id', async (req, res) => {
     const { id } = req.params;
     const { numero, zona_id, capacidad } = req.body;
@@ -1570,7 +1610,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Eliminar Mesa
   app.delete('/api/mesas/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -1582,7 +1621,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Modificar Cliente
   app.put('/api/clientes/:id', async (req, res) => {
     const { id } = req.params;
     const { nombre, telefono, direccion, email, notas } = req.body;
@@ -1600,7 +1638,6 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
   });
 
-  // Eliminar Cliente
   app.delete('/api/clientes/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -1693,7 +1730,6 @@ app.delete('/api/promociones/:id', async (req, res) => {
    8. ENDPOINTS DE FACTURACIÓN ELECTRÓNICA (CFDI 4.0)
    ========================================================================== */
 
-// Obtener la configuración fiscal almacenada en PostgreSQL
 app.get('/api/ajustes/facturacion', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -1718,7 +1754,6 @@ app.get('/api/ajustes/facturacion', async (_req, res) => {
   }
 });
 
-// Guardar/Actualizar la configuración fiscal y procesar la subida de los archivos CSD
 app.post(
   '/api/ajustes/facturacion',
   uploadCSD.fields([
@@ -1743,10 +1778,8 @@ app.post(
       const modoProdBool = modoProduccion === 'true' || modoProduccion === true;
       let tieneCsd = false;
 
-      // Evaluar la API Key activa según el modo de operación
       const apiKeyActiva = modoProdBool ? apiKeyLive : apiKeyTest;
 
-      // Si el cliente adjuntó archivos .cer y .key, subirlos a Facturapi
       if (req.files?.csdCer?.[0] && req.files?.csdKey?.[0] && apiKeyActiva) {
         const facturapi = new Facturapi(apiKeyActiva);
 
@@ -1759,7 +1792,6 @@ app.post(
         tieneCsd = true;
       }
 
-      // Guardar o actualizar la fila única en PostgreSQL
       const query = `
         INSERT INTO configuracion_facturacion (
           id, api_key_test, api_key_live, modo_produccion, rfc_emisor,
@@ -1803,7 +1835,6 @@ app.post(
   }
 );
 
-// Probar conexión y autenticación con Facturapi
 app.post('/api/ajustes/facturacion/test', async (req, res) => {
   const { apiKey } = req.body;
 
@@ -1822,7 +1853,7 @@ app.post('/api/ajustes/facturacion/test', async (req, res) => {
 });
 
 /* ==========================================================================
-   9. ENDPOINT DE DASHBOARD & ESTADÍSTICAS DE VENTAS EN TIEMPO REAL
+   9. ENDPOINT DE DASHBOARD & ESTADÍSTICAS EN TIEMPO REAL
    ========================================================================== */
 
 app.get('/api/dashboard/stats', async (req, res) => {
@@ -1839,7 +1870,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
       params.push(fechaInicio, fechaFin);
     }
 
-    // 1. Resumen de Ventas
     const totalVentasRes = await pool.query(`
       SELECT
         COALESCE(SUM(total_cuenta), 0)::float AS "totalVentas",
@@ -1849,7 +1879,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
       WHERE ${dateFilter}
     `, params);
 
-    // 2. Ventas por método de pago
     const metodoPagoRes = await pool.query(`
       SELECT metodo_pago AS metodo, COALESCE(SUM(total_cuenta), 0)::float AS total, COUNT(*)::int as cantidad
       FROM pagos
@@ -1857,7 +1886,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
       GROUP BY metodo_pago
     `, params);
 
-    // 3. Ventas por Categoría
     const ventasCatRes = await pool.query(`
       SELECT c.nombre AS categoria, COALESCE(SUM(ci.cantidad * ci.precio_unitario), 0)::float AS total
       FROM pagos pa
@@ -1869,7 +1897,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
       ORDER BY total DESC
     `, params);
 
-    // 4. Últimos tickets pagados de ese periodo
     const ultimosTicketsRes = await pool.query(`
       SELECT
         pa.id,

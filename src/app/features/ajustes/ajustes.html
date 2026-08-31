@@ -161,7 +161,7 @@
           @if (categoriaEditando(); as catEdit) {
             <div class="card-header border-orange">
               <h3>Editar Categoría</h3>
-              <p>Ajusta el nombre, ícono u orden.</p>
+              <p>Ajusta el nombre, ícono, orden o destino de impresión.</p>
             </div>
             <form (submit)="guardarEdicionCategoria(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
@@ -179,6 +179,25 @@
                 <input matInput type="number" [(ngModel)]="catEdit.orden" name="editCatOrden">
               </mat-form-field>
 
+              <!-- 🖨️ DESTINO DE IMPRESIÓN EDITAR -->
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Destino de Impresión</mat-label>
+                <mat-select [(ngModel)]="catEdit.destino_impresion" name="editCatDestino" required>
+                  <mat-option value="COCINA">
+                    <mat-icon style="vertical-align: middle; margin-right: 8px;">restaurant</mat-icon>
+                    Cocina (Alimentos / Platillos)
+                  </mat-option>
+                  <mat-option value="BARRA">
+                    <mat-icon style="vertical-align: middle; margin-right: 8px;">local_bar</mat-icon>
+                    Barra (Bebidas / Coctelería)
+                  </mat-option>
+                  <mat-option value="NINGUNO">
+                    <mat-icon style="vertical-align: middle; margin-right: 8px;">block</mat-icon>
+                    Sin Impresión
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
               <div class="form-actions gap-8">
                 <button mat-flat-button color="primary" type="submit" [disabled]="!catEdit.nombre">
                   Guardar
@@ -191,7 +210,7 @@
           } @else {
             <div class="card-header">
               <h3>Nueva Categoría</h3>
-              <p>Agrupa tus productos para comandar rápido.</p>
+              <p>Agrupa tus productos y asigna su área de producción.</p>
             </div>
             <form (submit)="guardarCategoria(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
@@ -207,6 +226,25 @@
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Orden de visualización</mat-label>
                 <input matInput type="number" [(ngModel)]="nuevaCategoria.orden" name="catOrden" placeholder="0">
+              </mat-form-field>
+
+              <!-- 🖨️ DESTINO DE IMPRESIÓN CREAR -->
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Destino de Impresión</mat-label>
+                <mat-select [(ngModel)]="nuevaCategoria.destino_impresion" name="catDestino" required>
+                  <mat-option value="COCINA">
+                    <mat-icon style="vertical-align: middle; margin-right: 8px;">restaurant</mat-icon>
+                    Cocina (Alimentos / Platillos)
+                  </mat-option>
+                  <mat-option value="BARRA">
+                    <mat-icon style="vertical-align: middle; margin-right: 8px;">local_bar</mat-icon>
+                    Barra (Bebidas / Coctelería)
+                  </mat-option>
+                  <mat-option value="NINGUNO">
+                    <mat-icon style="vertical-align: middle; margin-right: 8px;">block</mat-icon>
+                    Sin Impresión
+                  </mat-option>
+                </mat-select>
               </mat-form-field>
 
               <div class="form-actions">
@@ -233,7 +271,11 @@
                 <div class="crud-row-item">
                   <span class="row-text font-bold">
                     <mat-icon class="inline-icon">{{ cat.icono || 'restaurant' }}</mat-icon>
-                    {{ cat.nombre }} <span class="badge">Orden: {{ cat.orden || 0 }}</span>
+                    {{ cat.nombre }}
+                    <span class="badge">Orden: {{ cat.orden || 0 }}</span>
+                    <span class="badge" [style.background-color]="cat.destino_impresion === 'BARRA' ? '#e3f2fd' : '#fbe9e7'" [style.color]="cat.destino_impresion === 'BARRA' ? '#1565c0' : '#d84315'">
+                      🖨️ {{ cat.destino_impresion || 'COCINA' }}
+                    </span>
                   </span>
                   <div class="row-actions">
                     <button type="button" class="btn-icon edit" (click)="habilitarEdicionCategoria(cat)" title="Editar Categoria">
@@ -760,17 +802,17 @@
             </div>
             <form (submit)="guardarEdicionPromocion(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Nombre Oficial</mat-label>
+                <mat-label>Nombre Oficial*</mat-label>
                 <input matInput [(ngModel)]="promoEdit.nombre" name="editPromoName" placeholder="Ej. Combo Taco y Refresco" required>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Código Único canjeable</mat-label>
+                <mat-label>Código Único canjeable*</mat-label>
                 <input matInput [(ngModel)]="promoEdit.codigo" name="editPromoCode" placeholder="Ej. COMBO_TACO" required>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Tipo de Beneficio</mat-label>
+                <mat-label>Tipo de Beneficio*</mat-label>
                 <mat-select [(ngModel)]="promoEdit.tipo" name="editPromoTipo" required>
                   <mat-option value="COMBO_PRECIO">Precio de Combo Especial ($)</mat-option>
                   <mat-option value="DESCUENTO_PORCENTAJE">Descuento de Porcentaje (%)</mat-option>
@@ -778,8 +820,40 @@
                 </mat-select>
               </mat-form-field>
 
+              <!-- 🔹 SELECTOR DE ALCANCE (EDICIÓN) -->
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Valor numérico</mat-label>
+                <mat-label>Aplicar A*</mat-label>
+                <mat-select [(ngModel)]="promoEdit.aplica_a" name="editPromoAplicaA" required>
+                  <mat-option value="TOTAL_ORDEN">Toda la Orden / Ticket Completo</mat-option>
+                  <mat-option value="CATEGORIA">Categoría Específica</mat-option>
+                  <mat-option value="PRODUCTO">Producto Específico</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              @if (promoEdit.aplica_a === 'CATEGORIA') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Categoría Elegible*</mat-label>
+                  <mat-select [(ngModel)]="promoEdit.categoria_id" name="editPromoCat" required>
+                    @for (cat of categorias(); track cat.id) {
+                      <mat-option [value]="cat.id">{{ cat.nombre }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+
+              @if (promoEdit.aplica_a === 'PRODUCTO') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Producto Elegible*</mat-label>
+                  <mat-select [(ngModel)]="promoEdit.producto_id" name="editPromoProd" required>
+                    @for (prod of productos(); track prod.id) {
+                      <mat-option [value]="prod.id">{{ prod.nombre }} (${{ prod.precio | number:'1.2-2' }})</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Valor numérico*</mat-label>
                 <input matInput type="number" step="0.01" [(ngModel)]="promoEdit.valor" name="editPromoVal" placeholder="0.00" required min="0">
               </mat-form-field>
 
@@ -811,17 +885,17 @@
             </div>
             <form (submit)="guardarPromocion(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Nombre Corto de Promoción</mat-label>
+                <mat-label>Nombre Corto de Promoción*</mat-label>
                 <input matInput [(ngModel)]="nuevaPromocion.nombre" name="promoNombre" placeholder="Ej. Descuento Familiar" required>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Código Canjeable (Sin espacios)</mat-label>
+                <mat-label>Código Canjeable (Sin espacios)*</mat-label>
                 <input matInput [(ngModel)]="nuevaPromocion.codigo" name="promoCodigo" placeholder="Ej. FAMILIA20" required>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Tipo de Oferta</mat-label>
+                <mat-label>Tipo de Oferta*</mat-label>
                 <mat-select [(ngModel)]="nuevaPromocion.tipo" name="promoTipo" required>
                   <mat-option value="COMBO_PRECIO">Precio de Combo Especial ($)</mat-option>
                   <mat-option value="DESCUENTO_PORCENTAJE">Descuento de Porcentaje (%)</mat-option>
@@ -829,8 +903,40 @@
                 </mat-select>
               </mat-form-field>
 
+              <!-- 🔹 SELECTOR DE ALCANCE (CREACIÓN) -->
               <mat-form-field appearance="outline" class="w-full">
-                <mat-label>Valor (Porcentaje / Monto Fijo)</mat-label>
+                <mat-label>Aplicar A*</mat-label>
+                <mat-select [(ngModel)]="nuevaPromocion.aplica_a" name="promoAplicaA" required>
+                  <mat-option value="TOTAL_ORDEN">Toda la Orden / Ticket Completo</mat-option>
+                  <mat-option value="CATEGORIA">Categoría Específica</mat-option>
+                  <mat-option value="PRODUCTO">Producto Específico</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              @if (nuevaPromocion.aplica_a === 'CATEGORIA') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Seleccionar Categoría*</mat-label>
+                  <mat-select [(ngModel)]="nuevaPromocion.categoria_id" name="promoCatId" required>
+                    @for (cat of categorias(); track cat.id) {
+                      <mat-option [value]="cat.id">{{ cat.nombre }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+
+              @if (nuevaPromocion.aplica_a === 'PRODUCTO') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Seleccionar Producto*</mat-label>
+                  <mat-select [(ngModel)]="nuevaPromocion.producto_id" name="promoProdId" required>
+                    @for (prod of productos(); track prod.id) {
+                      <mat-option [value]="prod.id">{{ prod.nombre }} (${{ prod.precio | number:'1.2-2' }})</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Valor (Porcentaje / Monto Fijo)*</mat-label>
                 <input matInput type="number" step="0.01" [(ngModel)]="nuevaPromocion.valor" name="promoValor" placeholder="0.00" required min="0">
               </mat-form-field>
 
@@ -877,6 +983,18 @@
                       @case ('DESCUENTO_MONTO') { Monto Restado: <span class="price-info">${{ p.valor | number:'1.2-2' }}</span> }
                     }
                   </p>
+
+                  <!-- 🔹 INDICADOR DE ALCANCE EN LA TARJETA -->
+                  <p class="meta-text">
+                    <mat-icon class="sub-icon">category</mat-icon>
+                    <strong>Aplica a: </strong>
+                    @switch (p.aplica_a) {
+                      @case ('CATEGORIA') { Categoría especificada }
+                      @case ('PRODUCTO') { Producto especificado }
+                      @default { Toda la orden }
+                    }
+                  </p>
+
                   @if (p.descripcion) {
                     <p class="meta-text"><mat-icon class="sub-icon">notes</mat-icon> {{ p.descripcion }}</p>
                   }
@@ -1114,6 +1232,221 @@
       <div class="tab-content" style="padding: 24px;">
         <!-- Componente Integrado de Configuración Fiscal y Facturación -->
         <app-billing-component></app-billing-component>
+      </div>
+    </mat-tab>
+
+    <!-- PESTAÑA 10: CONFIGURACIÓN DE IMPRESORAS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">print</mat-icon>
+        <span>Impresoras</span>
+      </ng-template>
+      <div class="tab-content row-layout" style="padding: 24px;">
+
+        <!-- Izquierda: Formulario Crear / Editar Impresora -->
+        <div class="form-card col-sm">
+          @if (impresoraEditando(); as impEdit) {
+            <div class="card-header border-orange">
+              <h3>Editar Impresora</h3>
+              <p>Actualiza los parámetros o la asignación de área.</p>
+            </div>
+            <form (submit)="guardarEdicionImpresora(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Descriptivo</mat-label>
+                <input matInput [(ngModel)]="impEdit.nombre" name="editImpNombre" placeholder="Ej. Impresora Cocina" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Destino u Origen</mat-label>
+                <mat-select [(ngModel)]="impEdit.destino" name="editImpDestino" required>
+                  <mat-option value="COCINA">Cocina (Alimentos)</mat-option>
+                  <mat-option value="BARRA">Barra (Bebidas)</mat-option>
+                  <mat-option value="CAJA">Caja / Mostrador (Tickets de Cobro)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Tipo de Conexión</mat-label>
+                <mat-select [(ngModel)]="impEdit.tipo" name="editImpTipo" required>
+                  <mat-option value="SIMULACION">Simulación (Consola)</mat-option>
+                  <mat-option value="RED">Red (Ethernet / Wi-Fi TCP/IP)</mat-option>
+                  <mat-option value="USB">USB / Sistema Operativo</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- NUEVO: ANCHO DE PAPEL EN EDITAR -->
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Ancho de Papel Térmico</mat-label>
+                <mat-select [(ngModel)]="impEdit.ancho_papel" name="editImpAncho" required>
+                  <mat-option value="80mm">80 mm (Estándar Restaurante)</mat-option>
+                  <mat-option value="58mm">58 mm (Compacta / Portátil)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- CAMPOS CONDICIONALES EDITAR: RED -->
+              @if (impEdit.tipo === 'RED') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Dirección IP de Red</mat-label>
+                  <input matInput [(ngModel)]="impEdit.ip_o_puerto" name="editImpIp" placeholder="Ej. 192.168.1.100" required>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Puerto TCP</mat-label>
+                  <input matInput type="number" [(ngModel)]="impEdit.puerto_tcp" name="editImpPuertoTcp" placeholder="9100">
+                </mat-form-field>
+              }
+
+              <!-- CAMPOS CONDICIONALES EDITAR: USB -->
+              @if (impEdit.tipo === 'USB') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Nombre de Impresora en el Sistema (USB)</mat-label>
+                  <input matInput [(ngModel)]="impEdit.ip_o_puerto" name="editImpUsbName" placeholder="Ej. EPSON_TM_T20 o POS58" required>
+                  <mat-hint>Nombre exacto de la impresora instalada o compartida en el SO</mat-hint>
+                </mat-form-field>
+              }
+
+              <div class="checkbox-container">
+                <label class="custom-checkbox">
+                  <input type="checkbox" [(ngModel)]="impEdit.activa" name="editImpActiva">
+                  <span>Impresora Habilitada</span>
+                </label>
+              </div>
+
+              <div class="form-actions gap-8">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!impEdit.nombre || (impEdit.tipo !== 'SIMULACION' && !impEdit.ip_o_puerto)">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionImpresora()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="card-header">
+              <h3>Registrar Impresora</h3>
+              <p>Asigna un área de atención a una impresora física o simulador.</p>
+            </div>
+            <form (submit)="guardarImpresora(); $event.preventDefault()" class="ajustes-form">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Nombre Descriptivo</mat-label>
+                <input matInput [(ngModel)]="nuevaImpresora.nombre" name="impNombre" placeholder="Ej. Termica Cocina 1" required>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Área de Atención (Destino)</mat-label>
+                <mat-select [(ngModel)]="nuevaImpresora.destino" name="impDestino" required>
+                  <mat-option value="COCINA">Cocina (Alimentos)</mat-option>
+                  <mat-option value="BARRA">Barra (Bebidas)</mat-option>
+                  <mat-option value="CAJA">Caja / Mostrador (Tickets de Cobro)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Tipo de Conexión</mat-label>
+                <mat-select [(ngModel)]="nuevaImpresora.tipo" name="impTipo" required>
+                  <mat-option value="SIMULACION">Simulación (Consola)</mat-option>
+                  <mat-option value="RED">Red (Ethernet / Wi-Fi TCP/IP)</mat-option>
+                  <mat-option value="USB">USB / Sistema Operativo</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- NUEVO: ANCHO DE PAPEL EN CREAR -->
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Ancho de Papel Térmico</mat-label>
+                <mat-select [(ngModel)]="nuevaImpresora.ancho_papel" name="impAncho" required>
+                  <mat-option value="80mm">80 mm (Estándar Restaurante)</mat-option>
+                  <mat-option value="58mm">58 mm (Compacta / Portátil)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- CAMPOS CONDICIONALES CREAR: RED -->
+              @if (nuevaImpresora.tipo === 'RED') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Dirección IP de Red</mat-label>
+                  <input matInput [(ngModel)]="nuevaImpresora.ip_o_puerto" name="impIp" placeholder="Ej. 192.168.1.150" required>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Puerto TCP</mat-label>
+                  <input matInput type="number" [(ngModel)]="nuevaImpresora.puerto_tcp" name="impPuertoTcp" placeholder="9100">
+                </mat-form-field>
+              }
+
+              <!-- CAMPOS CONDICIONALES CREAR: USB -->
+              @if (nuevaImpresora.tipo === 'USB') {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Nombre de Impresora en el Sistema (USB)</mat-label>
+                  <input matInput [(ngModel)]="nuevaImpresora.ip_o_puerto" name="impUsbName" placeholder="Ej. EPSON_TM_T20 o POS58" required>
+                  <mat-hint>Nombre exacto de la impresora instalada o compartida en el SO</mat-hint>
+                </mat-form-field>
+              }
+
+              <div class="form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevaImpresora.nombre || (nuevaImpresora.tipo !== 'SIMULACION' && !nuevaImpresora.ip_o_puerto)" class="w-full">
+                  <mat-icon>add</mat-icon> Agregar Impresora
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+
+        <!-- Derecha: Listado de Impresoras Registradas -->
+        <div class="form-card col-md">
+          <div class="card-header">
+            <h3>Impresoras del Establecimiento</h3>
+            <p>Configuración de hardware para la emisión de comandas y recibos.</p>
+          </div>
+
+          <div class="scrollable-crud-list">
+            @for (imp of impresoras(); track imp.id) {
+              <div class="client-item-card" [class.inactive]="!imp.activa">
+                <div class="client-avatar">
+                  <mat-icon>print</mat-icon>
+                </div>
+                <div class="client-meta">
+                  <div class="meta-row">
+                    <span class="meta-name font-bold">{{ imp.nombre }}</span>
+                    <span class="meta-tag">
+                      <mat-icon class="sub-icon">place</mat-icon> {{ imp.destino }}
+                    </span>
+                  </div>
+                  <p class="meta-text">
+                    <mat-icon class="sub-icon">lan</mat-icon>
+                    <strong>Conexión: </strong> {{ imp.tipo }}
+                    @if (imp.tipo === 'RED') {
+                      ({{ imp.ip_o_puerto }}:{{ imp.puerto_tcp || 9100 }})
+                    } @else if (imp.tipo === 'USB') {
+                      ({{ imp.ip_o_puerto }})
+                    }
+                    | <strong>Papel:</strong> {{ imp.ancho_papel || '80mm' }}
+                  </p>
+                  @if (!imp.activa) {
+                    <div style="margin-top: 6px;"><span class="no-disp-badge">Desactivada</span></div>
+                  }
+                </div>
+                <div class="client-actions" style="display: flex; gap: 4px;">
+                  <button type="button" class="btn-icon" (click)="probarImpresora(imp.id!)" title="Probar Impresión">
+                    <mat-icon style="color: #1976d2;">play_circle</mat-icon>
+                  </button>
+                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionImpresora(imp)" title="Editar Impresora">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+                    <button type="button" class="btn-icon delete" (click)="eliminarImpresora(imp.id!)" title="Eliminar Impresora">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-clients">
+                <mat-icon>print_disabled</mat-icon>
+                <p>No se han registrado impresoras en el sistema.</p>
+              </div>
+            }
+          </div>
+        </div>
+
       </div>
     </mat-tab>
 

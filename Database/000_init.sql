@@ -1,24 +1,32 @@
 -- ============================================================================
--- SCRIPT OPTIMIZADO MULTIGIRO CON FACTURACIÓN CFDI 4.0 Y CLIENTES (BORBOTO POS)
+-- SCRIPT COMPLETO Y UNIFICADO (BORBOTO POS)
+-- Base de datos lista para entorno Portable/Producción con PostgreSQL
 -- ============================================================================
 
 SET timezone = 'America/Mexico_City';
 
--- 1. ELIMINACIÓN DE TABLAS EN ORDEN DE DEPENDENCIAS (Inverso)
+-- 1. ELIMINACIÓN DE TABLAS (Orden estricto por dependencias FK)
 DROP TABLE IF EXISTS facturas CASCADE;
 DROP TABLE IF EXISTS tickets_autofactura CASCADE;
 DROP TABLE IF EXISTS configuracion_facturacion CASCADE;
+DROP TABLE IF EXISTS impresoras CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
 DROP TABLE IF EXISTS comanda_items CASCADE;
 DROP TABLE IF EXISTS comandas CASCADE;
-DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS productos CASCADE;
+DROP TABLE IF EXISTS promociones CASCADE;
 DROP TABLE IF EXISTS categorias CASCADE;
+DROP TABLE IF EXISTS cortes_caja CASCADE;
 DROP TABLE IF EXISTS mesas CASCADE;
 DROP TABLE IF EXISTS zonas CASCADE;
+DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TABLE IF EXISTS datos_negocio CASCADE;
+DROP TABLE IF EXISTS datos_transferencia CASCADE;
+DROP TABLE IF EXISTS schema_migrations CASCADE;
 
--- ELIMINACIÓN DE TIPOS ENUMERADOS PREVIOS
+-- ELIMINACIÓN DE TIPOS ENUMERADOS
+DROP TYPE IF EXISTS destino_impresion_enum CASCADE;
 DROP TYPE IF EXISTS estado_factura_enum CASCADE;
 DROP TYPE IF EXISTS estado_mesa_enum CASCADE;
 DROP TYPE IF EXISTS estado_comanda_enum CASCADE;
@@ -33,14 +41,56 @@ CREATE TYPE estado_item_kds_enum AS ENUM ('PENDIENTE', 'PREPARANDO', 'LISTO');
 CREATE TYPE metodo_pago_enum AS ENUM ('EFECTIVO', 'TARJETA', 'TRANSFERENCIA');
 CREATE TYPE rol_usuario_enum AS ENUM ('ADMIN', 'MESERO', 'COCINERO', 'CAJERO');
 CREATE TYPE estado_factura_enum AS ENUM ('PENDIENTE', 'TIMBRADA', 'CANCELADA', 'ERROR');
+CREATE TYPE destino_impresion_enum AS ENUM ('COCINA', 'BARRA', 'CAJA', 'NINGUNO');
 
--- 3. TABLAS BASE
+-- 3. MIGRACIONES
+CREATE TABLE schema_migrations (
+    id SERIAL PRIMARY KEY,
+    version VARCHAR(150) NOT NULL UNIQUE,
+    ejecutado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. TABLAS GLOBALES Y DE USUARIOS
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     pin VARCHAR(6) NOT NULL UNIQUE,
     rol rol_usuario_enum NOT NULL DEFAULT 'MESERO',
     activo BOOLEAN DEFAULT TRUE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE datos_negocio (
+    id INT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    rfc VARCHAR(20),
+    telefono VARCHAR(20),
+    direccion TEXT,
+    email VARCHAR(100),
+    mensaje_recibo TEXT,
+    visitas_requeridas_frecuente INT DEFAULT 5,
+    puntos_por_cada_diez_pesos INT DEFAULT 1,
+    pesos_por_punto NUMERIC(10, 2) DEFAULT 1.00
+);
+
+CREATE TABLE datos_transferencia (
+    id INT PRIMARY KEY,
+    banco VARCHAR(100) NOT NULL,
+    titular VARCHAR(100) NOT NULL,
+    clabe VARCHAR(20) NOT NULL,
+    email VARCHAR(100)
+);
+
+CREATE TABLE clientes (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    telefono VARCHAR(20),
+    direccion TEXT,
+    email VARCHAR(100),
+    notas TEXT,
+    puntos_acumulados INT DEFAULT 0,
+    es_frecuente BOOLEAN DEFAULT FALSE,
+    visitas_count INT DEFAULT 0,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -51,7 +101,7 @@ CREATE TABLE zonas (
 
 CREATE TABLE mesas (
     id SERIAL PRIMARY KEY,
-    numero VARCHAR(10) NOT NULL,
+    numero VARCHAR(50) NOT NULL,
     zona_id INT NOT NULL REFERENCES zonas(id) ON DELETE RESTRICT,
     capacidad INT DEFAULT 4,
     estado estado_mesa_enum DEFAULT 'DISPONIBLE',
@@ -66,28 +116,30 @@ CREATE TABLE categorias (
     nombre VARCHAR(50) NOT NULL UNIQUE,
     icono VARCHAR(30) DEFAULT 'restaurant',
     orden INT DEFAULT 0,
-    clave_sat VARCHAR(10) -- Permite asignar una clave SAT opcional por categoría
+    clave_sat VARCHAR(10),
+    destino_impresion destino_impresion_enum NOT NULL DEFAULT 'COCINA'
+);
+
+CREATE TABLE promociones (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    codigo VARCHAR(30) UNIQUE,
+    tipo VARCHAR(20) NOT NULL,
+    valor NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    descripcion TEXT,
+    activo BOOLEAN DEFAULT TRUE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE productos (
     id SERIAL PRIMARY KEY,
     categoria_id INT NOT NULL REFERENCES categorias(id) ON DELETE RESTRICT,
+    promocion_id INT REFERENCES promociones(id) ON DELETE SET NULL,
     nombre VARCHAR(100) NOT NULL,
-    precio DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
-    imagen_url TEXT, -- 📸 Soporte para URL o ruta relativa de la imagen del producto
-    clave_sat VARCHAR(10), -- Opcional: Si es NULL, heredará la clave de la categoría o la del negocio
+    precio NUMERIC(10, 2) NOT NULL CHECK (precio >= 0),
+    clave_sat VARCHAR(10),
+    imagen_url TEXT,
     disponible BOOLEAN DEFAULT TRUE,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- TABLA DE CLIENTES (Directorio / Cartera)
-CREATE TABLE clientes (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(150) NOT NULL,
-    telefono VARCHAR(20),
-    email VARCHAR(150),
-    direccion TEXT,
-    notas TEXT,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -95,9 +147,9 @@ CREATE TABLE comandas (
     id SERIAL PRIMARY KEY,
     mesa_id INT NOT NULL REFERENCES mesas(id) ON DELETE RESTRICT,
     usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
-    cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL, -- 👤 Vinculación de cliente a la orden
+    cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL,
     estado estado_comanda_enum DEFAULT 'ABIERTA',
-    total DECIMAL(10,2) DEFAULT 0.00,
+    total NUMERIC(10, 2) DEFAULT 0.00,
     fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_cierre TIMESTAMP
 );
@@ -107,11 +159,13 @@ CREATE TABLE comanda_items (
     comanda_id INT NOT NULL REFERENCES comandas(id) ON DELETE CASCADE,
     producto_id INT NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
     cantidad INT NOT NULL CHECK (cantidad > 0),
-    precio_unitario DECIMAL(10,2) NOT NULL,
-    subtotal DECIMAL(10,2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED,
+    precio_unitario NUMERIC(10, 2) NOT NULL,
+    subtotal NUMERIC(10, 2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED,
     notas TEXT,
     estado_kds estado_item_kds_enum DEFAULT 'PENDIENTE',
     completado BOOLEAN DEFAULT FALSE,
+    impreso BOOLEAN DEFAULT FALSE,
+    impreso_en TIMESTAMP,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -119,20 +173,45 @@ CREATE TABLE pagos (
     id SERIAL PRIMARY KEY,
     comanda_id INT NOT NULL REFERENCES comandas(id) ON DELETE RESTRICT,
     usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+    promocion_id INT REFERENCES promociones(id) ON DELETE SET NULL,
     metodo_pago metodo_pago_enum NOT NULL,
-    total_cuenta DECIMAL(10,2) NOT NULL,
-    monto_recibido DECIMAL(10,2) NOT NULL,
-    cambio DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total_cuenta NUMERIC(10, 2) NOT NULL,
+    monto_recibido NUMERIC(10, 2) NOT NULL,
+    cambio NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    descuento NUMERIC(10, 2) DEFAULT 0.00,
     dividir_cuenta BOOLEAN DEFAULT FALSE,
     partes_iguales INT DEFAULT 1,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ============================================================================
--- MÓDULO DE FACTURACIÓN ELECTRÓNICA (CFDI 4.0 MULTIGIRO)
--- ============================================================================
+CREATE TABLE cortes_caja (
+    id SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+    fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_cierre TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fondo_apertura NUMERIC(10, 2) DEFAULT 0.00,
+    efectivo_real NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    efectivo_calculado NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    tarjeta_calculado NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    transferencia_calculado NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    ventas_totales NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    diferencia NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    notas TEXT
+);
 
--- 4. CONFIGURACIÓN FISCAL DEL NEGOCIO (EMISOR)
+-- 5. HARDWARE Y FACTURACIÓN
+CREATE TABLE impresoras (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    destino destino_impresion_enum NOT NULL,
+    tipo VARCHAR(20) NOT NULL DEFAULT 'RED',
+    ip_o_puerto VARCHAR(100) NOT NULL,
+    puerto_tcp INT DEFAULT 9100,
+    ancho_papel VARCHAR(10) NOT NULL DEFAULT '80mm',
+    activa BOOLEAN DEFAULT TRUE,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE configuracion_facturacion (
     id SERIAL PRIMARY KEY,
     api_key_test VARCHAR(255) NOT NULL,
@@ -140,51 +219,46 @@ CREATE TABLE configuracion_facturacion (
     modo_produccion BOOLEAN DEFAULT FALSE,
     rfc_emisor VARCHAR(13) NOT NULL,
     razon_social VARCHAR(255) NOT NULL,
-    regimen_fiscal VARCHAR(5) NOT NULL, -- Ej: '601', '626'
+    regimen_fiscal VARCHAR(5) NOT NULL,
     codigo_postal VARCHAR(5) NOT NULL,
-    clave_sat_defecto VARCHAR(10) DEFAULT '01010101', -- Clave por defecto según el giro
+    clave_sat_defecto VARCHAR(10) DEFAULT '01010101',
     email_notificaciones VARCHAR(150),
     dias_vigencia_ticket INT DEFAULT 7,
     tiene_csd BOOLEAN DEFAULT FALSE,
     actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. REGISTRO DE TICKETS DISPONIBLES PARA AUTOFACTURA
 CREATE TABLE tickets_autofactura (
     id SERIAL PRIMARY KEY,
     pago_id INT NOT NULL REFERENCES pagos(id) ON DELETE RESTRICT,
-    facturapi_receipt_id VARCHAR(100) UNIQUE NOT NULL, -- ID del recibo en Facturapi
-    codigo_ticket VARCHAR(20) NOT NULL UNIQUE,          -- Código corto impreso (Ej: A7B9-X2)
-    url_autofactura TEXT NOT NULL,                      -- URL para el QR del ticket
-    total DECIMAL(10,2) NOT NULL,
+    facturapi_receipt_id VARCHAR(100) NOT NULL UNIQUE,
+    codigo_ticket VARCHAR(20) NOT NULL UNIQUE,
+    url_autofactura TEXT NOT NULL,
+    total NUMERIC(10, 2) NOT NULL,
     estado estado_factura_enum DEFAULT 'PENDIENTE',
     fecha_expiracion TIMESTAMP NOT NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. HISTORIAL DE FACTURAS TIMBRADAS ANTE EL SAT (RECEPTOR)
 CREATE TABLE facturas (
     id SERIAL PRIMARY KEY,
     ticket_id INT NOT NULL REFERENCES tickets_autofactura(id) ON DELETE RESTRICT,
-    uuid_sat VARCHAR(36) UNIQUE NOT NULL,               -- Folio Fiscal del SAT
+    uuid_sat VARCHAR(36) NOT NULL UNIQUE,
     rfc_receptor VARCHAR(13) NOT NULL,
     razon_social_receptor VARCHAR(255) NOT NULL,
     regimen_fiscal_receptor VARCHAR(5) NOT NULL,
     codigo_postal_receptor VARCHAR(5) NOT NULL,
-    uso_cfdi VARCHAR(5) NOT NULL,                       -- Ej: 'G03', 'S01'
+    uso_cfdi VARCHAR(5) NOT NULL,
     url_pdf TEXT,
     url_xml TEXT,
     fecha_timbrado TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. ÍNDICES DE RENDIMIENTO ADICIONALES
+-- 6. ÍNDICES DE ALTO RENDIMIENTO
 CREATE INDEX idx_mesas_estado ON mesas(estado);
 CREATE INDEX idx_comandas_mesa ON comandas(mesa_id) WHERE estado = 'ABIERTA';
-CREATE INDEX idx_comandas_cliente ON comandas(cliente_id);
 CREATE INDEX idx_comanda_items_kds ON comanda_items(completado) WHERE completado = FALSE;
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);
-
--- ÍNDICES ESPECÍFICOS PARA FACTURACIÓN
 CREATE INDEX idx_tickets_codigo ON tickets_autofactura(codigo_ticket);
 CREATE INDEX idx_tickets_estado ON tickets_autofactura(estado);
 CREATE INDEX idx_facturas_uuid ON facturas(uuid_sat);

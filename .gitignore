@@ -42,3 +42,7 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# PostgreSQL Portable y datos locales
+backend-borboto/data-pg/
+backend-borboto/postgres-bin/

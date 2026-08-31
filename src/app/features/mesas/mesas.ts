@@ -89,7 +89,7 @@ export class MesasComponent implements OnInit, OnDestroy {
             const mesaVirtual: Mesa = {
               id: res.mesaId,
               numero: res.numero,
-              zona: 'Mostrador',
+              zona: 'Mostrador', // 👈 Asignación estricta de zona Mostrador
               capacidad: 1,
               estado: 'PENDIENTE',
               comensales: 1,

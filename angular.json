@@ -27,7 +27,8 @@
               {
                 "glob": "**/*",
                 "input": "public"
-              }
+              },
+              "BORBOTOIcon.ico"
             ],
             "styles": [
               "src/styles.scss"

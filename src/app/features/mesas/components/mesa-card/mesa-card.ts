@@ -33,8 +33,10 @@ export class MesaCardComponent {
   }
 
   getBadgeInfo(estado: string) {
-    switch (estado) {
+    const est = (estado || '').toUpperCase().trim();
+    switch (est) {
       case 'DISPONIBLE':
+      case 'LIBRE':
         return { label: 'Disponible', class: 'badge-libre' };
       case 'PENDIENTE':
         return { label: 'Pendiente', class: 'badge-pendiente' };

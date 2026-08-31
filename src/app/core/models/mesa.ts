@@ -1,11 +1,4 @@
-// src/app/core/models/mesa.ts
-
-export type EstadoMesa =
-  | 'DISPONIBLE'
-  | 'PENDIENTE'
-  | 'EN COCINA'
-  | 'LISTO PARA SERVIR'
-  | 'SERVIDO';
+export type EstadoMesa = 'DISPONIBLE' | 'PENDIENTE' | 'EN COCINA' | 'LISTO PARA SERVIR' | 'SERVIDO' | 'LIBRE';
 
 export interface Mesa {
   id: number;
@@ -13,13 +6,13 @@ export interface Mesa {
   zona: string;
   capacidad: number;
   estado: EstadoMesa;
-  comensales: number;
-  minutosAbierta: number;
-  total: number;
+  comensales?: number;
+  minutosAbierta?: number;
+  total?: number;
   comandaId?: number;
   clienteId?: number;
   clienteNombre?: string;
   clienteDireccion?: string;
   mesero?: string;
-  creadoEn?: string | Date;
+  creadoEn?: string;
 }
