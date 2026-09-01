@@ -69,11 +69,17 @@ export class Caja implements OnInit {
       next: (res: any) => {
         let msj = '¡Pago procesado y mesa liberada con éxito!';
 
-        if (this.cajaService.solicitaFactura() && res?.autofactura?.codigo) {
-          msj += ` Ticket de autofactura: ${res.autofactura.codigo}`;
+        if (res?.autofactura?.codigo) {
+          msj += ` Ticket autofactura: ${res.autofactura.codigo}`;
+        } else if (res?.errorFacturapi) {
+          console.error('Facturapi error:', res.errorFacturapi);
+          this.snackBar.open(`Mesa cobrada, pero error de Facturación: ${res.errorFacturapi}`, 'Cerrar', { duration: 6000 });
         }
 
-        this.snackBar.open(msj, 'Cerrar', { duration: 3000 });
+        // Si no se mostró snackbar de error arriba, mostramos el de éxito general
+        if (!res?.errorFacturapi) {
+          this.snackBar.open(msj, 'Cerrar', { duration: 4000 });
+        }
         this.mesaService.cargarMesas();
 
         // 👈 2. Abrir la simulación del ticket en pantalla antes de redirigir

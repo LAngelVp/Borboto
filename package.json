@@ -1,70 +1,78 @@
 {
   "name": "borboto",
   "version": "1.0.0",
+  "author": {
+    "name": "Luis Angel Vallejo Perez",
+    "email": "angelvallejop9610@gmail.com",
+    "url": "https://portafolio-luisperez.vercel.app/"
+  },
   "main": "main.js",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve --host 127.0.0.1",
-    "build": "ng build --configuration production",
-    "watch": "ng build --watch --configuration development",
-    "test": "ng test",
-    "electron:dev": "concurrently \"ng serve --host 127.0.0.1\" \"wait-on http-get://127.0.0.1:4200 && electron .\"",
-    "electron:build": "bun run build && electron-builder"
-  },
-  "private": true,
-  "packageManager": "bun@1.3.14",
-  "dependencies": {
-    "@angular/animations": "^22.1.3",
-    "@angular/cdk": "^21.2.14",
-    "@angular/common": "^21.2.0",
-    "@angular/compiler": "^21.2.0",
-    "@angular/core": "^21.2.0",
-    "@angular/forms": "^21.2.0",
-    "@angular/material": "^21.2.14",
-    "@angular/platform-browser": "^21.2.0",
-    "@angular/router": "^21.2.0",
-    "facturapi": "^4.20.0",
-    "multer": "^2.2.0",
-    "rxjs": "~7.8.0",
-    "sharp": "^0.35.4",
-    "socket.io-client": "^4.8.3",
-    "tslib": "^2.3.0",
-    "xlsx": "^0.18.5",
-    "zone.js": "^0.16.2"
-  },
-  "devDependencies": {
-    "@angular/build": "^21.2.21",
-    "@angular/cli": "^21.2.21",
-    "@angular/compiler-cli": "^21.2.0",
-    "@types/multer": "^2.2.0",
-    "@types/sharp": "^0.32.0",
-    "concurrently": "^10.0.5",
-    "electron": "^44.0.0",
-    "electron-builder": "^26.15.3",
-    "jsdom": "^28.0.0",
-    "prettier": "^3.8.1",
-    "typescript": "~5.9.2",
-    "vitest": "^4.0.8",
-    "wait-on": "^9.1.0"
+    "start": "bunx ng serve --host 127.0.0.1 --open false",
+    "build": "ng build",
+    "build:server": "esbuild backend-borboto/index.ts --bundle --platform=node --target=node18 --outfile=server.js --external:pg-native",
+    "server": "bun run backend-borboto/index.ts",
+    "electron:dev": "cross-env NODE_ENV=development concurrently \"bun run start\" \"bun run server\" \"bunx electron .\"",
+    "dist": "bun run build && bun run build:server && cross-env NODE_ENV=production electron-builder"
   },
   "build": {
     "appId": "com.borboto.pos",
     "productName": "Borboto POS",
+    "copyright": "Copyright © 2026 Luis Angel Vallejo Perez. Todos los derechos reservados.",
+    "icon": "BORBOTOIcon.ico",
     "directories": {
       "output": "dist-electron"
     },
+    "asarUnpack": [
+      "**/node_modules/pdf-to-printer/**/*"
+    ],
+    "extraFiles": [
+      "backend-borboto/.env",
+      "licencia_publica.pem",
+      "Database/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend-borboto/postgres-bin",
+        "to": "postgres-bin"
+      }
+    ],
     "files": [
-      "dist/**/*",
       "main.js",
-      "Database/**/*",
-      "backend-borboto/**/*"
+      "server.js",
+      "license.html",
+      "licencia_publica.pem",
+      "BORBOTOIcon.ico",
+      "dist/**/*",
+      "backend-borboto/**/*",
+      "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "icon": "BORBOTOIcon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Borboto POS",
+      "deleteAppDataOnUninstall": false,
+      "warningsAsErrors": false
     }
+  },
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  },
+  "dependencies": {
+    "jimp": "^1.6.1"
   }
 }

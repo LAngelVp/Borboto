@@ -4,103 +4,58 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+const envPath = (process as any).resourcesPath
+  ? path.resolve((process as any).resourcesPath, 'backend-borboto/.env')
+  : path.resolve(process.cwd(), 'backend-borboto/.env');
+
+dotenv.config({ path: envPath });
 
 const { Pool } = pkg;
 
+const dbUser = process.env.DB_USER || 'borboto_admin';
+const dbPassword = process.env.DB_PASSWORD || 'holamundo31';
+const dbHost = process.env.DB_HOST || '127.0.0.1';
+const dbPort = Number(process.env.DB_PORT) || 58432;
+const dbTargetName = process.env.DB_NAME || 'borboto_pos';
+
+// Pool exportado para las rutas de la app
 export const pool = new Pool({
-  user: process.env.DB_USER || 'borboto_admin',
-  host: process.env.DB_HOST || '127.0.0.1',
-  database: process.env.DB_NAME || 'borboto_pos',
-  password: process.env.DB_PASSWORD || 'BorbotoPass2026!',
-  port: Number(process.env.DB_PORT) || 58432
+  user: dbUser,
+  host: dbHost,
+  database: dbTargetName,
+  password: dbPassword,
+  port: dbPort,
 });
 
-// ─── MOTOR AUTOMÁTICO DE MIGRACIONES Y CONTROL DE VERSIONES ───────────────
-export async function ejecutarMigracionesAutomatizadas() {
-  const client = await pool.connect();
+pool.on('connect', () => {
+  console.log(`🟢 Conexión activa a PostgreSQL en ${dbTargetName}:${dbPort}`);
+});
 
-  try {
-    await client.query('BEGIN');
+pool.on('error', (err) => {
+  console.error('❌ Error imprevisto en el pool de PostgreSQL:', err);
+});
 
-    // 1. Crear tabla de control de migraciones
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        id SERIAL PRIMARY KEY,
-        version VARCHAR(150) NOT NULL UNIQUE,
-        ejecutado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+// Función auxiliar para localizar la carpeta Database
+function getDatabaseDirectory(): string {
+  const possiblePaths = [
+    path.resolve(__dirname, 'Database'),
+    path.resolve(process.cwd(), 'Database'),
+    path.resolve(process.cwd(), 'backend-borboto', 'Database'),
+    path.resolve(__dirname, '..', 'Database')
+  ];
 
-    // 2. Resolver rutas absolutas robustas para encontrar Database/
-    const posiblesRutas = [
-      path.resolve(process.cwd(), '..', 'Database'),
-      path.resolve(process.cwd(), 'Database'),
-      path.resolve(__dirname, '..', '..', 'Database'),
-      path.resolve(__dirname, '..', 'Database')
-    ];
-
-    let dirDatabase = posiblesRutas.find(r => fs.existsSync(r));
-
-    if (!dirDatabase) {
-      console.error('❌ CRÍTICO: No se encontró la carpeta "Database" en el proyecto.');
-      await client.query('ROLLBACK');
-      return;
-    }
-
-    const initPath = path.join(dirDatabase, '000_init.sql');
-
-    // 3. Comprobar si ya se aplicó el script inicial 000_init.sql
-    const checkInit = await client.query(
-      'SELECT id FROM schema_migrations WHERE version = $1',
-      ['000_init.sql']
-    );
-
-    if (checkInit.rows.length === 0) {
-      if (fs.existsSync(initPath)) {
-        console.log(`📦 Ejecutando script de estructura inicial desde: ${initPath}`);
-        const sqlInit = fs.readFileSync(initPath, 'utf8');
-        await client.query(sqlInit);
-        await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', ['000_init.sql']);
-        console.log('✅ Estructura de base de datos inicial creada exitosamente.');
-      } else {
-        console.warn(`⚠️ No se encontró el archivo 000_init.sql en: ${initPath}`);
-      }
-    }
-
-    // 4. Buscar y ejecutar migraciones pendientes en la carpeta Database/migrations/
-    const dirMigrations = path.join(dirDatabase, 'migrations');
-
-    if (fs.existsSync(dirMigrations)) {
-      const archivos = fs.readdirSync(dirMigrations)
-        .filter(f => f.endsWith('.sql'))
-        .sort(); // Garantiza el orden secuencial numérico (001, 002, 003...)
-
-      for (const archivo of archivos) {
-        const checkMig = await client.query(
-          'SELECT id FROM schema_migrations WHERE version = $1',
-          [archivo]
-        );
-
-        if (checkMig.rows.length === 0) {
-          console.log(`🚀 Aplicando migración de versión: ${archivo}...`);
-          const sqlMig = fs.readFileSync(path.join(dirMigrations, archivo), 'utf8');
-          await client.query(sqlMig);
-          await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [archivo]);
-          console.log(`✅ Migración ${archivo} aplicada con éxito.`);
-        }
-      }
-    }
-
-    await client.query('COMMIT');
-    console.log('🛡️ Base de datos sincronizada y actualizada a la última versión.');
-
-  } catch (error: any) {
-    await client.query('ROLLBACK');
-    console.error('❌ Error fatal al ejecutar migraciones en la base de datos:', error.message);
-  } finally {
-    client.release();
+  if ((process as any).resourcesPath) {
+    possiblePaths.unshift(path.resolve((process as any).resourcesPath, 'Database'));
   }
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      console.log(`📂 Carpeta "Database" localizada en: ${p}`);
+      return p;
+    }
+  }
+
+  throw new Error('❌ No se encontró la carpeta "Database" con el archivo 000_init.sql');
 }
 
 export async function sincronizarCombosComoProductos() {
@@ -168,29 +123,89 @@ export async function sincronizarCombosComoProductos() {
   }
 }
 
-// Bucle de intento diferido con reintentos para evitar errores 500 al arrancar
-async function conectarYMigrar() {
-  let intentos = 5;
-  while (intentos > 0) {
-    try {
-      const client = await pool.connect();
-      console.log('⚡ Conectado exitosamente a PostgreSQL (Borboto POS)');
-      client.release();
+// 💡 SCRIPT DE INICIALIZACIÓN FÍSICA Y AUTO-MIGRACIÓN
+export async function initDB(): Promise<void> {
+  // 1. Conexión temporal a la BD 'postgres' para verificar/crear 'borboto_pos'
+  const maintenancePool = new Pool({
+    user: dbUser,
+    host: dbHost,
+    password: dbPassword,
+    port: dbPort,
+    database: 'postgres'
+  });
 
-      await ejecutarMigracionesAutomatizadas();
-      await sincronizarCombosComoProductos();
-      break;
-    } catch (err: any) {
-      intentos--;
-      console.warn(`⚠️ Esperando que la base de datos responda... (${intentos} intentos restantes)`);
-      if (intentos === 0) {
-        console.error('❌ Error crítico al conectar a PostgreSQL:', err.message);
-      } else {
-        await new Promise(res => setTimeout(res, 2000));
-      }
+  try {
+    const res = await maintenancePool.query(
+      `SELECT 1 FROM pg_database WHERE datname = $1`,
+      [dbTargetName]
+    );
+
+    if (res.rowCount === 0) {
+      console.log(`🛠️ La base de datos '${dbTargetName}' no existe. Creándola...`);
+      await maintenancePool.query(`CREATE DATABASE "${dbTargetName}"`);
+      console.log(`✅ Base de datos '${dbTargetName}' creada exitosamente.`);
     }
+  } catch (err: any) {
+    console.error('⚠️ Error al verificar/crear la base de datos:', err.message);
+  } finally {
+    await maintenancePool.end();
+  }
+
+  // 2. Conectarse a 'borboto_pos' para verificar e insertar las 18 tablas
+  const targetPool = new Pool({
+    user: dbUser,
+    host: dbHost,
+    database: dbTargetName,
+    password: dbPassword,
+    port: dbPort,
+  });
+
+  try {
+    await targetPool.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id SERIAL PRIMARY KEY,
+        version VARCHAR(150) NOT NULL UNIQUE,
+        ejecutado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    const dbDir = getDatabaseDirectory();
+    const initPath = path.join(dbDir, '000_init.sql');
+
+    const checkInit = await targetPool.query(
+      'SELECT id FROM schema_migrations WHERE version = $1',
+      ['000_init.sql']
+    );
+
+    if (checkInit.rows.length === 0) {
+      if (fs.existsSync(initPath)) {
+        console.log(`🚀 Aplicando migración inicial desde: ${initPath}`);
+        const sqlContent = fs.readFileSync(initPath, 'utf-8');
+
+        await targetPool.query('BEGIN');
+        try {
+          await targetPool.query(sqlContent);
+          await targetPool.query(
+            'INSERT INTO schema_migrations (version) VALUES ($1)',
+            ['000_init.sql']
+          );
+          await targetPool.query('COMMIT');
+          console.log('✅ Estructura inicial (000_init.sql) creada exitosamente en borboto_pos.');
+        } catch (migrationError: any) {
+          await targetPool.query('ROLLBACK');
+          console.error('❌ Falló la migración 000_init.sql:', migrationError.message);
+          throw migrationError;
+        }
+      } else {
+        console.warn(`⚠️ No se encontró el archivo 000_init.sql en: ${initPath}`);
+      }
+    } else {
+      console.log('ℹ️ La migración 000_init.sql ya se encontraba aplicada.');
+    }
+  } catch (sqlErr: any) {
+    console.error('❌ Error durante el proceso de migraciones de la base de datos:', sqlErr.message);
+    throw sqlErr;
+  } finally {
+    await targetPool.end();
   }
 }
-
-// Ejecutar conexión inicial
-conectarYMigrar();

@@ -231,10 +231,6 @@ export class PrinterService {
   static async imprimirTicketCobro(pagoId: number): Promise<string | null> {
     try {
       const impresorasCaja = await this.obtenerImpresorasPorDestino('CAJA');
-      if (impresorasCaja.length === 0) {
-        console.log('⚠️ No hay impresoras configuradas o activas para CAJA.');
-        return null;
-      }
 
       const pagoRes = await pool.query(`
         SELECT
@@ -248,13 +244,16 @@ export class PrinterService {
           p.metodo_pago,
           p.total_cuenta,
           p.monto_recibido,
-          p.cambio
+          p.cambio,
+          ta.codigo_ticket,
+          ta.url_autofactura
         FROM pagos p
         JOIN comandas c ON p.comanda_id = c.id
         JOIN mesas m ON c.mesa_id = m.id
         JOIN zonas z ON m.zona_id = z.id
         JOIN usuarios u ON p.usuario_id = u.id
         LEFT JOIN clientes cl ON c.cliente_id = cl.id
+        LEFT JOIN tickets_autofactura ta ON ta.pago_id = p.id
         WHERE p.id = $1
       `, [pagoId]);
 
@@ -296,17 +295,24 @@ export class PrinterService {
         totalCuenta: parseFloat(infoPago.total_cuenta),
         montoRecibido: parseFloat(infoPago.monto_recibido),
         cambio: parseFloat(infoPago.cambio),
-        items
+        items,
+        codigoAutofactura: infoPago.codigo_ticket || undefined,
+        urlAutofactura: infoPago.url_autofactura || undefined
       };
 
       let ticketSimuladoGenerado: string | null = null;
 
-      for (const imp of impresorasCaja) {
-        const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
-        const ticketText = generarTemplateCobro(datosCobro, anchoConfigurado);
-        const resSimulacion = await this.enviarDirectoAImpresora(imp, ticketText);
-        if (resSimulacion) {
-          ticketSimuladoGenerado = resSimulacion;
+      if (impresorasCaja.length === 0) {
+        console.log('⚠️ No hay impresoras configuradas o activas para CAJA. Generando simulación de ticket por defecto.');
+        ticketSimuladoGenerado = generarTemplateCobro(datosCobro, '80mm');
+      } else {
+        for (const imp of impresorasCaja) {
+          const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
+          const ticketText = generarTemplateCobro(datosCobro, anchoConfigurado);
+          const resSimulacion = await this.enviarDirectoAImpresora(imp, ticketText);
+          if (resSimulacion) {
+            ticketSimuladoGenerado = resSimulacion;
+          }
         }
       }
 

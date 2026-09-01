@@ -46,3 +46,4 @@ Thumbs.db
 # PostgreSQL Portable y datos locales
 backend-borboto/data-pg/
 backend-borboto/postgres-bin/
+dist-electron/*

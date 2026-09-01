@@ -24,6 +24,8 @@ export interface DatosTicketCobro {
   montoRecibido: number;
   cambio: number;
   items: ItemComandaImpresion[];
+  codigoAutofactura?: string;
+  urlAutofactura?: string;
 }
 
 export interface ItemComandaImpresion {
@@ -129,6 +131,15 @@ export function generarTemplateCobro(
   ticket += padLine('TOTAL:', `$${datos.totalCuenta.toFixed(2)}`, maxW) + '\n';
   ticket += padLine('PAGO (' + datos.metodoPago + '):', `$${datos.montoRecibido.toFixed(2)}`, maxW) + '\n';
   ticket += padLine('CAMBIO:', `$${datos.cambio.toFixed(2)}`, maxW) + '\n';
+
+  if (datos.codigoAutofactura && datos.urlAutofactura) {
+    ticket += separadorSuave + '\n';
+    ticket += centrarTexto('*** AUTOFACTURACION ***', maxW) + '\n';
+    ticket += centrarTexto(`CODIGO: ${datos.codigoAutofactura}`, maxW) + '\n';
+    ticket += centrarTexto('INGRESA A LA URL PARA FACTURAR:', maxW) + '\n';
+    ticket += centrarTexto(datos.urlAutofactura, maxW) + '\n';
+  }
+
   ticket += separador + '\n';
   ticket += centrarTexto('¡GRACIAS POR SU PREFERENCIA!', maxW) + '\n\n\n';
 
