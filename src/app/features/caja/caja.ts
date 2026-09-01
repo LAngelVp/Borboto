@@ -58,6 +58,10 @@ export class Caja implements OnInit {
     this.cajaService.setSolicitaFactura(solicita);
   }
 
+  toggleAgruparConsumo(value: boolean) {
+    this.cajaService.setAgruparConsumo(value);
+  }
+
   procesarCobro() {
     if (!this.cajaService.pagoSuficiente()) {
       this.snackBar.open('El pago recibido es insuficiente', 'Cerrar', { duration: 2500 });

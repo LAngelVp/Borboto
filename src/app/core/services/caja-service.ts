@@ -27,6 +27,7 @@ export class CajaService {
 
   // Estado de Facturación
   readonly solicitaFactura = signal<boolean>(false);
+  readonly agruparConsumo = signal<boolean>(false);
 
   // Datos del Cliente y Puntos de Lealtad
   readonly clienteId = signal<number | null>(null);
@@ -83,6 +84,10 @@ export class CajaService {
     this.solicitaFactura.set(solicita);
   }
 
+  setAgruparConsumo(value: boolean) {
+    this.agruparConsumo.set(value);
+  }
+
   cargarCuentaMesa(mesaId: number) {
     this.mesaId.set(mesaId);
     this.descuentoAplicado.set(0);
@@ -95,6 +100,7 @@ export class CajaService {
     this.clienteVisitas.set(0);
     this.puntosCanjeados.set(0);
     this.solicitaFactura.set(false);
+    this.agruparConsumo.set(false);
 
     this.http.get<{
       comandaId: number;
@@ -144,7 +150,8 @@ export class CajaService {
       descuento: this.descuentoAplicado(),
       promocionId: this.promocionIdAplicada(),
       puntosCanjeados: this.puntosCanjeados(),
-      solicitaFactura: this.solicitaFactura()
+      solicitaFactura: this.solicitaFactura(),
+      agruparConsumo: this.agruparConsumo()
     };
 
     return this.http.post<{ ok: boolean; ticketId: number; autofactura?: any }>(`${this.apiUrl}/caja/cobrar`, payload);
@@ -239,6 +246,7 @@ export class CajaService {
     this.clienteVisitas.set(0);
     this.puntosCanjeados.set(0);
     this.solicitaFactura.set(false);
+    this.agruparConsumo.set(false);
     this.items.set([]);
     this.metodoPago.set('EFECTIVO');
     this.montoRecibido.set(0);

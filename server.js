@@ -121769,7 +121769,7 @@ app.get("/api/caja/mesa/:mesaId", async (req, res) => {
   }
 });
 app.post("/api/caja/cobrar", async (req, res) => {
-  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales, descuento, promocionId, puntosCanjeados, solicitaFactura } = req.body;
+  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales, descuento, promocionId, puntosCanjeados, solicitaFactura, agruparConsumo } = req.body;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -121803,22 +121803,37 @@ app.post("/api/caja/cobrar", async (req, res) => {
           let paymentForm = "01";
           if (metodoPago === "TARJETA") paymentForm = "04";
           if (metodoPago === "TRANSFERENCIA") paymentForm = "03";
-          const lineItemsFacturapi = itemsRes.rows.map((row) => {
-            let itemKey = (row.prod_clave || row.cat_clave || "").toString().trim();
-            if (!itemKey || itemKey.length < 8 || isNaN(Number(itemKey))) {
-              itemKey = claveSatDefecto;
-            }
-            return {
-              quantity: Number(row.cantidad),
+          const esConsumoGeneral = agruparConsumo === true || agruparConsumo === "true";
+          let lineItemsFacturapi = [];
+          if (esConsumoGeneral) {
+            lineItemsFacturapi = [{
+              quantity: 1,
               product: {
-                description: row.nombre,
-                product_key: itemKey,
-                price: Number(row.precio_unitario),
+                description: "CONSUMO DE ALIMENTOS Y BEBIDAS",
+                product_key: "90101501",
+                unit_key: "E48",
+                price: Number(totalCuenta),
                 tax_included: true
               }
-            };
-          });
-          console.log(`[Cobro #${pagoId}] Payload que se env\xEDa a Facturapi:`, JSON.stringify(lineItemsFacturapi));
+            }];
+          } else {
+            lineItemsFacturapi = itemsRes.rows.map((row) => {
+              let itemKey = (row.prod_clave || row.cat_clave || "").toString().trim();
+              if (!itemKey || itemKey.length < 8 || isNaN(Number(itemKey))) {
+                itemKey = claveSatDefecto;
+              }
+              return {
+                quantity: Number(row.cantidad),
+                product: {
+                  description: row.nombre,
+                  product_key: itemKey,
+                  price: Number(row.precio_unitario),
+                  tax_included: true
+                }
+              };
+            });
+          }
+          console.log(`[Cobro #${pagoId}] Payload que se env\xEDa a Facturapi (esConsumoGeneral: ${esConsumoGeneral}):`, JSON.stringify(lineItemsFacturapi));
           const facturapi = obtenerInstanciaFacturapi(apiKeyActiva);
           const receipt = await facturapi.receipts.create({ payment_form: paymentForm, items: lineItemsFacturapi });
           console.log(`[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, C\xF3digo: ${receipt.key}`);

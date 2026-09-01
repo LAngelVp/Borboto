@@ -31,6 +31,19 @@
             Generar código de autofactura en ticket
           </span>
         </mat-checkbox>
+
+        @if (cajaService.solicitaFactura()) {
+          <div class="consumo-general-option">
+            <mat-checkbox
+              [checked]="cajaService.agruparConsumo()"
+              (change)="toggleAgruparConsumo($event.checked)"
+              color="accent">
+              <span class="factura-sublabel">
+                Facturar como Consumo General
+              </span>
+            </mat-checkbox>
+          </div>
+        }
       </div>
 
       <!-- Botón de Cobro con estado verde dinámico -->
