@@ -1296,7 +1296,7 @@ export async function startServer() {
 
     // 3. Levantar listener de servidor Express y Socket.io
     return new Promise((resolve, reject) => {
-      const serverInstance = server.listen(PORT, '127.0.0.1', () => {
+      const serverInstance = server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 [BACKEND] API REST & Sockets listos en http://127.0.0.1:${PORT}`);
         resolve(serverInstance);
       });

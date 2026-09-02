@@ -122342,7 +122342,7 @@ async function startServer() {
       console.warn("\u26A0\uFE0F Sincronizaci\xF3n de combos omitida:", syncErr.message);
     }
     return new Promise((resolve, reject) => {
-      const serverInstance = server.listen(PORT, "127.0.0.1", () => {
+      const serverInstance = server.listen(PORT, "0.0.0.0", () => {
         console.log(`\u{1F680} [BACKEND] API REST & Sockets listos en http://127.0.0.1:${PORT}`);
         resolve(serverInstance);
       });
