@@ -120893,69 +120893,87 @@ async function realizarSincronizacionFacturas() {
         } else if (invoice.receipt && typeof invoice.receipt === "object") {
           receiptId = invoice.receipt.id || invoice.receipt._id;
         }
+        if (!receiptId) {
+          receiptId = invoice.receipt || invoice.items && invoice.items[0]?.receipt;
+        }
         if (!receiptId && invoice.metadata) {
           receiptId = invoice.metadata.receipt || invoice.metadata.receipt_id || invoice.metadata.receiptId;
         }
-        let ticketId = invoice.external_id ? parseInt(invoice.external_id, 10) : null;
-        if (ticketId && isNaN(ticketId)) {
-          ticketId = null;
+        let ticketId = null;
+        if (receiptId) {
+          const tRes = await pool.query("SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1", [receiptId]);
+          if (tRes.rows.length > 0) {
+            ticketId = tRes.rows[0].id;
+          }
         }
         if (!ticketId) {
-          if (receiptId) {
-            const tRes = await pool.query("SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1", [receiptId]);
-            if (tRes.rows.length > 0) {
-              ticketId = tRes.rows[0].id;
+          const invoiceTotal = invoice.total || 0;
+          const tRes = await pool.query(
+            "SELECT id FROM tickets_autofactura WHERE total = $1 AND estado = 'PENDIENTE' ORDER BY id DESC LIMIT 1",
+            [invoiceTotal]
+          );
+          if (tRes.rows.length > 0) {
+            ticketId = tRes.rows[0].id;
+          }
+        }
+        if (!ticketId) {
+          const extId = invoice.external_id;
+          if (extId) {
+            ticketId = parseInt(extId, 10);
+            if (isNaN(ticketId)) {
+              ticketId = null;
             }
           }
-          if (!ticketId) {
-            const queryConditions = [];
-            const queryParams = [];
-            const possibleTicketCodes = /* @__PURE__ */ new Set();
-            const invExternalId = invoice.external_id;
-            const invFolio = invoice.folio;
-            if (invExternalId) possibleTicketCodes.add(String(invExternalId));
-            if (invFolio) possibleTicketCodes.add(String(invFolio));
-            if (invoice.metadata) {
-              const m = invoice.metadata;
-              if (m.codigo_ticket) possibleTicketCodes.add(String(m.codigo_ticket));
-              if (m.codigo) possibleTicketCodes.add(String(m.codigo));
-              if (m.folio) possibleTicketCodes.add(String(m.folio));
-              if (m.ticket_code) possibleTicketCodes.add(String(m.ticket_code));
-              if (m.key) possibleTicketCodes.add(String(m.key));
-              if (m.external_id) possibleTicketCodes.add(String(m.external_id));
-            }
-            const possiblePagoIds = /* @__PURE__ */ new Set();
-            if (invExternalId && !isNaN(Number(invExternalId))) {
-              possiblePagoIds.add(Number(invExternalId));
-            }
-            if (invoice.metadata) {
-              const m = invoice.metadata;
-              if (m.pago_id && !isNaN(Number(m.pago_id))) possiblePagoIds.add(Number(m.pago_id));
-              if (m.pagoId && !isNaN(Number(m.pagoId))) possiblePagoIds.add(Number(m.pagoId));
-              if (m.payment_id && !isNaN(Number(m.payment_id))) possiblePagoIds.add(Number(m.payment_id));
-            }
-            if (possibleTicketCodes.size > 0) {
-              queryParams.push(Array.from(possibleTicketCodes));
-              queryConditions.push(`codigo_ticket = ANY($${queryParams.length})`);
-            }
-            if (possiblePagoIds.size > 0) {
-              queryParams.push(Array.from(possiblePagoIds));
-              queryConditions.push(`pago_id = ANY($${queryParams.length})`);
-            }
-            if (queryConditions.length > 0) {
-              const selectQuery = `SELECT id FROM tickets_autofactura WHERE ${queryConditions.join(" OR ")} LIMIT 1`;
-              const tRes = await pool.query(selectQuery, queryParams);
-              if (tRes.rows.length > 0) {
-                ticketId = tRes.rows[0].id;
-              }
+        }
+        if (!ticketId) {
+          const queryConditions = [];
+          const queryParams = [];
+          const possibleTicketCodes = /* @__PURE__ */ new Set();
+          const invExternalId = invoice.external_id;
+          const invFolio = invoice.folio;
+          if (invExternalId) possibleTicketCodes.add(String(invExternalId));
+          if (invFolio) possibleTicketCodes.add(String(invFolio));
+          if (invoice.metadata) {
+            const m = invoice.metadata;
+            if (m.codigo_ticket) possibleTicketCodes.add(String(m.codigo_ticket));
+            if (m.codigo) possibleTicketCodes.add(String(m.codigo));
+            if (m.folio) possibleTicketCodes.add(String(m.folio));
+            if (m.ticket_code) possibleTicketCodes.add(String(m.ticket_code));
+            if (m.key) possibleTicketCodes.add(String(m.key));
+            if (m.external_id) possibleTicketCodes.add(String(m.external_id));
+          }
+          const possiblePagoIds = /* @__PURE__ */ new Set();
+          if (invExternalId && !isNaN(Number(invExternalId))) {
+            possiblePagoIds.add(Number(invExternalId));
+          }
+          if (invoice.metadata) {
+            const m = invoice.metadata;
+            if (m.pago_id && !isNaN(Number(m.pago_id))) possiblePagoIds.add(Number(m.pago_id));
+            if (m.pagoId && !isNaN(Number(m.pagoId))) possiblePagoIds.add(Number(m.pagoId));
+            if (m.payment_id && !isNaN(Number(m.payment_id))) possiblePagoIds.add(Number(m.payment_id));
+          }
+          if (possibleTicketCodes.size > 0) {
+            queryParams.push(Array.from(possibleTicketCodes));
+            queryConditions.push(`codigo_ticket = ANY($${queryParams.length})`);
+          }
+          if (possiblePagoIds.size > 0) {
+            queryParams.push(Array.from(possiblePagoIds));
+            queryConditions.push(`pago_id = ANY($${queryParams.length})`);
+          }
+          if (queryConditions.length > 0) {
+            const selectQuery = `SELECT id FROM tickets_autofactura WHERE ${queryConditions.join(" OR ")} LIMIT 1`;
+            const tRes = await pool.query(selectQuery, queryParams);
+            if (tRes.rows.length > 0) {
+              ticketId = tRes.rows[0].id;
             }
           }
         }
         const uuidSat = invoice.uuid || `DRAFT_${invoice.id}`;
         const zipReceptor = invoice.customer?.address?.zip || invoice.customer?.zip || "00000";
         const regimenReceptor = invoice.customer?.tax_system || "616";
-        const url_pdf = invoice.files?.pdf || `https://api.facturapi.io/v2/invoices/${invoice.id}/pdf`;
-        const url_xml = invoice.files?.xml || `https://api.facturapi.io/v2/invoices/${invoice.id}/xml`;
+        const orgId = invoice.organization || process.env.FACTURAPI_ORGANIZATION_ID || "default";
+        const url_pdf = `https://dashboard.facturapi.io/downloads/organization/${orgId}/invoices/${invoice.id}/pdf`;
+        const url_xml = `https://dashboard.facturapi.io/downloads/organization/${orgId}/invoices/${invoice.id}/xml`;
         const queryUpsert = `
           INSERT INTO facturas (
             ticket_id,
@@ -120972,9 +120990,9 @@ async function realizarSincronizacionFacturas() {
             url_xml,
             fecha_timbrado
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-          ON CONFLICT (facturapi_invoice_id) DO UPDATE SET
+          ON CONFLICT (uuid_sat) DO UPDATE SET
             ticket_id = COALESCE(EXCLUDED.ticket_id, facturas.ticket_id),
-            uuid_sat = EXCLUDED.uuid_sat,
+            facturapi_invoice_id = EXCLUDED.facturapi_invoice_id,
             rfc_receptor = EXCLUDED.rfc_receptor,
             razon_social_receptor = EXCLUDED.razon_social_receptor,
             regimen_fiscal_receptor = EXCLUDED.regimen_fiscal_receptor,
@@ -121003,7 +121021,7 @@ async function realizarSincronizacionFacturas() {
           invoiceDate
         ]);
         if (ticketId) {
-          const nuevoEstadoTicket = invoice.status === "canceled" ? "CANCELADA" : "FACTURADO";
+          const nuevoEstadoTicket = invoice.status === "canceled" ? "CANCELADA" : "TIMBRADA";
           await pool.query("UPDATE tickets_autofactura SET estado = $1 WHERE id = $2", [nuevoEstadoTicket, ticketId]);
         }
         totalSincronizadas++;

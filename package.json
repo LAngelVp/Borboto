@@ -28,7 +28,6 @@
       "**/node_modules/pdf-to-printer/**/*"
     ],
     "extraFiles": [
-      "backend-borboto/.env",
       "licencia_publica.pem",
       "Database/**/*"
     ],
@@ -45,8 +44,9 @@
       "licencia_publica.pem",
       "BORBOTOIcon.ico",
       "dist/**/*",
-      "backend-borboto/**/*",
-      "package.json"
+      "package.json",
+      "!backend-borboto/**/*",
+      "!**/.env*"
     ],
     "win": {
       "icon": "BORBOTOIcon.ico",
