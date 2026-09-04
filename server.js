@@ -15389,11 +15389,11 @@ var require_mime_types = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path4) {
-      if (!path4 || typeof path4 !== "string") {
+    function lookup(path6) {
+      if (!path6 || typeof path6 !== "string") {
         return false;
       }
-      var extension2 = extname("x." + path4).toLowerCase().slice(1);
+      var extension2 = extname("x." + path6).toLowerCase().slice(1);
       if (!extension2) {
         return false;
       }
@@ -19068,13 +19068,13 @@ var require_view = __commonJS({
   "backend-borboto/node_modules/express/lib/view.js"(exports2, module2) {
     "use strict";
     var debug2 = require_src()("express:view");
-    var path4 = require("node:path");
-    var fs6 = require("node:fs");
-    var dirname = path4.dirname;
-    var basename = path4.basename;
-    var extname = path4.extname;
-    var join = path4.join;
-    var resolve = path4.resolve;
+    var path6 = require("node:path");
+    var fs8 = require("node:fs");
+    var dirname = path6.dirname;
+    var basename = path6.basename;
+    var extname = path6.extname;
+    var join = path6.join;
+    var resolve = path6.resolve;
     module2.exports = View;
     function View(name, options) {
       var opts = options || {};
@@ -19103,17 +19103,17 @@ var require_view = __commonJS({
       this.path = this.lookup(fileName);
     }
     View.prototype.lookup = function lookup(name) {
-      var path5;
+      var path7;
       var roots = [].concat(this.root);
       debug2('lookup "%s"', name);
-      for (var i2 = 0; i2 < roots.length && !path5; i2++) {
+      for (var i2 = 0; i2 < roots.length && !path7; i2++) {
         var root = roots[i2];
         var loc = resolve(root, name);
         var dir = dirname(loc);
         var file = basename(loc);
-        path5 = this.resolve(dir, file);
+        path7 = this.resolve(dir, file);
       }
-      return path5;
+      return path7;
     };
     View.prototype.render = function render(options, callback) {
       var sync = true;
@@ -19135,21 +19135,21 @@ var require_view = __commonJS({
     };
     View.prototype.resolve = function resolve2(dir, file) {
       var ext = this.ext;
-      var path5 = join(dir, file);
-      var stat = tryStat(path5);
+      var path7 = join(dir, file);
+      var stat = tryStat(path7);
       if (stat && stat.isFile()) {
-        return path5;
+        return path7;
       }
-      path5 = join(dir, basename(file, ext), "index" + ext);
-      stat = tryStat(path5);
+      path7 = join(dir, basename(file, ext), "index" + ext);
+      stat = tryStat(path7);
       if (stat && stat.isFile()) {
-        return path5;
+        return path7;
       }
     };
-    function tryStat(path5) {
-      debug2('stat "%s"', path5);
+    function tryStat(path7) {
+      debug2('stat "%s"', path7);
       try {
-        return fs6.statSync(path5);
+        return fs8.statSync(path7);
       } catch (e2) {
         return void 0;
       }
@@ -19266,14 +19266,14 @@ var require_etag = __commonJS({
   "backend-borboto/node_modules/etag/index.js"(exports2, module2) {
     "use strict";
     module2.exports = etag;
-    var crypto = require("crypto");
+    var crypto2 = require("crypto");
     var Stats = require("fs").Stats;
     var toString2 = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto2.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -20389,15 +20389,15 @@ var require_dist3 = __commonJS({
       let index = 0;
       function consumeUntil(end) {
         const output = [];
-        let path4 = "";
+        let path6 = "";
         function writePath() {
-          if (!path4)
+          if (!path6)
             return;
           output.push({
             type: "text",
-            value: encodePath(path4)
+            value: encodePath(path6)
           });
-          path4 = "";
+          path6 = "";
         }
         while (index < chars.length) {
           const value = chars[index++];
@@ -20409,7 +20409,7 @@ var require_dist3 = __commonJS({
             if (index === chars.length) {
               throw new PathError(`Unexpected end after \\ at index ${index}`, str);
             }
-            path4 += chars[index++];
+            path6 += chars[index++];
             continue;
           }
           if (value === ":" || value === "*") {
@@ -20453,7 +20453,7 @@ var require_dist3 = __commonJS({
           if (value === "}" || value === "(" || value === ")" || value === "[" || value === "]" || value === "+" || value === "?" || value === "!") {
             throw new PathError(`Unexpected ${value} at index ${index - 1}`, str);
           }
-          path4 += value;
+          path6 += value;
         }
         if (end) {
           throw new PathError(`Unexpected end at index ${index}, expected ${end}`, str);
@@ -20463,17 +20463,17 @@ var require_dist3 = __commonJS({
       }
       return new TokenData(consumeUntil(""), str);
     }
-    function compile(path4, options = {}) {
+    function compile(path6, options = {}) {
       const { encode: encode3 = encodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
-      const data = typeof path4 === "object" ? path4 : parse(path4, options);
+      const data = typeof path6 === "object" ? path6 : parse(path6, options);
       const fn = tokensToFunction(data.tokens, delimiter, encode3);
-      return function path5(params = {}) {
+      return function path7(params = {}) {
         const missing = [];
-        const path6 = fn(params, missing);
+        const path8 = fn(params, missing);
         if (missing.length) {
           throw new TypeError(`Missing parameters: ${missing.join(", ")}`);
         }
-        return path6;
+        return path8;
       };
     }
     function tokensToFunction(tokens, delimiter, encode3) {
@@ -20535,9 +20535,9 @@ var require_dist3 = __commonJS({
         return encodeValue(value);
       };
     }
-    function match(path4, options = {}) {
+    function match(path6, options = {}) {
       const { decode: decode3 = decodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
-      const { regexp, keys } = pathToRegexp(path4, options);
+      const { regexp, keys } = pathToRegexp(path6, options);
       const decoders = keys.map((key) => {
         if (decode3 === false)
           return NOOP_VALUE;
@@ -20549,7 +20549,7 @@ var require_dist3 = __commonJS({
         const m = regexp.exec(input);
         if (!m)
           return false;
-        const path5 = m[0];
+        const path7 = m[0];
         const params = /* @__PURE__ */ Object.create(null);
         for (let i2 = 1; i2 < m.length; i2++) {
           if (m[i2] === void 0)
@@ -20558,21 +20558,21 @@ var require_dist3 = __commonJS({
           const decoder = decoders[i2 - 1];
           params[key.name] = decoder(m[i2]);
         }
-        return { path: path5, params };
+        return { path: path7, params };
       };
     }
-    function pathToRegexp(path4, options = {}) {
+    function pathToRegexp(path6, options = {}) {
       const { delimiter = DEFAULT_DELIMITER, end = true, sensitive = false, trailing = true } = options;
       const keys = [];
       let source = "";
       let combinations = 0;
-      function process3(path5) {
-        if (Array.isArray(path5)) {
-          for (const p2 of path5)
+      function process3(path7) {
+        if (Array.isArray(path7)) {
+          for (const p2 of path7)
             process3(p2);
           return;
         }
-        const data = typeof path5 === "object" ? path5 : parse(path5, options);
+        const data = typeof path7 === "object" ? path7 : parse(path7, options);
         flatten(data.tokens, 0, [], (tokens) => {
           if (combinations >= 256) {
             throw new PathError("Too many path combinations", data.originalPath);
@@ -20583,7 +20583,7 @@ var require_dist3 = __commonJS({
           combinations++;
         });
       }
-      process3(path4);
+      process3(path6);
       let pattern = `^(?:${source})`;
       if (trailing)
         pattern += "(?:" + escape2(delimiter) + "$)?";
@@ -20723,18 +20723,18 @@ var require_layer = __commonJS({
     var TRAILING_SLASH_REGEXP = /\/+$/;
     var MATCHING_GROUP_REGEXP = /\((?:\?<(.*?)>)?(?!\?)/g;
     module2.exports = Layer;
-    function Layer(path4, options, fn) {
+    function Layer(path6, options, fn) {
       if (!(this instanceof Layer)) {
-        return new Layer(path4, options, fn);
+        return new Layer(path6, options, fn);
       }
-      debug2("new %o", path4);
+      debug2("new %o", path6);
       const opts = options || {};
       this.handle = fn;
       this.keys = [];
       this.name = fn.name || "<anonymous>";
       this.params = void 0;
       this.path = void 0;
-      this.slash = path4 === "/" && opts.end === false;
+      this.slash = path6 === "/" && opts.end === false;
       function matcher(_path) {
         if (_path instanceof RegExp) {
           const keys = [];
@@ -20773,7 +20773,7 @@ var require_layer = __commonJS({
           decode: decodeParam
         });
       }
-      this.matchers = Array.isArray(path4) ? path4.map(matcher) : [matcher(path4)];
+      this.matchers = Array.isArray(path6) ? path6.map(matcher) : [matcher(path6)];
     }
     Layer.prototype.handleError = function handleError(error, req, res, next) {
       const fn = this.handle;
@@ -20813,9 +20813,9 @@ var require_layer = __commonJS({
         next(err);
       }
     };
-    Layer.prototype.match = function match(path4) {
+    Layer.prototype.match = function match(path6) {
       let match2;
-      if (path4 != null) {
+      if (path6 != null) {
         if (this.slash) {
           this.params = {};
           this.path = "";
@@ -20823,7 +20823,7 @@ var require_layer = __commonJS({
         }
         let i2 = 0;
         while (!match2 && i2 < this.matchers.length) {
-          match2 = this.matchers[i2](path4);
+          match2 = this.matchers[i2](path6);
           i2++;
         }
       }
@@ -20851,13 +20851,13 @@ var require_layer = __commonJS({
         throw err;
       }
     }
-    function loosen(path4) {
-      if (path4 instanceof RegExp || path4 === "/") {
-        return path4;
+    function loosen(path6) {
+      if (path6 instanceof RegExp || path6 === "/") {
+        return path6;
       }
-      return Array.isArray(path4) ? path4.map(function(p2) {
+      return Array.isArray(path6) ? path6.map(function(p2) {
         return loosen(p2);
-      }) : String(path4).replace(TRAILING_SLASH_REGEXP, "");
+      }) : String(path6).replace(TRAILING_SLASH_REGEXP, "");
     }
   }
 });
@@ -20873,9 +20873,9 @@ var require_route = __commonJS({
     var flatten = Array.prototype.flat;
     var methods19 = METHODS.map((method) => method.toLowerCase());
     module2.exports = Route;
-    function Route(path4) {
-      debug2("new %o", path4);
-      this.path = path4;
+    function Route(path6) {
+      debug2("new %o", path6);
+      this.path = path6;
       this.stack = [];
       this.methods = /* @__PURE__ */ Object.create(null);
     }
@@ -21083,8 +21083,8 @@ var require_router = __commonJS({
         if (++sync > 100) {
           return setImmediate(next, err);
         }
-        const path4 = getPathname(req);
-        if (path4 == null) {
+        const path6 = getPathname(req);
+        if (path6 == null) {
           return done(layerError);
         }
         let layer;
@@ -21092,7 +21092,7 @@ var require_router = __commonJS({
         let route;
         while (match !== true && idx < stack.length) {
           layer = stack[idx++];
-          match = matchLayer(layer, path4);
+          match = matchLayer(layer, path6);
           route = layer.route;
           if (typeof match !== "boolean") {
             layerError = layerError || match;
@@ -21130,18 +21130,18 @@ var require_router = __commonJS({
           } else if (route) {
             layer.handleRequest(req, res, next);
           } else {
-            trimPrefix(layer, layerError, layerPath, path4);
+            trimPrefix(layer, layerError, layerPath, path6);
           }
           sync = 0;
         });
       }
-      function trimPrefix(layer, layerError, layerPath, path4) {
+      function trimPrefix(layer, layerError, layerPath, path6) {
         if (layerPath.length !== 0) {
-          if (layerPath !== path4.substring(0, layerPath.length)) {
+          if (layerPath !== path6.substring(0, layerPath.length)) {
             next(layerError);
             return;
           }
-          const c3 = path4[layerPath.length];
+          const c3 = path6[layerPath.length];
           if (c3 && c3 !== "/") {
             next(layerError);
             return;
@@ -21165,7 +21165,7 @@ var require_router = __commonJS({
     };
     Router2.prototype.use = function use(handler) {
       let offset = 0;
-      let path4 = "/";
+      let path6 = "/";
       if (typeof handler !== "function") {
         let arg = handler;
         while (Array.isArray(arg) && arg.length !== 0) {
@@ -21173,7 +21173,7 @@ var require_router = __commonJS({
         }
         if (typeof arg !== "function") {
           offset = 1;
-          path4 = handler;
+          path6 = handler;
         }
       }
       const callbacks = flatten.call(slice.call(arguments, offset), Infinity);
@@ -21185,8 +21185,8 @@ var require_router = __commonJS({
         if (typeof fn !== "function") {
           throw new TypeError("argument handler must be a function");
         }
-        debug2("use %o %s", path4, fn.name || "<anonymous>");
-        const layer = new Layer(path4, {
+        debug2("use %o %s", path6, fn.name || "<anonymous>");
+        const layer = new Layer(path6, {
           sensitive: this.caseSensitive,
           strict: false,
           end: false
@@ -21196,9 +21196,9 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router2.prototype.route = function route(path4) {
-      const route2 = new Route(path4);
-      const layer = new Layer(path4, {
+    Router2.prototype.route = function route(path6) {
+      const route2 = new Route(path6);
+      const layer = new Layer(path6, {
         sensitive: this.caseSensitive,
         strict: this.strict,
         end: true
@@ -21211,8 +21211,8 @@ var require_router = __commonJS({
       return route2;
     };
     methods19.concat("all").forEach(function(method) {
-      Router2.prototype[method] = function(path4) {
-        const route = this.route(path4);
+      Router2.prototype[method] = function(path6) {
+        const route = this.route(path6);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
       };
@@ -21241,9 +21241,9 @@ var require_router = __commonJS({
       const fqdnIndex = url.substring(0, pathLength).indexOf("://");
       return fqdnIndex !== -1 ? url.substring(0, url.indexOf("/", 3 + fqdnIndex)) : void 0;
     }
-    function matchLayer(layer, path4) {
+    function matchLayer(layer, path6) {
       try {
-        return layer.match(path4);
+        return layer.match(path6);
       } catch (err) {
         return err;
       }
@@ -21471,7 +21471,7 @@ var require_application = __commonJS({
     };
     app2.use = function use(fn) {
       var offset = 0;
-      var path4 = "/";
+      var path6 = "/";
       if (typeof fn !== "function") {
         var arg = fn;
         while (Array.isArray(arg) && arg.length !== 0) {
@@ -21479,7 +21479,7 @@ var require_application = __commonJS({
         }
         if (typeof arg !== "function") {
           offset = 1;
-          path4 = fn;
+          path6 = fn;
         }
       }
       var fns = flatten.call(slice.call(arguments, offset), Infinity);
@@ -21489,12 +21489,12 @@ var require_application = __commonJS({
       var router2 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router2.use(path4, fn2);
+          return router2.use(path6, fn2);
         }
-        debug2(".use app under %s", path4);
-        fn2.mountpath = path4;
+        debug2(".use app under %s", path6);
+        fn2.mountpath = path6;
         fn2.parent = this;
-        router2.use(path4, function mounted_app(req, res, next) {
+        router2.use(path6, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -21506,8 +21506,8 @@ var require_application = __commonJS({
       }, this);
       return this;
     };
-    app2.route = function route(path4) {
-      return this.router.route(path4);
+    app2.route = function route(path6) {
+      return this.router.route(path6);
     };
     app2.engine = function engine(ext, fn) {
       if (typeof fn !== "function") {
@@ -21550,7 +21550,7 @@ var require_application = __commonJS({
       }
       return this;
     };
-    app2.path = function path4() {
+    app2.path = function path6() {
       return this.parent ? this.parent.path() + this.mountpath : "";
     };
     app2.enabled = function enabled(setting) {
@@ -21566,17 +21566,17 @@ var require_application = __commonJS({
       return this.set(setting, false);
     };
     methods19.forEach(function(method) {
-      app2[method] = function(path4) {
+      app2[method] = function(path6) {
         if (method === "get" && arguments.length === 1) {
-          return this.set(path4);
+          return this.set(path6);
         }
-        var route = this.route(path4);
+        var route = this.route(path6);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
       };
     });
-    app2.all = function all(path4) {
-      var route = this.route(path4);
+    app2.all = function all(path6) {
+      var route = this.route(path6);
       var args = slice.call(arguments, 1);
       for (var i2 = 0; i2 < methods19.length; i2++) {
         route[methods19[i2]].apply(route, args);
@@ -22561,7 +22561,7 @@ var require_request = __commonJS({
       var subdomains2 = !isIP(hostname) ? hostname.split(".").reverse() : [hostname];
       return subdomains2.slice(offset);
     });
-    defineGetter(req, "path", function path4() {
+    defineGetter(req, "path", function path6() {
       return parse(this).pathname;
     });
     defineGetter(req, "host", function host() {
@@ -22772,8 +22772,8 @@ var require_content_disposition = __commonJS({
       this.type = type;
       this.parameters = parameters;
     }
-    function basename(path4) {
-      const normalized = path4.replaceAll("\\", "/");
+    function basename(path6) {
+      const normalized = path6.replaceAll("\\", "/");
       let end = normalized.length;
       while (end > 0 && normalized[end - 1] === "/") {
         end--;
@@ -22823,17 +22823,17 @@ var require_content_disposition = __commonJS({
 // backend-borboto/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "backend-borboto/node_modules/cookie-signature/index.js"(exports2) {
-    var crypto = require("crypto");
+    var crypto2 = require("crypto");
     exports2.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto2.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports2.unsign = function(input, secret) {
       if ("string" != typeof input) throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
       var tentativeValue = input.slice(0, input.lastIndexOf(".")), expectedInput = exports2.sign(tentativeValue, secret), expectedBuffer = Buffer.from(expectedInput), inputBuffer = Buffer.from(input);
-      return expectedBuffer.length === inputBuffer.length && crypto.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
+      return expectedBuffer.length === inputBuffer.length && crypto2.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
     };
   }
 });
@@ -23014,32 +23014,32 @@ var require_send = __commonJS({
     var escapeHtml = require_escape_html();
     var etag = require_etag();
     var fresh = require_fresh();
-    var fs6 = require("fs");
+    var fs8 = require("fs");
     var mime2 = require_mime_types();
     var ms = require_ms();
     var onFinished = require_on_finished();
     var parseRange = require_range_parser();
-    var path4 = require("path");
+    var path6 = require("path");
     var statuses = require_statuses();
     var Stream = require("stream");
     var util2 = require("util");
-    var extname = path4.extname;
-    var join = path4.join;
-    var normalize = path4.normalize;
-    var resolve = path4.resolve;
-    var sep = path4.sep;
+    var extname = path6.extname;
+    var join = path6.join;
+    var normalize = path6.normalize;
+    var resolve = path6.resolve;
+    var sep = path6.sep;
     var BYTES_RANGE_REGEXP = /^ *bytes=/;
     var MAX_MAXAGE = 60 * 60 * 24 * 365 * 1e3;
     var UP_PATH_REGEXP = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
     module2.exports = send;
-    function send(req, path5, options) {
-      return new SendStream(req, path5, options);
+    function send(req, path7, options) {
+      return new SendStream(req, path7, options);
     }
-    function SendStream(req, path5, options) {
+    function SendStream(req, path7, options) {
       Stream.call(this);
       var opts = options || {};
       this.options = opts;
-      this.path = path5;
+      this.path = path7;
       this.req = req;
       this._acceptRanges = opts.acceptRanges !== void 0 ? Boolean(opts.acceptRanges) : true;
       this._cacheControl = opts.cacheControl !== void 0 ? Boolean(opts.cacheControl) : true;
@@ -23153,10 +23153,10 @@ var require_send = __commonJS({
       var lastModified = this.res.getHeader("Last-Modified");
       return parseHttpDate(lastModified) <= parseHttpDate(ifRange);
     };
-    SendStream.prototype.redirect = function redirect(path5) {
+    SendStream.prototype.redirect = function redirect(path7) {
       var res = this.res;
       if (hasListeners(this, "directory")) {
-        this.emit("directory", res, path5);
+        this.emit("directory", res, path7);
         return;
       }
       if (this.hasTrailingSlash()) {
@@ -23176,38 +23176,38 @@ var require_send = __commonJS({
     SendStream.prototype.pipe = function pipe(res) {
       var root = this._root;
       this.res = res;
-      var path5 = decode3(this.path);
-      if (path5 === -1) {
+      var path7 = decode3(this.path);
+      if (path7 === -1) {
         this.error(400);
         return res;
       }
-      if (~path5.indexOf("\0")) {
+      if (~path7.indexOf("\0")) {
         this.error(400);
         return res;
       }
       var parts;
       if (root !== null) {
-        if (path5) {
-          path5 = normalize("." + sep + path5);
+        if (path7) {
+          path7 = normalize("." + sep + path7);
         }
-        if (UP_PATH_REGEXP.test(path5)) {
-          debug2('malicious path "%s"', path5);
+        if (UP_PATH_REGEXP.test(path7)) {
+          debug2('malicious path "%s"', path7);
           this.error(403);
           return res;
         }
-        parts = path5.split(sep);
-        path5 = normalize(join(root, path5));
+        parts = path7.split(sep);
+        path7 = normalize(join(root, path7));
       } else {
-        if (UP_PATH_REGEXP.test(path5)) {
-          debug2('malicious path "%s"', path5);
+        if (UP_PATH_REGEXP.test(path7)) {
+          debug2('malicious path "%s"', path7);
           this.error(403);
           return res;
         }
-        parts = normalize(path5).split(sep);
-        path5 = resolve(path5);
+        parts = normalize(path7).split(sep);
+        path7 = resolve(path7);
       }
       if (containsDotFile(parts)) {
-        debug2('%s dotfile "%s"', this._dotfiles, path5);
+        debug2('%s dotfile "%s"', this._dotfiles, path7);
         switch (this._dotfiles) {
           case "allow":
             break;
@@ -23221,13 +23221,13 @@ var require_send = __commonJS({
         }
       }
       if (this._index.length && this.hasTrailingSlash()) {
-        this.sendIndex(path5);
+        this.sendIndex(path7);
         return res;
       }
-      this.sendFile(path5);
+      this.sendFile(path7);
       return res;
     };
-    SendStream.prototype.send = function send2(path5, stat) {
+    SendStream.prototype.send = function send2(path7, stat) {
       var len = stat.size;
       var options = this.options;
       var opts = {};
@@ -23239,9 +23239,9 @@ var require_send = __commonJS({
         this.headersAlreadySent();
         return;
       }
-      debug2('pipe "%s"', path5);
-      this.setHeader(path5, stat);
-      this.type(path5);
+      debug2('pipe "%s"', path7);
+      this.setHeader(path7, stat);
+      this.type(path7);
       if (this.isConditionalGET()) {
         if (this.isPreconditionFailure()) {
           this.error(412);
@@ -23290,30 +23290,30 @@ var require_send = __commonJS({
         res.end();
         return;
       }
-      this.stream(path5, opts);
+      this.stream(path7, opts);
     };
-    SendStream.prototype.sendFile = function sendFile(path5) {
+    SendStream.prototype.sendFile = function sendFile(path7) {
       var i2 = 0;
       var self2 = this;
-      debug2('stat "%s"', path5);
-      fs6.stat(path5, function onstat(err, stat) {
-        var pathEndsWithSep = path5[path5.length - 1] === sep;
-        if (err && err.code === "ENOENT" && !extname(path5) && !pathEndsWithSep) {
+      debug2('stat "%s"', path7);
+      fs8.stat(path7, function onstat(err, stat) {
+        var pathEndsWithSep = path7[path7.length - 1] === sep;
+        if (err && err.code === "ENOENT" && !extname(path7) && !pathEndsWithSep) {
           return next(err);
         }
         if (err) return self2.onStatError(err);
-        if (stat.isDirectory()) return self2.redirect(path5);
+        if (stat.isDirectory()) return self2.redirect(path7);
         if (pathEndsWithSep) return self2.error(404);
-        self2.emit("file", path5, stat);
-        self2.send(path5, stat);
+        self2.emit("file", path7, stat);
+        self2.send(path7, stat);
       });
       function next(err) {
         if (self2._extensions.length <= i2) {
           return err ? self2.onStatError(err) : self2.error(404);
         }
-        var p2 = path5 + "." + self2._extensions[i2++];
+        var p2 = path7 + "." + self2._extensions[i2++];
         debug2('stat "%s"', p2);
-        fs6.stat(p2, function(err2, stat) {
+        fs8.stat(p2, function(err2, stat) {
           if (err2) return next(err2);
           if (stat.isDirectory()) return next();
           self2.emit("file", p2, stat);
@@ -23321,7 +23321,7 @@ var require_send = __commonJS({
         });
       }
     };
-    SendStream.prototype.sendIndex = function sendIndex(path5) {
+    SendStream.prototype.sendIndex = function sendIndex(path7) {
       var i2 = -1;
       var self2 = this;
       function next(err) {
@@ -23329,9 +23329,9 @@ var require_send = __commonJS({
           if (err) return self2.onStatError(err);
           return self2.error(404);
         }
-        var p2 = join(path5, self2._index[i2]);
+        var p2 = join(path7, self2._index[i2]);
         debug2('stat "%s"', p2);
-        fs6.stat(p2, function(err2, stat) {
+        fs8.stat(p2, function(err2, stat) {
           if (err2) return next(err2);
           if (stat.isDirectory()) return next();
           self2.emit("file", p2, stat);
@@ -23340,10 +23340,10 @@ var require_send = __commonJS({
       }
       next();
     };
-    SendStream.prototype.stream = function stream(path5, options) {
+    SendStream.prototype.stream = function stream(path7, options) {
       var self2 = this;
       var res = this.res;
-      var stream2 = fs6.createReadStream(path5, options);
+      var stream2 = fs8.createReadStream(path7, options);
       this.emit("stream", stream2);
       stream2.pipe(res);
       function cleanup() {
@@ -23358,17 +23358,17 @@ var require_send = __commonJS({
         self2.emit("end");
       });
     };
-    SendStream.prototype.type = function type(path5) {
+    SendStream.prototype.type = function type(path7) {
       var res = this.res;
       if (res.getHeader("Content-Type")) return;
-      var ext = extname(path5);
+      var ext = extname(path7);
       var type2 = mime2.contentType(ext) || "application/octet-stream";
       debug2("content-type %s", type2);
       res.setHeader("Content-Type", type2);
     };
-    SendStream.prototype.setHeader = function setHeader(path5, stat) {
+    SendStream.prototype.setHeader = function setHeader(path7, stat) {
       var res = this.res;
-      this.emit("headers", res, path5, stat);
+      this.emit("headers", res, path7, stat);
       if (this._acceptRanges && !res.getHeader("Accept-Ranges")) {
         debug2("accept ranges");
         res.setHeader("Accept-Ranges", "bytes");
@@ -23426,9 +23426,9 @@ var require_send = __commonJS({
       }
       return err instanceof Error ? createError(status, err, { expose: false }) : createError(status, err);
     }
-    function decode3(path5) {
+    function decode3(path7) {
       try {
-        return decodeURIComponent(path5);
+        return decodeURIComponent(path7);
       } catch (err) {
         return -1;
       }
@@ -23572,7 +23572,7 @@ var require_response = __commonJS({
     var http = require("node:http");
     var onFinished = require_on_finished();
     var mime2 = require_mime_types();
-    var path4 = require("node:path");
+    var path6 = require("node:path");
     var pathIsAbsolute = require("node:path").isAbsolute;
     var statuses = require_statuses();
     var sign = require_cookie_signature().sign;
@@ -23581,8 +23581,8 @@ var require_response = __commonJS({
     var setCharset = require_utils3().setCharset;
     var cookie = require_cookie();
     var send = require_send();
-    var extname = path4.extname;
-    var resolve = path4.resolve;
+    var extname = path6.extname;
+    var resolve = path6.resolve;
     var vary = require_vary();
     var { Buffer: Buffer2 } = require("node:buffer");
     var res = Object.create(http.ServerResponse.prototype);
@@ -23728,26 +23728,26 @@ var require_response = __commonJS({
       this.type("txt");
       return this.send(body);
     };
-    res.sendFile = function sendFile(path5, options, callback) {
+    res.sendFile = function sendFile(path7, options, callback) {
       var done = callback;
       var req = this.req;
       var res2 = this;
       var next = req.next;
       var opts = options || {};
-      if (!path5) {
+      if (!path7) {
         throw new TypeError("path argument is required to res.sendFile");
       }
-      if (typeof path5 !== "string") {
+      if (typeof path7 !== "string") {
         throw new TypeError("path must be a string to res.sendFile");
       }
       if (typeof options === "function") {
         done = options;
         opts = {};
       }
-      if (!opts.root && !pathIsAbsolute(path5)) {
+      if (!opts.root && !pathIsAbsolute(path7)) {
         throw new TypeError("path must be absolute or specify root to res.sendFile");
       }
-      var pathname = encodeURI(path5);
+      var pathname = encodeURI(path7);
       opts.etag = this.app.enabled("etag");
       var file = send(req, pathname, opts);
       sendfile(res2, file, opts, function(err) {
@@ -23758,7 +23758,7 @@ var require_response = __commonJS({
         }
       });
     };
-    res.download = function download(path5, filename, options, callback) {
+    res.download = function download(path7, filename, options, callback) {
       var done = callback;
       var name = filename;
       var opts = options || null;
@@ -23775,7 +23775,7 @@ var require_response = __commonJS({
         opts = filename;
       }
       var headers = {
-        "Content-Disposition": contentDisposition(name || path5)
+        "Content-Disposition": contentDisposition(name || path7)
       };
       if (opts && opts.headers) {
         var keys = Object.keys(opts.headers);
@@ -23788,7 +23788,7 @@ var require_response = __commonJS({
       }
       opts = Object.create(opts);
       opts.headers = headers;
-      var fullPath = !opts.root ? resolve(path5) : path5;
+      var fullPath = !opts.root ? resolve(path7) : path7;
       return this.sendFile(fullPath, opts, done);
     };
     res.contentType = res.type = function contentType(type) {
@@ -24071,11 +24071,11 @@ var require_serve_static = __commonJS({
         }
         var forwardError = !fallthrough;
         var originalUrl = parseUrl.original(req);
-        var path4 = parseUrl(req).pathname;
-        if (path4 === "/" && originalUrl.pathname.substr(-1) !== "/") {
-          path4 = "";
+        var path6 = parseUrl(req).pathname;
+        if (path6 === "/" && originalUrl.pathname.substr(-1) !== "/") {
+          path6 = "";
         }
-        var stream = send(req, path4, opts);
+        var stream = send(req, path6, opts);
         stream.on("directory", onDirectory);
         if (setHeaders) {
           stream.on("headers", setHeaders);
@@ -24463,10 +24463,10 @@ var require_lib3 = __commonJS({
 // backend-borboto/node_modules/dotenv/lib/main.js
 var require_main = __commonJS({
   "backend-borboto/node_modules/dotenv/lib/main.js"(exports2, module2) {
-    var fs6 = require("fs");
-    var path4 = require("path");
-    var os2 = require("os");
-    var crypto = require("crypto");
+    var fs8 = require("fs");
+    var path6 = require("path");
+    var os4 = require("os");
+    var crypto2 = require("crypto");
     var TIPS = [
       "\u25C8 encrypted .env [www.dotenvx.com]",
       "\u25C8 secrets for agents [www.dotenvx.com]",
@@ -24595,7 +24595,7 @@ var require_main = __commonJS({
       if (options && options.path && options.path.length > 0) {
         if (Array.isArray(options.path)) {
           for (const filepath of options.path) {
-            if (fs6.existsSync(filepath)) {
+            if (fs8.existsSync(filepath)) {
               possibleVaultPath = filepath.endsWith(".vault") ? filepath : `${filepath}.vault`;
             }
           }
@@ -24603,15 +24603,15 @@ var require_main = __commonJS({
           possibleVaultPath = options.path.endsWith(".vault") ? options.path : `${options.path}.vault`;
         }
       } else {
-        possibleVaultPath = path4.resolve(process.cwd(), ".env.vault");
+        possibleVaultPath = path6.resolve(process.cwd(), ".env.vault");
       }
-      if (fs6.existsSync(possibleVaultPath)) {
+      if (fs8.existsSync(possibleVaultPath)) {
         return possibleVaultPath;
       }
       return null;
     }
     function _resolveHome(envPath2) {
-      return envPath2[0] === "~" ? path4.join(os2.homedir(), envPath2.slice(1)) : envPath2;
+      return envPath2[0] === "~" ? path6.join(os4.homedir(), envPath2.slice(1)) : envPath2;
     }
     function _configVault(options) {
       const debug2 = parseBoolean(process.env.DOTENV_CONFIG_DEBUG || options && options.debug);
@@ -24628,7 +24628,7 @@ var require_main = __commonJS({
       return { parsed };
     }
     function configDotenv(options) {
-      const dotenvPath = path4.resolve(process.cwd(), ".env");
+      const dotenvPath = path6.resolve(process.cwd(), ".env");
       let encoding = "utf8";
       let processEnv = process.env;
       if (options && options.processEnv != null) {
@@ -24656,13 +24656,13 @@ var require_main = __commonJS({
       }
       let lastError;
       const parsedAll = {};
-      for (const path5 of optionPaths) {
+      for (const path7 of optionPaths) {
         try {
-          const parsed = DotenvModule.parse(fs6.readFileSync(path5, { encoding }));
+          const parsed = DotenvModule.parse(fs8.readFileSync(path7, { encoding }));
           DotenvModule.populate(parsedAll, parsed, options);
         } catch (e2) {
           if (debug2) {
-            _debug(`failed to load ${path5} ${e2.message}`);
+            _debug(`failed to load ${path7} ${e2.message}`);
           }
           lastError = e2;
         }
@@ -24675,7 +24675,7 @@ var require_main = __commonJS({
         const shortPaths = [];
         for (const filePath of optionPaths) {
           try {
-            const relative = path4.relative(process.cwd(), filePath);
+            const relative = path6.relative(process.cwd(), filePath);
             shortPaths.push(relative);
           } catch (e2) {
             if (debug2) {
@@ -24710,7 +24710,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto2.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error) {
@@ -33863,11 +33863,11 @@ var require_mime_types2 = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path4) {
-      if (!path4 || typeof path4 !== "string") {
+    function lookup(path6) {
+      if (!path6 || typeof path6 !== "string") {
         return false;
       }
-      var extension2 = extname("x." + path4).toLowerCase().substr(1);
+      var extension2 = extname("x." + path6).toLowerCase().substr(1);
       if (!extension2) {
         return false;
       }
@@ -33982,7 +33982,7 @@ var require_accepts2 = __commonJS({
 // backend-borboto/node_modules/base64id/lib/base64id.js
 var require_base64id = __commonJS({
   "backend-borboto/node_modules/base64id/lib/base64id.js"(exports2, module2) {
-    var crypto = require("crypto");
+    var crypto2 = require("crypto");
     var Base64Id = function() {
     };
     Base64Id.prototype.getRandomBytes = function(bytes) {
@@ -33990,12 +33990,12 @@ var require_base64id = __commonJS({
       var self2 = this;
       bytes = bytes || 12;
       if (bytes > BUFFER_SIZE) {
-        return crypto.randomBytes(bytes);
+        return crypto2.randomBytes(bytes);
       }
       var bytesInBuffer = parseInt(BUFFER_SIZE / bytes);
       var threshold = parseInt(bytesInBuffer * 0.85);
       if (!threshold) {
-        return crypto.randomBytes(bytes);
+        return crypto2.randomBytes(bytes);
       }
       if (this.bytesBufferIndex == null) {
         this.bytesBufferIndex = -1;
@@ -34007,14 +34007,14 @@ var require_base64id = __commonJS({
       if (this.bytesBufferIndex == -1 || this.bytesBufferIndex > threshold) {
         if (!this.isGeneratingBytes) {
           this.isGeneratingBytes = true;
-          crypto.randomBytes(BUFFER_SIZE, function(err, bytes2) {
+          crypto2.randomBytes(BUFFER_SIZE, function(err, bytes2) {
             self2.bytesBuffer = bytes2;
             self2.bytesBufferIndex = 0;
             self2.isGeneratingBytes = false;
           });
         }
         if (this.bytesBufferIndex == -1) {
-          return crypto.randomBytes(bytes);
+          return crypto2.randomBytes(bytes);
         }
       }
       var result = this.bytesBuffer.slice(bytes * this.bytesBufferIndex, bytes * (this.bytesBufferIndex + 1));
@@ -34028,7 +34028,7 @@ var require_base64id = __commonJS({
       }
       this.sequenceNumber = this.sequenceNumber + 1 | 0;
       rand.writeInt32BE(this.sequenceNumber, 11);
-      if (crypto.randomBytes) {
+      if (crypto2.randomBytes) {
         this.getRandomBytes(12).copy(rand);
       } else {
         [0, 4, 8].forEach(function(i2) {
@@ -43978,11 +43978,11 @@ var require_mime_types3 = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path4) {
-      if (!path4 || typeof path4 !== "string") {
+    function lookup(path6) {
+      if (!path6 || typeof path6 !== "string") {
         return false;
       }
-      var extension2 = extname("x." + path4).toLowerCase().substr(1);
+      var extension2 = extname("x." + path6).toLowerCase().substr(1);
       if (!extension2) {
         return false;
       }
@@ -48840,11 +48840,11 @@ var require_server = __commonJS({
        * @protected
        */
       _computePath(options) {
-        let path4 = (options.path || "/engine.io").replace(/\/$/, "");
+        let path6 = (options.path || "/engine.io").replace(/\/$/, "");
         if (options.addTrailingSlash !== false) {
-          path4 += "/";
+          path6 += "/";
         }
-        return path4;
+        return path6;
       }
       /**
        * Returns a list of available transports for upgrade given a certain transport.
@@ -49360,10 +49360,10 @@ var require_server = __commonJS({
        * @param {Object} options
        */
       attach(server2, options = {}) {
-        const path4 = this._computePath(options);
+        const path6 = this._computePath(options);
         const destroyUpgradeTimeout = options.destroyUpgradeTimeout || 1e3;
         function check(req) {
-          return path4 === req.url.slice(0, path4.length);
+          return path6 === req.url.slice(0, path6.length);
         }
         const listeners = server2.listeners("request").slice(0);
         server2.removeAllListeners("request");
@@ -49371,7 +49371,7 @@ var require_server = __commonJS({
         server2.on("listening", this.init.bind(this));
         server2.on("request", (req, res) => {
           if (check(req)) {
-            debug2('intercepting request for path "%s"', path4);
+            debug2('intercepting request for path "%s"', path6);
             this.handleRequest(req, res);
           } else {
             let i2 = 0;
@@ -50211,8 +50211,8 @@ var require_userver = __commonJS({
        * @param options
        */
       attach(app2, options = {}) {
-        const path4 = this._computePath(options);
-        app2.any(path4, this.handleRequest.bind(this)).ws(path4, {
+        const path6 = this._computePath(options);
+        app2.any(path6, this.handleRequest.bind(this)).ws(path6, {
           compression: options.compression,
           idleTimeout: options.idleTimeout,
           maxBackpressure: options.maxBackpressure,
@@ -54640,7 +54640,7 @@ var require_dist6 = __commonJS({
     var zlib_1 = require("zlib");
     var accepts = require_accepts2();
     var stream_1 = require("stream");
-    var path4 = require("path");
+    var path6 = require("path");
     var engine_io_1 = require_engine_io();
     var client_1 = require_client();
     var events_1 = require("events");
@@ -54835,7 +54835,7 @@ var require_dist6 = __commonJS({
             res.writeHeader("cache-control", "public, max-age=0");
             res.writeHeader("content-type", "application/" + (isMap ? "json" : "javascript") + "; charset=utf-8");
             res.writeHeader("etag", expectedEtag);
-            const filepath = path4.join(__dirname, "../client-dist/", filename);
+            const filepath = path6.join(__dirname, "../client-dist/", filename);
             (0, uws_1.serveFile)(res, filepath);
           });
         }
@@ -54917,7 +54917,7 @@ var require_dist6 = __commonJS({
        * @private
        */
       static sendFile(filename, req, res) {
-        const readStream = (0, fs_1.createReadStream)(path4.join(__dirname, "../client-dist/", filename));
+        const readStream = (0, fs_1.createReadStream)(path6.join(__dirname, "../client-dist/", filename));
         const encoding = accepts(req).encodings(["br", "gzip", "deflate"]);
         const onError = (err) => {
           if (err) {
@@ -64062,11 +64062,11 @@ var require_mime_types4 = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path4) {
-      if (!path4 || typeof path4 !== "string") {
+    function lookup(path6) {
+      if (!path6 || typeof path6 !== "string") {
         return false;
       }
-      var extension2 = extname("x." + path4).toLowerCase().substr(1);
+      var extension2 = extname("x." + path6).toLowerCase().substr(1);
       if (!extension2) {
         return false;
       }
@@ -64575,19 +64575,19 @@ var require_utils4 = __commonJS({
       if (decode3)
         return decode3(data, hint);
     }
-    function basename(path4) {
-      if (typeof path4 !== "string")
+    function basename(path6) {
+      if (typeof path6 !== "string")
         return "";
-      for (let i2 = path4.length - 1; i2 >= 0; --i2) {
-        switch (path4.charCodeAt(i2)) {
+      for (let i2 = path6.length - 1; i2 >= 0; --i2) {
+        switch (path6.charCodeAt(i2)) {
           case 47:
           // '/'
           case 92:
-            path4 = path4.slice(i2 + 1);
-            return path4 === ".." || path4 === "." ? "" : path4;
+            path6 = path6.slice(i2 + 1);
+            return path6 === ".." || path6 === "." ? "" : path6;
         }
       }
-      return path4 === ".." || path4 === "." ? "" : path4;
+      return path6 === ".." || path6 === "." ? "" : path6;
     }
     var TOKEN = [
       0,
@@ -68444,22 +68444,22 @@ var require_make_middleware = __commonJS({
 // node_modules/multer/storage/disk.js
 var require_disk = __commonJS({
   "node_modules/multer/storage/disk.js"(exports2, module2) {
-    var fs6 = require("fs");
-    var os2 = require("os");
-    var path4 = require("path");
-    var crypto = require("crypto");
+    var fs8 = require("fs");
+    var os4 = require("os");
+    var path6 = require("path");
+    var crypto2 = require("crypto");
     function getFilename(req, file, cb) {
-      crypto.randomBytes(16, function(err, raw) {
+      crypto2.randomBytes(16, function(err, raw) {
         cb(err, err ? void 0 : raw.toString("hex"));
       });
     }
     function getDestination(req, file, cb) {
-      cb(null, os2.tmpdir());
+      cb(null, os4.tmpdir());
     }
     function DiskStorage(opts) {
       this.getFilename = opts.filename || getFilename;
       if (typeof opts.destination === "string") {
-        fs6.mkdirSync(opts.destination, { recursive: true });
+        fs8.mkdirSync(opts.destination, { recursive: true });
         this.getDestination = function($0, $1, cb) {
           cb(null, opts.destination);
         };
@@ -68473,9 +68473,9 @@ var require_disk = __commonJS({
         if (err) return cb(err);
         that.getFilename(req, file, function(err2, filename) {
           if (err2) return cb(err2);
-          var finalPath = path4.join(destination, filename);
+          var finalPath = path6.join(destination, filename);
           if (file.stream.destroyed) return;
-          var outStream = fs6.createWriteStream(finalPath);
+          var outStream = fs8.createWriteStream(finalPath);
           file.path = finalPath;
           file.stream.pipe(outStream);
           outStream.on("error", cb);
@@ -68491,11 +68491,11 @@ var require_disk = __commonJS({
       });
     };
     DiskStorage.prototype._removeFile = function _removeFile(req, file, cb) {
-      var path5 = file.path;
+      var path7 = file.path;
       delete file.destination;
       delete file.filename;
       delete file.path;
-      fs6.unlink(path5, cb);
+      fs8.unlink(path7, cb);
     };
     module2.exports = function(opts) {
       return new DiskStorage(opts);
@@ -75820,7 +75820,7 @@ var require_gifframe = __commonJS({
 var require_gifutil = __commonJS({
   "node_modules/gifwrap/src/gifutil.js"(exports2) {
     "use strict";
-    var fs6 = require("fs");
+    var fs8 = require("fs");
     var ImageQ = require_image_q();
     var BitmapImage2 = require_bitmapimage();
     var { GifFrame: GifFrame2 } = require_gifframe();
@@ -75935,14 +75935,14 @@ var require_gifutil = __commonJS({
       jimpImage.bitmap.data = bitmapImageToShare.bitmap.data;
       return jimpImage;
     };
-    exports2.write = function(path4, frames, spec, encoder) {
+    exports2.write = function(path6, frames, spec, encoder) {
       encoder = encoder || defaultCodec;
-      const matches = path4.match(/\.[a-zA-Z]+$/);
+      const matches = path6.match(/\.[a-zA-Z]+$/);
       if (matches !== null && INVALID_SUFFIXES.includes(matches[0].toLowerCase())) {
-        throw new Error(`GIF '${path4}' has an unexpected suffix`);
+        throw new Error(`GIF '${path6}' has an unexpected suffix`);
       }
       return encoder.encodeGif(frames, spec).then((gif2) => {
-        return _writeBinary(path4, gif2.buffer).then(() => {
+        return _writeBinary(path6, gif2.buffer).then(() => {
           return gif2;
         });
       });
@@ -76014,9 +76014,9 @@ var require_gifutil = __commonJS({
         }
       }
     }
-    function _readBinary(path4) {
+    function _readBinary(path6) {
       return new Promise((resolve, reject) => {
-        fs6.readFile(path4, (err, buffer) => {
+        fs8.readFile(path6, (err, buffer) => {
           if (err) {
             return reject(err);
           }
@@ -76024,9 +76024,9 @@ var require_gifutil = __commonJS({
         });
       });
     }
-    function _writeBinary(path4, buffer) {
+    function _writeBinary(path6, buffer) {
       return new Promise((resolve, reject) => {
-        fs6.writeFile(path4, buffer, (err) => {
+        fs8.writeFile(path6, buffer, (err) => {
           if (err) {
             return reject(err);
           }
@@ -78005,9 +78005,9 @@ var require_decoder = __commonJS({
         return a2 < 0 ? 0 : a2 > 255 ? 255 : a2;
       }
       constructor.prototype = {
-        load: function load(path4) {
+        load: function load(path6) {
           var xhr = new XMLHttpRequest();
-          xhr.open("GET", path4, true);
+          xhr.open("GET", path6, true);
           xhr.responseType = "arraybuffer";
           xhr.onload = (function() {
             var data = new Uint8Array(xhr.response || xhr.mozResponseArrayBuffer);
@@ -88434,11 +88434,11 @@ var require_Mime = __commonJS({
         }
       }
     };
-    Mime.prototype.getType = function(path4) {
-      path4 = String(path4);
-      let last = path4.replace(/^.*[/\\]/, "").toLowerCase();
+    Mime.prototype.getType = function(path6) {
+      path6 = String(path6);
+      let last = path6.replace(/^.*[/\\]/, "").toLowerCase();
       let ext = last.replace(/^.*\./, "").toLowerCase();
-      let hasPath = last.length < path4.length;
+      let hasPath = last.length < path6.length;
       let hasDot = ext.length < last.length - 1;
       return (hasDot || !hasPath) && this._types[ext] || null;
     };
@@ -94620,8 +94620,8 @@ function isTokenizerStreamBoundsError(error) {
   }
   return /strtok3[/\\]lib[/\\]stream[/\\]/.test(error.stack);
 }
-async function fileTypeFromFile(path4, options) {
-  return new FileTypeParser2(options).fromFile(path4, options);
+async function fileTypeFromFile(path6, options) {
+  return new FileTypeParser2(options).fromFile(path6, options);
 }
 async function fileTypeFromStream(stream, options) {
   return new FileTypeParser2(options).fromStream(stream);
@@ -94656,9 +94656,9 @@ var init_file_type = __esm({
           }
         }
       }
-      async fromFile(path4) {
+      async fromFile(path6) {
         this.options.signal?.throwIfAborted();
-        const fileHandle = await import_promises3.default.open(path4, import_node_fs.constants.O_RDONLY | import_node_fs.constants.O_NONBLOCK);
+        const fileHandle = await import_promises3.default.open(path6, import_node_fs.constants.O_RDONLY | import_node_fs.constants.O_NONBLOCK);
         const fileStat = await fileHandle.stat();
         if (!fileStat.isFile()) {
           await fileHandle.close();
@@ -94667,7 +94667,7 @@ var init_file_type = __esm({
         const tokenizer = new FileTokenizer(fileHandle, {
           ...this.getTokenizerOptions(),
           fileInfo: {
-            path: path4,
+            path: path6,
             size: fileStat.size
           }
         });
@@ -103468,7 +103468,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "backend-borboto/node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
     "use strict";
-    var crypto = require_utils6();
+    var crypto2 = require_utils6();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -103486,7 +103486,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto.randomBytes(18).toString("base64");
+      const clientNonce = crypto2.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -103528,20 +103528,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto.hashByName(hashName, peerCert);
+        const certHash = await crypto2.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto.sha256(clientKey);
-      const clientSignature = await crypto.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto2.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto2.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto2.sha256(clientKey);
+      const clientSignature = await crypto2.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto2.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto2.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -103744,15 +103744,15 @@ var require_pg_connection_string = __commonJS({
       if (config.sslnegotiation === "direct" && config.ssl === void 0) {
         config.ssl = true;
       }
-      const fs6 = config.sslcert || config.sslkey || config.sslrootcert ? require("fs") : null;
+      const fs8 = config.sslcert || config.sslkey || config.sslrootcert ? require("fs") : null;
       if (config.sslcert) {
-        config.ssl.cert = fs6.readFileSync(config.sslcert).toString();
+        config.ssl.cert = fs8.readFileSync(config.sslcert).toString();
       }
       if (config.sslkey) {
-        config.ssl.key = fs6.readFileSync(config.sslkey).toString();
+        config.ssl.key = fs8.readFileSync(config.sslkey).toString();
       }
       if (config.sslrootcert) {
-        config.ssl.ca = fs6.readFileSync(config.sslrootcert).toString();
+        config.ssl.ca = fs8.readFileSync(config.sslrootcert).toString();
       }
       if (options.useLibpqCompat && config.uselibpqcompat) {
         throw new Error("Both useLibpqCompat and uselibpqcompat are set. Please use only one of them.");
@@ -105575,7 +105575,7 @@ var require_split2 = __commonJS({
 var require_helper = __commonJS({
   "backend-borboto/node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
-    var path4 = require("path");
+    var path6 = require("path");
     var Stream = require("stream").Stream;
     var split = require_split2();
     var util2 = require("util");
@@ -105614,7 +105614,7 @@ var require_helper = __commonJS({
     };
     module2.exports.getFileName = function(rawEnv) {
       var env2 = rawEnv || process.env;
-      var file = env2.PGPASSFILE || (isWin ? path4.join(env2.APPDATA || "./", "postgresql", "pgpass.conf") : path4.join(env2.HOME || "./", ".pgpass"));
+      var file = env2.PGPASSFILE || (isWin ? path6.join(env2.APPDATA || "./", "postgresql", "pgpass.conf") : path6.join(env2.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -105746,16 +105746,16 @@ var require_helper = __commonJS({
 var require_lib7 = __commonJS({
   "backend-borboto/node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
-    var path4 = require("path");
-    var fs6 = require("fs");
+    var path6 = require("path");
+    var fs8 = require("fs");
     var helper = require_helper();
     module2.exports = function(connInfo, cb) {
       var file = helper.getFileName();
-      fs6.stat(file, function(err, stat) {
+      fs8.stat(file, function(err, stat) {
         if (err || !helper.usePgPass(stat, file)) {
           return cb(void 0);
         }
-        var st = fs6.createReadStream(file);
+        var st = fs8.createReadStream(file);
         helper.getPassword(connInfo, st, cb);
       });
     };
@@ -105775,7 +105775,7 @@ var require_client2 = __commonJS({
     var Query2 = require_query();
     var defaults2 = require_defaults2();
     var Connection2 = require_connection();
-    var crypto = require_utils6();
+    var crypto2 = require_utils6();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -106030,7 +106030,7 @@ var require_client2 = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto2.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e2) {
             this.emit("error", e2);
@@ -110014,8 +110014,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path4, errorMaps, issueData } = params;
-  const fullPath = [...path4, ...issueData.path || []];
+  const { data, path: path6, errorMaps, issueData } = params;
+  const fullPath = [...path6, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -110131,11 +110131,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path4, key) {
+  constructor(parent, value, path6, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path4;
+    this._path = path6;
     this._key = key;
   }
   get path() {
@@ -115696,9 +115696,9 @@ function createJimp({ plugins: pluginsArg, formats: formatsArg } = {}) {
      * await image.write("test/output.png");
      * ```
      */
-    async write(path4, options) {
-      const mimeType = import_lite.default.getType(path4);
-      await writeFile(path4, await this.getBuffer(mimeType, options));
+    async write(path6, options) {
+      const mimeType = import_lite.default.getType(path6);
+      await writeFile(path6, await this.getBuffer(mimeType, options));
     }
     /**
      * Clone the image into a new Jimp instance.
@@ -120591,9 +120591,9 @@ var Jimp = createJimp({
 });
 
 // backend-borboto/index.ts
-var import_path3 = __toESM(require("path"), 1);
-var import_fs5 = __toESM(require("fs"), 1);
-var FacturapiModule = __toESM(require_index_cjs(), 1);
+var import_path5 = __toESM(require("path"), 1);
+var import_fs7 = __toESM(require("fs"), 1);
+var FacturapiModule2 = __toESM(require_index_cjs(), 1);
 
 // backend-borboto/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib8(), 1);
@@ -120778,6 +120778,22 @@ async function initDB() {
     } else {
       console.log("\u2139\uFE0F La migraci\xF3n 000_init.sql ya se encontraba aplicada.");
     }
+    console.log('\u{1F504} Ejecutando migraciones incrementales para la tabla "facturas"...');
+    await targetPool.query(`
+      ALTER TABLE facturas ADD COLUMN IF NOT EXISTS facturapi_invoice_id VARCHAR(100) UNIQUE;
+      ALTER TABLE facturas ADD COLUMN IF NOT EXISTS total NUMERIC(10, 2);
+      ALTER TABLE facturas ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'active';
+      ALTER TABLE facturas ALTER COLUMN ticket_id DROP NOT NULL;
+    `);
+    try {
+      await targetPool.query(`
+        ALTER TABLE facturas DROP CONSTRAINT IF EXISTS facturas_ticket_id_fkey;
+        ALTER TABLE facturas ADD CONSTRAINT facturas_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES tickets_autofactura(id) ON DELETE SET NULL;
+      `);
+    } catch (fkErr) {
+      console.warn('\u26A0\uFE0F No se pudo migrar la restricci\xF3n FK de "facturas_ticket_id_fkey":', fkErr.message);
+    }
+    console.log('\u2705 Migraciones incrementales de "facturas" completadas.');
   } catch (sqlErr) {
     console.error("\u274C Error durante el proceso de migraciones de la base de datos:", sqlErr.message);
     throw sqlErr;
@@ -120786,10 +120802,371 @@ async function initDB() {
   }
 }
 
-// backend-borboto/src/modules/printer/printer.service.ts
-var import_net = __toESM(require("net"), 1);
+// backend-borboto/src/sincronizarFacturas.ts
 var import_fs4 = __toESM(require("fs"), 1);
 var import_path2 = __toESM(require("path"), 1);
+var import_os = __toESM(require("os"), 1);
+var FacturapiModule = __toESM(require_index_cjs(), 1);
+function obtenerInstanciaFacturapi(apiKey) {
+  let FacturapiClass = FacturapiModule.default || FacturapiModule;
+  if (typeof FacturapiClass !== "function" && FacturapiClass && typeof FacturapiClass.default === "function") {
+    FacturapiClass = FacturapiClass.default;
+  }
+  return new FacturapiClass(apiKey);
+}
+function obtenerVencimientoLicencia() {
+  try {
+    const appData = process.env.APPDATA || (process.platform === "darwin" ? import_path2.default.join(import_os.default.homedir(), "Library", "Application Support") : import_path2.default.join(import_os.default.homedir(), ".config"));
+    const possiblePaths = [
+      import_path2.default.join(appData, "Borboto POS", "borboto_license.lic"),
+      import_path2.default.join(appData, "borboto-pos", "borboto_license.lic"),
+      import_path2.default.join(appData, "borboto", "borboto_license.lic"),
+      import_path2.default.join(appData, "Borboto", "borboto_license.lic"),
+      import_path2.default.join(import_os.default.homedir(), "borboto_license.lic"),
+      import_path2.default.join(process.cwd(), "borboto_license.lic")
+    ];
+    for (const p2 of possiblePaths) {
+      if (import_fs4.default.existsSync(p2)) {
+        const keyString = import_fs4.default.readFileSync(p2, "utf8").trim();
+        const [payloadBase64] = keyString.split(".");
+        if (payloadBase64) {
+          const payload = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf8"));
+          if (payload.vencimiento) {
+            console.log(`\u{1F511} [SincronizarFacturas] Licencia activa encontrada para el cliente "${payload.cliente}" con vencimiento: ${payload.vencimiento}`);
+            return payload.vencimiento;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("\u26A0\uFE0F [SincronizarFacturas] Error al leer archivo de licencia:", err.message);
+  }
+  return null;
+}
+async function realizarSincronizacionFacturas() {
+  try {
+    const configRes = await pool.query(`SELECT api_key_test, api_key_live, modo_produccion FROM configuracion_facturacion WHERE id = 1`);
+    if (configRes.rows.length === 0) {
+      return { ok: false, total: 0, error: "No se ha configurado la facturaci\xF3n en el sistema" };
+    }
+    const { api_key_test, api_key_live, modo_produccion } = configRes.rows[0];
+    const apiKeyActiva = modo_produccion ? api_key_live : api_key_test;
+    if (!apiKeyActiva) {
+      return { ok: false, total: 0, error: "API Key de Facturapi no configurada para el modo activo" };
+    }
+    const vencimiento = obtenerVencimientoLicencia();
+    let fechaFin = /* @__PURE__ */ new Date();
+    let fechaInicioValue = /* @__PURE__ */ new Date();
+    fechaInicioValue.setFullYear(fechaInicioValue.getFullYear() - 1);
+    if (vencimiento) {
+      const vencDate = /* @__PURE__ */ new Date(vencimiento + "T23:59:59");
+      if (vencDate < fechaFin) {
+        fechaFin = vencDate;
+      }
+      const startRange = new Date(vencDate);
+      startRange.setFullYear(startRange.getFullYear() - 1);
+      fechaInicioValue = startRange;
+    }
+    console.log(`\u{1F504} [SincronizarFacturas] Iniciando sincronizaci\xF3n. Periodo de licencia: [${fechaInicioValue.toISOString().split("T")[0]} - ${fechaFin.toISOString().split("T")[0]}]`);
+    const facturapi = obtenerInstanciaFacturapi(apiKeyActiva.trim());
+    let currentPage = 1;
+    let hasMore = true;
+    let totalSincronizadas = 0;
+    while (hasMore) {
+      const response = await facturapi.invoices.list({
+        page: currentPage,
+        limit: 50
+      });
+      const invoices = response.data;
+      if (!invoices || invoices.length === 0) {
+        hasMore = false;
+        break;
+      }
+      for (const invoice of invoices) {
+        const invoiceDate = new Date(invoice.created_at);
+        if (invoiceDate < fechaInicioValue || invoiceDate > fechaFin) {
+          continue;
+        }
+        let receiptId = null;
+        if (typeof invoice.receipt === "string") {
+          receiptId = invoice.receipt;
+        } else if (invoice.receipt && typeof invoice.receipt === "object") {
+          receiptId = invoice.receipt.id || invoice.receipt._id;
+        }
+        if (!receiptId && invoice.metadata) {
+          receiptId = invoice.metadata.receipt || invoice.metadata.receipt_id || invoice.metadata.receiptId;
+        }
+        let ticketId = invoice.external_id ? parseInt(invoice.external_id, 10) : null;
+        if (ticketId && isNaN(ticketId)) {
+          ticketId = null;
+        }
+        if (!ticketId) {
+          if (receiptId) {
+            const tRes = await pool.query("SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1", [receiptId]);
+            if (tRes.rows.length > 0) {
+              ticketId = tRes.rows[0].id;
+            }
+          }
+          if (!ticketId) {
+            const queryConditions = [];
+            const queryParams = [];
+            const possibleTicketCodes = /* @__PURE__ */ new Set();
+            const invExternalId = invoice.external_id;
+            const invFolio = invoice.folio;
+            if (invExternalId) possibleTicketCodes.add(String(invExternalId));
+            if (invFolio) possibleTicketCodes.add(String(invFolio));
+            if (invoice.metadata) {
+              const m = invoice.metadata;
+              if (m.codigo_ticket) possibleTicketCodes.add(String(m.codigo_ticket));
+              if (m.codigo) possibleTicketCodes.add(String(m.codigo));
+              if (m.folio) possibleTicketCodes.add(String(m.folio));
+              if (m.ticket_code) possibleTicketCodes.add(String(m.ticket_code));
+              if (m.key) possibleTicketCodes.add(String(m.key));
+              if (m.external_id) possibleTicketCodes.add(String(m.external_id));
+            }
+            const possiblePagoIds = /* @__PURE__ */ new Set();
+            if (invExternalId && !isNaN(Number(invExternalId))) {
+              possiblePagoIds.add(Number(invExternalId));
+            }
+            if (invoice.metadata) {
+              const m = invoice.metadata;
+              if (m.pago_id && !isNaN(Number(m.pago_id))) possiblePagoIds.add(Number(m.pago_id));
+              if (m.pagoId && !isNaN(Number(m.pagoId))) possiblePagoIds.add(Number(m.pagoId));
+              if (m.payment_id && !isNaN(Number(m.payment_id))) possiblePagoIds.add(Number(m.payment_id));
+            }
+            if (possibleTicketCodes.size > 0) {
+              queryParams.push(Array.from(possibleTicketCodes));
+              queryConditions.push(`codigo_ticket = ANY($${queryParams.length})`);
+            }
+            if (possiblePagoIds.size > 0) {
+              queryParams.push(Array.from(possiblePagoIds));
+              queryConditions.push(`pago_id = ANY($${queryParams.length})`);
+            }
+            if (queryConditions.length > 0) {
+              const selectQuery = `SELECT id FROM tickets_autofactura WHERE ${queryConditions.join(" OR ")} LIMIT 1`;
+              const tRes = await pool.query(selectQuery, queryParams);
+              if (tRes.rows.length > 0) {
+                ticketId = tRes.rows[0].id;
+              }
+            }
+          }
+        }
+        const uuidSat = invoice.uuid || `DRAFT_${invoice.id}`;
+        const zipReceptor = invoice.customer?.address?.zip || invoice.customer?.zip || "00000";
+        const regimenReceptor = invoice.customer?.tax_system || "616";
+        const url_pdf = invoice.files?.pdf || `https://api.facturapi.io/v2/invoices/${invoice.id}/pdf`;
+        const url_xml = invoice.files?.xml || `https://api.facturapi.io/v2/invoices/${invoice.id}/xml`;
+        const queryUpsert = `
+          INSERT INTO facturas (
+            ticket_id,
+            facturapi_invoice_id,
+            uuid_sat,
+            rfc_receptor,
+            razon_social_receptor,
+            regimen_fiscal_receptor,
+            codigo_postal_receptor,
+            uso_cfdi,
+            total,
+            estado,
+            url_pdf,
+            url_xml,
+            fecha_timbrado
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          ON CONFLICT (facturapi_invoice_id) DO UPDATE SET
+            ticket_id = COALESCE(EXCLUDED.ticket_id, facturas.ticket_id),
+            uuid_sat = EXCLUDED.uuid_sat,
+            rfc_receptor = EXCLUDED.rfc_receptor,
+            razon_social_receptor = EXCLUDED.razon_social_receptor,
+            regimen_fiscal_receptor = EXCLUDED.regimen_fiscal_receptor,
+            codigo_postal_receptor = EXCLUDED.codigo_postal_receptor,
+            uso_cfdi = EXCLUDED.uso_cfdi,
+            total = EXCLUDED.total,
+            estado = EXCLUDED.estado,
+            url_pdf = EXCLUDED.url_pdf,
+            url_xml = EXCLUDED.url_xml,
+            fecha_timbrado = EXCLUDED.fecha_timbrado
+          RETURNING id;
+        `;
+        await pool.query(queryUpsert, [
+          ticketId,
+          invoice.id,
+          uuidSat,
+          invoice.customer?.tax_id || "XAXX010101000",
+          invoice.customer?.legal_name || "PUBLICO EN GENERAL",
+          regimenReceptor,
+          zipReceptor,
+          invoice.use || "S01",
+          invoice.total || 0,
+          invoice.status || "active",
+          url_pdf,
+          url_xml,
+          invoiceDate
+        ]);
+        if (ticketId) {
+          const nuevoEstadoTicket = invoice.status === "canceled" ? "CANCELADA" : "FACTURADO";
+          await pool.query("UPDATE tickets_autofactura SET estado = $1 WHERE id = $2", [nuevoEstadoTicket, ticketId]);
+        }
+        totalSincronizadas++;
+      }
+      if (currentPage >= response.total_pages) {
+        hasMore = false;
+      } else {
+        currentPage++;
+      }
+    }
+    console.log(`\u2705 [SincronizarFacturas] Sincronizaci\xF3n finalizada con \xE9xito. ${totalSincronizadas} facturas procesadas/actualizadas.`);
+    return { ok: true, total: totalSincronizadas };
+  } catch (err) {
+    console.error("\u274C [SincronizarFacturas] Error en proceso de sincronizaci\xF3n:", err.message);
+    return { ok: false, total: 0, error: err.message };
+  }
+}
+
+// backend-borboto/src/services/reporteFacturas.service.ts
+var import_fs5 = __toESM(require("fs"), 1);
+var import_path3 = __toESM(require("path"), 1);
+var import_os2 = __toESM(require("os"), 1);
+var import_crypto = __toESM(require("crypto"), 1);
+var import_child_process = require("child_process");
+function obtenerPayloadLicencia() {
+  try {
+    const appData = process.env.APPDATA || (process.platform === "darwin" ? import_path3.default.join(import_os2.default.homedir(), "Library", "Application Support") : import_path3.default.join(import_os2.default.homedir(), ".config"));
+    const possiblePaths = [
+      import_path3.default.join(appData, "Borboto POS", "borboto_license.lic"),
+      import_path3.default.join(appData, "borboto-pos", "borboto_license.lic"),
+      import_path3.default.join(appData, "borboto", "borboto_license.lic"),
+      import_path3.default.join(appData, "Borboto", "borboto_license.lic"),
+      import_path3.default.join(import_os2.default.homedir(), "borboto_license.lic"),
+      import_path3.default.join(process.cwd(), "borboto_license.lic")
+    ];
+    for (const p2 of possiblePaths) {
+      if (import_fs5.default.existsSync(p2)) {
+        const keyString = import_fs5.default.readFileSync(p2, "utf8").trim();
+        const [payloadBase64] = keyString.split(".");
+        if (payloadBase64) {
+          const payload = JSON.parse(Buffer.from(payloadBase64, "base64").toString("utf8"));
+          return payload;
+        }
+      }
+    }
+  } catch (err) {
+  }
+  return null;
+}
+function obtenerHardwareId() {
+  if (process.env.HARDWARE_ID) {
+    return process.env.HARDWARE_ID.trim();
+  }
+  try {
+    const lic = obtenerPayloadLicencia();
+    if (lic && lic.hardware_id) {
+      return lic.hardware_id.trim();
+    }
+  } catch {
+  }
+  try {
+    if (process.platform === "win32") {
+      const stdout = (0, import_child_process.execSync)("wmic csproduct get uuid", { encoding: "utf8" });
+      const lines = stdout.trim().split("\n");
+      if (lines.length > 1) {
+        const uuid = (lines[1] ?? "").trim();
+        if (uuid && uuid !== "00000000-0000-0000-0000-000000000000") {
+          return uuid;
+        }
+      }
+    }
+  } catch (e2) {
+  }
+  const fallbackRaw = `${process.env.COMPUTERNAME || "PC"}-${process.env.USERNAME || "USER"}`;
+  return import_crypto.default.createHash("md5").update(fallbackRaw).digest("hex").toUpperCase();
+}
+async function obtenerNombreCliente() {
+  if (process.env.NOMBRE_NEGOCIO) {
+    return process.env.NOMBRE_NEGOCIO.trim();
+  }
+  try {
+    const lic = obtenerPayloadLicencia();
+    if (lic && lic.cliente) {
+      return lic.cliente.trim();
+    }
+  } catch {
+  }
+  try {
+    const configRes = await pool.query("SELECT razon_social FROM configuracion_facturacion ORDER BY id LIMIT 1");
+    if (configRes.rows.length > 0 && configRes.rows[0].razon_social) {
+      return configRes.rows[0].razon_social.trim();
+    }
+  } catch {
+  }
+  return "Borboto POS Client";
+}
+async function obtenerConteoFacturasLocales() {
+  try {
+    const res = await pool.query("SELECT COUNT(*)::int AS count FROM facturas");
+    return res.rows[0]?.count ?? 0;
+  } catch (err) {
+    console.error("\u274C [ReporteSheets] Error al consultar conteo de facturas locales:", err.message);
+    return 0;
+  }
+}
+async function enviarConteoAGoogleSheets() {
+  const resultObj = {
+    success: false,
+    url: "",
+    status: 0,
+    data: null,
+    error: void 0
+  };
+  try {
+    const GOOGLE_SHEET_URL = process.env.GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbwYP1-gaPlkLAJhqPKSPdO7DVeuK0ypEVapU8xWF5CscnPYRBSLlS75vze2DMLdA6pQdA/exec";
+    const TOKEN = process.env.GOOGLE_SHEET_TOKEN || "BorbotoPOS_Secret_Key_2026_x89Z";
+    const totalFacturas = await obtenerConteoFacturasLocales();
+    const hardwareId = obtenerHardwareId();
+    const nombreCliente = await obtenerNombreCliente();
+    const url = `${GOOGLE_SHEET_URL}?token=${TOKEN}&hardware_id=${hardwareId}&cliente=${encodeURIComponent(nombreCliente)}&total_facturas=${totalFacturas}`;
+    resultObj.url = url;
+    console.log("\u{1F4E1} Enviando conteo a Google Sheets:", url);
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const timeoutId = setTimeout(() => controller.abort(), 1e4);
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      },
+      redirect: "follow",
+      // Sigue las redirecciones 302 automáticamente en Node/Bun
+      signal
+    });
+    clearTimeout(timeoutId);
+    resultObj.status = res.status;
+    const responseText = await res.text();
+    let responseData = responseText;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e2) {
+    }
+    resultObj.data = responseData;
+    console.log("\u2705 Respuesta Google Sheets:", responseData);
+    if (res.ok) {
+      resultObj.success = true;
+      if (responseData && (responseData.status === "ok" || responseData.status === "success")) {
+        console.log("\u2705 Env\xEDo exitoso a Google Sheets");
+      }
+    } else {
+      console.warn(`\u26A0\uFE0F [ReporteSheets] Respuesta HTTP fallida al enviar datos a Sheets: ${res.status} ${res.statusText}`);
+    }
+  } catch (err) {
+    resultObj.error = err.message || String(err);
+    console.warn(`\u26A0\uFE0F [ReporteSheets] Sincronizaci\xF3n Google Sheets omitida (error silencioso):`, err.message || err);
+  }
+  return resultObj;
+}
+
+// backend-borboto/src/modules/printer/printer.service.ts
+var import_net = __toESM(require("net"), 1);
+var import_fs6 = __toESM(require("fs"), 1);
+var import_path4 = __toESM(require("path"), 1);
 var import_pdf_to_printer = __toESM(require_bundle(), 1);
 
 // backend-borboto/src/modules/printer/templates/ticket-templates.ts
@@ -120912,12 +121289,12 @@ var PrinterService = class {
     if (impresora.tipo === "USB") {
       try {
         console.log(`\u{1F5A8}\uFE0F Despachando ticket a impresora USB del SO: "${impresora.ip_o_puerto}"`);
-        const tempPath = import_path2.default.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
-        import_fs4.default.writeFileSync(tempPath, contenido, "utf8");
+        const tempPath = import_path4.default.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
+        import_fs6.default.writeFileSync(tempPath, contenido, "utf8");
         await (0, import_pdf_to_printer.print)(tempPath, {
           printer: impresora.ip_o_puerto
         });
-        if (import_fs4.default.existsSync(tempPath)) import_fs4.default.unlinkSync(tempPath);
+        if (import_fs6.default.existsSync(tempPath)) import_fs6.default.unlinkSync(tempPath);
         return null;
       } catch (err) {
         console.error(`\u274C Error al imprimir en USB local (${impresora.nombre}):`, err.message);
@@ -121216,8 +121593,8 @@ var printer_routes_default = router;
 
 // backend-borboto/index.ts
 import_dotenv2.default.config();
-function obtenerInstanciaFacturapi(apiKey) {
-  let FacturapiClass = FacturapiModule.default || FacturapiModule;
+function obtenerInstanciaFacturapi2(apiKey) {
+  let FacturapiClass = FacturapiModule2.default || FacturapiModule2;
   if (typeof FacturapiClass !== "function" && FacturapiClass && typeof FacturapiClass.default === "function") {
     FacturapiClass = FacturapiClass.default;
   }
@@ -121225,9 +121602,9 @@ function obtenerInstanciaFacturapi(apiKey) {
 }
 var app = (0, import_express2.default)();
 var PORT = Number(process.env.PORT) || 3e3;
-var uploadsDir = import_path3.default.join(process.cwd(), "uploads", "productos");
-if (!import_fs5.default.existsSync(uploadsDir)) {
-  import_fs5.default.mkdirSync(uploadsDir, { recursive: true });
+var uploadsDir = import_path5.default.join(process.cwd(), "uploads", "productos");
+if (!import_fs7.default.existsSync(uploadsDir)) {
+  import_fs7.default.mkdirSync(uploadsDir, { recursive: true });
 }
 var storageMemoria = import_multer.default.memoryStorage();
 var uploadImagen = (0, import_multer.default)({
@@ -121261,14 +121638,14 @@ io2.on("connection", (socket) => {
 app.use((0, import_cors.default)());
 app.use(import_express2.default.json());
 app.use("/api/impresoras", printer_routes_default);
-app.use("/uploads", import_express2.default.static(import_path3.default.join(process.cwd(), "uploads")));
+app.use("/uploads", import_express2.default.static(import_path5.default.join(process.cwd(), "uploads")));
 app.post("/api/productos/upload", uploadImagen.single("imagen"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No se envi\xF3 ninguna imagen" });
     }
     const uniqueName = `prod-${Date.now()}-${Math.round(Math.random() * 1e9)}.png`;
-    const outputPath = import_path3.default.join(uploadsDir, uniqueName);
+    const outputPath = import_path5.default.join(uploadsDir, uniqueName);
     const image2 = await Jimp.read(req.file.buffer);
     if (typeof image2.resize === "function") {
       image2.resize({ w: 600, h: 600 });
@@ -121834,7 +122211,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
             });
           }
           console.log(`[Cobro #${pagoId}] Payload que se env\xEDa a Facturapi (esConsumoGeneral: ${esConsumoGeneral}):`, JSON.stringify(lineItemsFacturapi));
-          const facturapi = obtenerInstanciaFacturapi(apiKeyActiva);
+          const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
           const receipt = await facturapi.receipts.create({ payment_form: paymentForm, items: lineItemsFacturapi });
           console.log(`[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, C\xF3digo: ${receipt.key}`);
           await client.query(
@@ -121930,6 +122307,8 @@ app.post("/api/caja/corte", async (req, res) => {
       VALUES ($1, COALESCE($2, CURRENT_TIMESTAMP - INTERVAL '1 day'), CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id;
     `;
     const { rows } = await pool.query(query, [usuarioId, fechaApertura || null, fondoApertura || 0, efectivoReal || 0, efectivoCalculado || 0, tarjetaCalculado || 0, transferenciaCalculado || 0, ventasTotales || 0, diferencia || 0, notas || ""]);
+    enviarConteoAGoogleSheets().catch(() => {
+    });
     res.json({ ok: true, corteId: rows[0].id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122270,7 +122649,7 @@ app.post("/api/ajustes/facturacion", uploadCSD.fields([{ name: "csdCer", maxCoun
     let tieneCsd = false;
     const apiKeyActiva = modoProdBool ? apiKeyLive : apiKeyTest;
     if (req.files?.csdCer?.[0] && req.files?.csdKey?.[0] && apiKeyActiva) {
-      const facturapi = obtenerInstanciaFacturapi(apiKeyActiva);
+      const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
       await facturapi.organizations.uploadCertificate("me", req.files.csdCer[0].buffer, req.files.csdKey[0].buffer, csdPassword || "");
       tieneCsd = true;
     }
@@ -122294,12 +122673,36 @@ app.post("/api/ajustes/facturacion/test", async (req, res) => {
   const { apiKey } = req.body;
   if (!apiKey) return res.status(400).json({ error: "Proporciona una API Key para validar." });
   try {
-    const facturapi = obtenerInstanciaFacturapi(apiKey.trim());
+    const facturapi = obtenerInstanciaFacturapi2(apiKey.trim());
     await facturapi.customers.list({ limit: 1 });
     res.json({ ok: true, mensaje: "Conexi\xF3n con Facturapi v2 autenticada correctamente." });
   } catch (err) {
     console.error("\u274C Error Facturapi:", err?.message || err);
     res.status(err?.status || 401).json({ error: err?.message || "Error al validar la API Key." });
+  }
+});
+app.post("/api/ajustes/facturacion/sincronizar", async (_req, res) => {
+  try {
+    const r2 = await realizarSincronizacionFacturas();
+    if (!r2.ok) {
+      return res.status(400).json({ error: r2.error });
+    }
+    res.json({ ok: true, total: r2.total, mensaje: `Sincronizaci\xF3n de facturas finalizada con \xE9xito: ${r2.total} procesadas.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/api/licencia/test-sheets", async (_req, res) => {
+  try {
+    console.log("\u{1F4E1} [PRUEBA MANUAL] Iniciando prueba de conexi\xF3n con Google Sheets...");
+    const result = await enviarConteoAGoogleSheets();
+    res.json({
+      ok: result.success,
+      ...result
+    });
+  } catch (err) {
+    console.error("\u274C [PRUEBA MANUAL] Fallo en la ruta de prueba de Google Sheets:", err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 app.get("/api/dashboard/stats", async (req, res) => {
@@ -122341,9 +122744,22 @@ async function startServer() {
     } catch (syncErr) {
       console.warn("\u26A0\uFE0F Sincronizaci\xF3n de combos omitida:", syncErr.message);
     }
+    try {
+      realizarSincronizacionFacturas().then((r2) => {
+        if (r2.ok) {
+          console.log(`\u{1F4E1} [BACKEND] Sincronizaci\xF3n autom\xE1tica de facturas completada. ${r2.total} facturas procesadas.`);
+        } else {
+          console.warn("\u26A0\uFE0F [BACKEND] Sincronizaci\xF3n de facturas autom\xE1tica parcial/fallida:", r2.error);
+        }
+      });
+    } catch (syncFactErr) {
+      console.warn("\u26A0\uFE0F Sincronizaci\xF3n autom\xE1tica de facturas omitida:", syncFactErr.message);
+    }
     return new Promise((resolve, reject) => {
       const serverInstance = server.listen(PORT, "0.0.0.0", () => {
         console.log(`\u{1F680} [BACKEND] API REST & Sockets listos en http://127.0.0.1:${PORT}`);
+        enviarConteoAGoogleSheets().catch(() => {
+        });
         resolve(serverInstance);
       });
       serverInstance.on("error", (err) => {
@@ -122358,6 +122774,24 @@ async function startServer() {
     throw error;
   }
 }
+async function apagarServidorGraciosamente(signal) {
+  console.log(`\u{1F50C} [BACKEND] Se\xF1al de terminaci\xF3n recibida (${signal}). Sincronizando \xFAltimo conteo de facturas locales...`);
+  try {
+    await enviarConteoAGoogleSheets();
+  } catch (err) {
+    console.warn("\u26A0\uFE0F [BACKEND] Error al realizar el reporte de apagado a Google Sheets:", err.message || err);
+  } finally {
+    console.log("\u{1F4E6} [BACKEND] Liberando conexiones de base de datos...");
+    try {
+      await pool.end();
+    } catch {
+    }
+    console.log("\u{1F44B} [BACKEND] Apagado completo del servidor backend.");
+    process.exit(0);
+  }
+}
+process.on("SIGINT", () => apagarServidorGraciosamente("SIGINT"));
+process.on("SIGTERM", () => apagarServidorGraciosamente("SIGTERM"));
 if (require.main === module) {
   startServer();
 }

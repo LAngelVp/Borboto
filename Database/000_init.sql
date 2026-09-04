@@ -242,13 +242,16 @@ CREATE TABLE tickets_autofactura (
 
 CREATE TABLE facturas (
     id SERIAL PRIMARY KEY,
-    ticket_id INT NOT NULL REFERENCES tickets_autofactura(id) ON DELETE RESTRICT,
+    ticket_id INT REFERENCES tickets_autofactura(id) ON DELETE SET NULL,
+    facturapi_invoice_id VARCHAR(100) UNIQUE,
     uuid_sat VARCHAR(36) NOT NULL UNIQUE,
     rfc_receptor VARCHAR(13) NOT NULL,
     razon_social_receptor VARCHAR(255) NOT NULL,
     regimen_fiscal_receptor VARCHAR(5) NOT NULL,
     codigo_postal_receptor VARCHAR(5) NOT NULL,
     uso_cfdi VARCHAR(5) NOT NULL,
+    total NUMERIC(10, 2),
+    estado VARCHAR(20) DEFAULT 'active',
     url_pdf TEXT,
     url_xml TEXT,
     fecha_timbrado TIMESTAMP DEFAULT CURRENT_TIMESTAMP

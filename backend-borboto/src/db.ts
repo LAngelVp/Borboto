@@ -202,6 +202,25 @@ export async function initDB(): Promise<void> {
     } else {
       console.log('ℹ️ La migración 000_init.sql ya se encontraba aplicada.');
     }
+
+    // Incremental migrations to ensure 'facturas' table satisfies new audit requirements
+    console.log('🔄 Ejecutando migraciones incrementales para la tabla "facturas"...');
+    await targetPool.query(`
+      ALTER TABLE facturas ADD COLUMN IF NOT EXISTS facturapi_invoice_id VARCHAR(100) UNIQUE;
+      ALTER TABLE facturas ADD COLUMN IF NOT EXISTS total NUMERIC(10, 2);
+      ALTER TABLE facturas ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'active';
+      ALTER TABLE facturas ALTER COLUMN ticket_id DROP NOT NULL;
+    `);
+
+    try {
+      await targetPool.query(`
+        ALTER TABLE facturas DROP CONSTRAINT IF EXISTS facturas_ticket_id_fkey;
+        ALTER TABLE facturas ADD CONSTRAINT facturas_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES tickets_autofactura(id) ON DELETE SET NULL;
+      `);
+    } catch (fkErr: any) {
+      console.warn('⚠️ No se pudo migrar la restricción FK de "facturas_ticket_id_fkey":', fkErr.message);
+    }
+    console.log('✅ Migraciones incrementales de "facturas" completadas.');
   } catch (sqlErr: any) {
     console.error('❌ Error durante el proceso de migraciones de la base de datos:', sqlErr.message);
     throw sqlErr;

@@ -12,6 +12,8 @@ import * as FacturapiModule from 'facturapi';
 
 // ─── IMPORTACIÓN DE BASE DE DATOS Y SERVICIOS ───────────────────────────────
 import { pool, initDB, sincronizarCombosComoProductos } from './src/db';
+import { realizarSincronizacionFacturas } from './src/sincronizarFacturas';
+import { enviarConteoAGoogleSheets } from './src/services/reporteFacturas.service';
 import { PrinterService } from './src/modules/printer/printer.service';
 import printerRoutes from './src/modules/printer/printer.routes';
 
@@ -831,6 +833,10 @@ app.post('/api/caja/corte', async (req, res) => {
       VALUES ($1, COALESCE($2, CURRENT_TIMESTAMP - INTERVAL '1 day'), CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id;
     `;
     const { rows } = await pool.query(query, [usuarioId, fechaApertura || null, fondoApertura || 0.00, efectivoReal || 0.00, efectivoCalculado || 0.00, tarjetaCalculado || 0.00, transferenciaCalculado || 0.00, ventasTotales || 0.00, diferencia || 0.00, notas || '']);
+
+    // Disparador del reporte síncronico/asíncrono de facturas al cerrarse la caja diaria
+    enviarConteoAGoogleSheets().catch(() => {});
+
     res.json({ ok: true, corteId: rows[0].id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1243,6 +1249,32 @@ app.post('/api/ajustes/facturacion/test', async (req, res) => {
   }
 });
 
+app.post('/api/ajustes/facturacion/sincronizar', async (_req, res) => {
+  try {
+    const r = await realizarSincronizacionFacturas();
+    if (!r.ok) {
+      return res.status(400).json({ error: r.error });
+    }
+    res.json({ ok: true, total: r.total, mensaje: `Sincronización de facturas finalizada con éxito: ${r.total} procesadas.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/licencia/test-sheets', async (_req, res) => {
+  try {
+    console.log('📡 [PRUEBA MANUAL] Iniciando prueba de conexión con Google Sheets...');
+    const result = await enviarConteoAGoogleSheets();
+    res.json({
+      ok: result.success,
+      ...result
+    });
+  } catch (err: any) {
+    console.error('❌ [PRUEBA MANUAL] Fallo en la ruta de prueba de Google Sheets:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ─── 11. DASHBOARD ───────────────────────────────────────────────────────────
 app.get('/api/dashboard/stats', async (req, res) => {
   const { fechaInicio, fechaFin } = req.query;
@@ -1294,10 +1326,24 @@ export async function startServer() {
       console.warn('⚠️ Sincronización de combos omitida:', syncErr.message);
     }
 
+    try {
+      realizarSincronizacionFacturas().then((r) => {
+        if (r.ok) {
+          console.log(`📡 [BACKEND] Sincronización automática de facturas completada. ${r.total} facturas procesadas.`);
+        } else {
+          console.warn('⚠️ [BACKEND] Sincronización de facturas automática parcial/fallida:', r.error);
+        }
+      });
+    } catch (syncFactErr: any) {
+      console.warn('⚠️ Sincronización automática de facturas omitida:', syncFactErr.message);
+    }
+
     // 3. Levantar listener de servidor Express y Socket.io
     return new Promise((resolve, reject) => {
       const serverInstance = server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 [BACKEND] API REST & Sockets listos en http://127.0.0.1:${PORT}`);
+        // Envío asíncrono y tolerante a fallos del conteo de facturas locales a la nube sobre el arranque de la API
+        enviarConteoAGoogleSheets().catch(() => {});
         resolve(serverInstance);
       });
 
@@ -1313,6 +1359,27 @@ export async function startServer() {
     throw error;
   }
 }
+
+// ─── MANEJADORES DE APAGADO GRACIOSO (GRACEFUL SHUTDOWN) ────────────────────
+async function apagarServidorGraciosamente(signal: string) {
+  console.log(`🔌 [BACKEND] Señal de terminación recibida (${signal}). Sincronizando último conteo de facturas locales...`);
+  try {
+    // Esperar la resolución del envío a Google Sheets antes de cerrar
+    await enviarConteoAGoogleSheets();
+  } catch (err: any) {
+    console.warn('⚠️ [BACKEND] Error al realizar el reporte de apagado a Google Sheets:', err.message || err);
+  } finally {
+    console.log('📦 [BACKEND] Liberando conexiones de base de datos...');
+    try {
+      await pool.end();
+    } catch {}
+    console.log('👋 [BACKEND] Apagado completo del servidor backend.');
+    process.exit(0);
+  }
+}
+
+process.on('SIGINT', () => apagarServidorGraciosamente('SIGINT'));
+process.on('SIGTERM', () => apagarServidorGraciosamente('SIGTERM'));
 
 if (require.main === module) {
   startServer();
