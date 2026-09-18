@@ -3,12 +3,14 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog'; // 👈 1. Importar MatDialog
 
 import { ComandaService } from '../../core/services/comanda';
 import { MesaService } from '../../core/services/mesa';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { PrinterService, ElectronPendingPrintJob } from '../../core/services/printer.service';
 import { OrdenResumenComponent } from './components/orden-resumen/orden-resumen';
 import { MenuProductosComponent } from './components/menu-productos/menu-productos';
 import { TicketModal } from '../ticket-modal/ticket-modal'; // 👈 2. Importar TicketModal
@@ -23,11 +25,11 @@ import { TicketModal } from '../ticket-modal/ticket-modal'; // 👈 2. Importar 
     MatSnackBarModule,
     MatDialogModule,
     OrdenResumenComponent,
-    MenuProductosComponent
+    MenuProductosComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comanda.html',
-  styleUrl: './comanda.scss'
+  styleUrl: './comanda.scss',
 })
 export class Comanda implements OnInit {
   protected readonly comandaService = inject(ComandaService);
@@ -35,8 +37,9 @@ export class Comanda implements OnInit {
   protected readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
   private readonly dialog = inject(MatDialog); // 👈 Inyectar MatDialog
+  private readonly printerService = inject(PrinterService);
 
   comandaId = 0;
   mesaId = 0;
@@ -44,7 +47,7 @@ export class Comanda implements OnInit {
   ngOnInit() {
     this.comandaService.cargarProductos();
 
-    this.route.queryParams.subscribe(params => {
+    this.route.queryParams.subscribe((params) => {
       this.mesaId = Number(params['mesaId']) || 0;
       this.comandaId = Number(params['comandaId']) || 0;
 
@@ -56,14 +59,15 @@ export class Comanda implements OnInit {
 
   enviarCocina() {
     if (this.comandaService.itemsComanda().length === 0) {
-      this.snackBar.open('Seleccione al menos un producto', 'Cerrar', { duration: 2500 });
+      this.notifications.warning('Seleccione al menos un producto', 2500);
       return;
     }
 
     const usuarioId = this.authService.usuarioActivo()?.id;
     this.comandaService.enviarComandaACocina(this.comandaId, this.mesaId, usuarioId).subscribe({
       next: (res: any) => {
-        this.snackBar.open('¡Comanda actualizada y enviada a cocina!', 'Cerrar', { duration: 3000 });
+        void this.procesarImpresionesPendientes(res?.impresionesPendientes || []);
+        this.notifications.success('Comanda actualizada y enviada a cocina.');
         this.comandaService.limpiarComanda();
         this.mesaService.cargarMesas();
 
@@ -73,8 +77,8 @@ export class Comanda implements OnInit {
             width: '360px',
             data: {
               contenidoTicket: res.ticketTexto,
-              titulo: 'Comanda Enviada (Simulación)'
-            }
+              titulo: 'Comanda Enviada (Simulación)',
+            },
           });
 
           dialogRef.afterClosed().subscribe(() => {
@@ -84,7 +88,21 @@ export class Comanda implements OnInit {
           this.router.navigate(['/mesas']);
         }
       },
-      error: () => this.snackBar.open('Error al guardar comanda en base de datos', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al guardar comanda en base de datos'),
     });
+  }
+
+  private async procesarImpresionesPendientes(impresionesPendientes: ElectronPendingPrintJob[]) {
+    for (const trabajo of impresionesPendientes) {
+      try {
+        await this.printerService.printTicketSilently(trabajo);
+      } catch (err: any) {
+        console.error('Error en impresión USB con Electron:', err);
+        this.notifications.error(
+          err?.message || 'No se pudo imprimir la comanda USB automáticamente.',
+          5000,
+        );
+      }
+    }
   }
 }

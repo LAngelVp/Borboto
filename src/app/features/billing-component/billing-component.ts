@@ -1,16 +1,23 @@
 import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import {
+  FormsModule,
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+} from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip'; // <-- Importación añadida
 
 import { AjustesService, FacturacionConfig } from '../../core/services/ajustes.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-billing-component',
@@ -26,16 +33,16 @@ import { AjustesService, FacturacionConfig } from '../../core/services/ajustes.s
     MatIconModule,
     MatSlideToggleModule,
     MatSnackBarModule,
-    MatTooltipModule // <-- Añadido al arreglo imports
+    MatTooltipModule, // <-- Añadido al arreglo imports
   ],
   templateUrl: './billing-component.html',
   styleUrl: './billing-component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BillingComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly ajustesService = inject(AjustesService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
 
   billingForm!: FormGroup;
   archivoCer: File | null = null;
@@ -49,9 +56,12 @@ export class BillingComponent implements OnInit {
     { clave: '603', descripcion: '603 - Personas Morales con Fines no Lucrativos' },
     { clave: '605', descripcion: '605 - Sueldos y Salarios e Ingresos Asimilados a Salarios' },
     { clave: '606', descripcion: '606 - Arrendamiento' },
-    { clave: '612', descripcion: '612 - Personas Físicas con Actividades Empresariales y Profesionales' },
+    {
+      clave: '612',
+      descripcion: '612 - Personas Físicas con Actividades Empresariales y Profesionales',
+    },
     { clave: '621', descripcion: '621 - Incorporación Fiscal' },
-    { clave: '626', descripcion: '626 - Régimen Simplificado de Confianza (RESICO)' }
+    { clave: '626', descripcion: '626 - Régimen Simplificado de Confianza (RESICO)' },
   ];
 
   ngOnInit(): void {
@@ -64,13 +74,16 @@ export class BillingComponent implements OnInit {
       apiKeyTest: ['', [Validators.required]],
       apiKeyLive: [''],
       modoProduccion: [false],
-      rfcEmisor: ['', [Validators.required, Validators.pattern('^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$')]],
+      rfcEmisor: [
+        '',
+        [Validators.required, Validators.pattern('^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$')],
+      ],
       razonSocial: ['', [Validators.required]],
       regimenFiscal: ['601', [Validators.required]],
       codigoPostal: ['', [Validators.required, Validators.pattern('^[0-9]{5}$')]],
       emailNotificaciones: ['', [Validators.email]],
       csdPassword: [''],
-      diasVigenciaTicket: [7, [Validators.required, Validators.min(1), Validators.max(30)]]
+      diasVigenciaTicket: [7, [Validators.required, Validators.min(1), Validators.max(30)]],
     });
   }
 
@@ -81,7 +94,7 @@ export class BillingComponent implements OnInit {
           this.billingForm.patchValue(config);
         }
       },
-      error: () => console.log('Sin configuración previa de facturación registrada.')
+      error: () => console.log('Sin configuración previa de facturación registrada.'),
     });
   }
 
@@ -98,37 +111,42 @@ export class BillingComponent implements OnInit {
 
   probarConexionAPI(): void {
     if (!this.billingForm.get('apiKeyTest')?.value && !this.billingForm.get('apiKeyLive')?.value) {
-      this.snackBar.open('Debes ingresar al menos una API Key para validar.', 'Cerrar', { duration: 3000 });
+      this.notifications.warning('Debes ingresar al menos una API Key para validar.');
       return;
     }
 
     this.probandoConexion.set(true);
     const isLive = this.billingForm.get('modoProduccion')?.value;
-    const key = isLive ? this.billingForm.get('apiKeyLive')?.value : this.billingForm.get('apiKeyTest')?.value;
+    const key = isLive
+      ? this.billingForm.get('apiKeyLive')?.value
+      : this.billingForm.get('apiKeyTest')?.value;
 
     this.ajustesService.probarConexionFacturapi({ apiKey: key, isLive }).subscribe({
       next: () => {
         this.probandoConexion.set(false);
-        this.snackBar.open('Conexión exitosa con el servidor de facturación.', 'Cerrar', { duration: 4000 });
+        this.notifications.success('Conexión exitosa con el servidor de facturación.', 4000);
       },
       error: (err) => {
         this.probandoConexion.set(false);
-        this.snackBar.open(`Fallo de autenticación: ${err.error?.error || 'API Key inválida'}`, 'Cerrar', { duration: 4000 });
-      }
+        this.notifications.error(
+          `Fallo de autenticación: ${err.error?.error || 'API Key inválida'}`,
+          4000,
+        );
+      },
     });
   }
 
   guardarConfiguracion(): void {
     if (this.billingForm.invalid) {
       this.billingForm.markAllAsTouched();
-      this.snackBar.open('Por favor completa todos los campos requeridos.', 'Cerrar', { duration: 3000 });
+      this.notifications.warning('Por favor completa todos los campos requeridos.');
       return;
     }
 
     this.guardando.set(true);
 
     const formData = new FormData();
-    Object.keys(this.billingForm.value).forEach(key => {
+    Object.keys(this.billingForm.value).forEach((key) => {
       formData.append(key, this.billingForm.value[key]);
     });
 
@@ -138,12 +156,15 @@ export class BillingComponent implements OnInit {
     this.ajustesService.guardarConfiguracionFacturacion(formData).subscribe({
       next: () => {
         this.guardando.set(false);
-        this.snackBar.open('Ajustes de facturación CFDI 4.0 guardados correctamente.', 'Cerrar', { duration: 3000 });
+        this.notifications.success('Ajustes de facturación CFDI 4.0 guardados correctamente.');
       },
       error: (err) => {
         this.guardando.set(false);
-        this.snackBar.open(`Error al guardar datos fiscales: ${err.error?.error || 'Error interno'}`, 'Cerrar', { duration: 4000 });
-      }
+        this.notifications.error(
+          `Error al guardar datos fiscales: ${err.error?.error || 'Error interno'}`,
+          4000,
+        );
+      },
     });
   }
 }

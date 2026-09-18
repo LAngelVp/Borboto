@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, signal, computed, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+  computed,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,9 +14,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { CajaService } from '../../../../core/services/caja-service';
 import { AjustesService, Cliente } from '../../../../core/services/ajustes.service';
+import { NotificationService } from '../../../../core/services/notification.service';
+import {
+  QuickClientDialogComponent,
+  QuickClientDialogResult,
+} from '../../../../shared/components/quick-client-dialog/quick-client-dialog';
 
 @Component({
   selector: 'app-desglose-cuenta',
@@ -22,16 +34,17 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    FormsModule
+    FormsModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './desglose-cuenta.html',
-  styleUrl: './desglose-cuenta.scss'
+  styleUrl: './desglose-cuenta.scss',
 })
 export class DesgloseCuentaComponent implements OnInit {
   protected readonly cajaService = inject(CajaService);
   private readonly ajustesService = inject(AjustesService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly Math = Math;
 
@@ -46,9 +59,8 @@ export class DesgloseCuentaComponent implements OnInit {
     const query = this.busquedaCliente().toLowerCase().trim();
     if (!query) return this.clientes();
 
-    return this.clientes().filter(c =>
-      c.nombre.toLowerCase().includes(query) ||
-      (c.telefono && c.telefono.includes(query))
+    return this.clientes().filter(
+      (c) => c.nombre.toLowerCase().includes(query) || (c.telefono && c.telefono.includes(query)),
     );
   });
 
@@ -59,7 +71,7 @@ export class DesgloseCuentaComponent implements OnInit {
   cargarClientesAll() {
     this.ajustesService.getClientes().subscribe({
       next: (data) => this.clientes.set(data || []),
-      error: () => console.error('Error al cargar clientes de cartera')
+      error: () => console.error('Error al cargar clientes de cartera'),
     });
   }
 
@@ -81,28 +93,35 @@ export class DesgloseCuentaComponent implements OnInit {
           this.cajaService.clientePuntos.set(res.cliente.clientePuntos || 0);
           this.cajaService.clienteEsFrecuente.set(!!res.cliente.clienteEsFrecuente);
           this.cajaService.clienteVisitas.set(res.cliente.clienteVisitas || 0);
-          this.snackBar.open(`Se asoció a ${res.cliente.nombre} a esta cuenta de consumo.`, 'Cerrar', { duration: 3000 });
+          this.notifications.success(`Se asoció a ${res.cliente.nombre} a esta cuenta de consumo.`);
         }
       },
-      error: () => this.snackBar.open('Error al asociar el cliente a la comanda', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al asociar el cliente a la comanda'),
     });
   }
 
   registrarRapido() {
-    const nombre = prompt('Ingrese el nombre del nuevo cliente:');
-    if (!nombre) return;
-    const telefono = prompt('Ingrese el teléfono del cliente (opcional):') || '';
-    const direccion = prompt('Ingrese la dirección del cliente (opcional):') || '';
+    const dialogRef = this.dialog.open(QuickClientDialogComponent, {
+      width: '420px',
+      disableClose: false,
+    });
 
-    this.ajustesService.crearCliente({ nombre, telefono, direccion }).subscribe({
-      next: (cliNuevo) => {
-        this.snackBar.open(`¡Cliente ${cliNuevo.nombre} registrado con éxito!`, 'Cerrar', { duration: 3000 });
-        this.cargarClientesAll();
-        if (cliNuevo.id && this.cajaService.comandaId()) {
-          this.onVincularCliente(cliNuevo.id);
-        }
-      },
-      error: () => this.snackBar.open('Error al registrar cliente', 'Cerrar', { duration: 3000 })
+    dialogRef.afterClosed().subscribe((result?: QuickClientDialogResult) => {
+      if (!result?.nombre) {
+        return;
+      }
+
+      this.notifications.info('Registrando cliente...');
+      this.ajustesService.crearCliente(result).subscribe({
+        next: (cliNuevo) => {
+          this.notifications.success(`Cliente ${cliNuevo.nombre} registrado con éxito.`);
+          this.cargarClientesAll();
+          if (cliNuevo.id && this.cajaService.comandaId()) {
+            this.onVincularCliente(cliNuevo.id);
+          }
+        },
+        error: () => this.notifications.error('Error al registrar cliente'),
+      });
     });
   }
 
@@ -123,12 +142,12 @@ export class DesgloseCuentaComponent implements OnInit {
     this.cajaService.validarCupon(cod).subscribe({
       next: (promo) => {
         this.cajaService.aplicarDescuento(promo);
-        this.snackBar.open(`¡Cupón "${promo.nombre}" aplicado con éxito!`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Cupón "${promo.nombre}" aplicado con éxito.`);
         this.codigoPromo.set('');
       },
       error: () => {
-        this.snackBar.open('Código de cupón inválido o expirado.', 'Cerrar', { duration: 3000 });
-      }
+        this.notifications.warning('Código de cupón inválido o expirado.');
+      },
     });
   }
 
@@ -147,22 +166,29 @@ export class DesgloseCuentaComponent implements OnInit {
     const totalCuenta = this.cajaService.totalCuentaOriginal();
 
     if (!cantidad || cantidad <= 0) {
-      this.snackBar.open('Ingresa una cantidad de puntos válida superior a 0.', 'Cerrar', { duration: 2500 });
+      this.notifications.warning('Ingresa una cantidad de puntos válida superior a 0.', 2500);
       return;
     }
 
     if (cantidad > ptsDisponibles) {
-      this.snackBar.open(`El cliente solo cuenta con ${ptsDisponibles} puntos disponibles.`, 'Cerrar', { duration: 3000 });
+      this.notifications.warning(
+        `El cliente solo cuenta con ${ptsDisponibles} puntos disponibles.`,
+      );
       return;
     }
 
     if (cantidad > totalCuenta) {
-      this.snackBar.open(`No se pueden canjear más puntos ($${cantidad}.00) que el total de la cuenta ($${totalCuenta.toFixed(2)}).`, 'Cerrar', { duration: 3500 });
+      this.notifications.warning(
+        `No se pueden canjear más puntos ($${cantidad}.00) que el total de la cuenta ($${totalCuenta.toFixed(2)}).`,
+        3500,
+      );
       return;
     }
 
     this.cajaService.canjearPuntosLealtad(cantidad);
-    this.snackBar.open(`¡Se aplicaron ${cantidad} puntos (-$${cantidad}.00 MXN) a la cuenta!`, 'Cerrar', { duration: 3000 });
+    this.notifications.success(
+      `Se aplicaron ${cantidad} puntos (-$${cantidad}.00 MXN) a la cuenta.`,
+    );
     this.puntosAUsarInput.set(null);
   }
 
@@ -174,7 +200,7 @@ export class DesgloseCuentaComponent implements OnInit {
     this.cajaService.totalCuenta.set(this.cajaService.totalCuentaOriginal());
     this.cajaService.montoRecibido.set(this.cajaService.totalCuentaOriginal());
     this.puntosAUsarInput.set(null);
-    this.snackBar.open('Beneficio / Descuento removido.', 'Cerrar', { duration: 2500 });
+    this.notifications.info('Beneficio / Descuento removido.', 2500);
   }
 
   quitarCliente() {
@@ -194,10 +220,10 @@ export class DesgloseCuentaComponent implements OnInit {
           this.cajaService.totalCuenta.set(this.cajaService.totalCuentaOriginal());
           this.cajaService.montoRecibido.set(this.cajaService.totalCuentaOriginal());
           this.puntosAUsarInput.set(null);
-          this.snackBar.open('Se desvinculó al cliente de esta cuenta de consumo.', 'Cerrar', { duration: 3000 });
+          this.notifications.info('Se desvinculó al cliente de esta cuenta de consumo.');
         }
       },
-      error: () => this.snackBar.open('Error al desvincular el cliente.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al desvincular el cliente.'),
     });
   }
 }

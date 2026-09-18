@@ -7,8 +7,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-login',
@@ -21,15 +22,15 @@ import { AuthService } from '../../core/services/auth.service';
     MatIconModule,
     MatInputModule,
     MatFormFieldModule,
-    MatSnackBarModule
+    MatSnackBarModule,
   ],
   templateUrl: './login.html',
-  styleUrl: './login.scss'
+  styleUrl: './login.scss',
 })
 export class LoginComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
 
   readonly hasUsers = signal<boolean | null>(null);
   readonly registerMode = signal<boolean>(false);
@@ -64,7 +65,7 @@ export class LoginComponent implements OnInit {
       error: () => {
         this.hasUsers.set(false);
         this.registerMode.set(true);
-      }
+      },
     });
   }
 
@@ -74,13 +75,13 @@ export class LoginComponent implements OnInit {
 
     this.authService.loginConPin(p).subscribe({
       next: (user) => {
-        this.snackBar.open(`¡Hola, ${user.nombre}! Acceso correcto en el POS.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Hola, ${user.nombre}. Acceso correcto en el POS.`);
         this.router.navigate(['/mesas']);
       },
       error: (err) => {
-        this.snackBar.open(err.error?.error || 'PIN incorrecto. Intente de nuevo.', 'Cerrar', { duration: 3000 });
+        this.notifications.error(err.error?.error || 'PIN incorrecto. Intente de nuevo.');
         this.pin = '';
-      }
+      },
     });
   }
 
@@ -88,18 +89,18 @@ export class LoginComponent implements OnInit {
     const nom = this.regNombre.trim();
     const p = this.regPin.trim();
     if (!nom || !p) {
-      this.snackBar.open('Complete todos los campos del Administrador', 'Cerrar', { duration: 2500 });
+      this.notifications.warning('Complete todos los campos del Administrador', 2500);
       return;
     }
 
     this.authService.registrarPrimerAdmin(nom, p).subscribe({
       next: (user) => {
-        this.snackBar.open(`¡Administrador "${user.nombre}" registrado! Bienvenido.`, 'Cerrar', { duration: 4000 });
+        this.notifications.success(`Administrador "${user.nombre}" registrado. Bienvenido.`, 4000);
         this.router.navigate(['/mesas']);
       },
       error: () => {
-        this.snackBar.open('Error al intentar registrar el primer administrador.', 'Cerrar', { duration: 3000 });
-      }
+        this.notifications.error('Error al intentar registrar el primer administrador.');
+      },
     });
   }
 

@@ -10,12 +10,23 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 
-import { AjustesService, CategoriaAdmin, ProductoAdmin, MesaAdmin, ZonaAdmin, DatosNegocio, DatosTransferencia, Cliente, Promocion } from '../../core/services/ajustes.service';
+import {
+  AjustesService,
+  CategoriaAdmin,
+  ProductoAdmin,
+  MesaAdmin,
+  ZonaAdmin,
+  DatosNegocio,
+  DatosTransferencia,
+  Cliente,
+  Promocion,
+} from '../../core/services/ajustes.service';
 import { AuthService } from '../../core/services/auth.service';
 import { CajaService } from '../../core/services/caja-service';
-import { PrinterService, Impresora } from '../../core/services/printer.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { PrinterService, Impresora, WindowsPrinterInfo } from '../../core/services/printer.service';
 import * as XLSX from 'xlsx';
 
 declare var window: any;
@@ -34,17 +45,17 @@ declare var window: any;
     MatFormFieldModule,
     MatSelectModule,
     MatSnackBarModule,
-    BillingComponent
+    BillingComponent,
   ],
   templateUrl: './ajustes.html',
   styleUrl: './ajustes.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AjustesComponent implements OnInit {
   private readonly ajustesService = inject(AjustesService);
   private readonly cajaService = inject(CajaService);
   protected readonly authService = inject(AuthService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
   private readonly http = inject(HttpClient);
   private readonly printerService = inject(PrinterService);
   private readonly zone = inject(NgZone); // 👈 Forzar actualización fuera del evento IPC
@@ -59,6 +70,7 @@ export class AjustesComponent implements OnInit {
   readonly empleados = signal<any[]>([]);
   readonly cortesHistory = signal<any[]>([]);
   readonly impresoras = signal<Impresora[]>([]);
+  readonly impresorasWindows = signal<WindowsPrinterInfo[]>([]);
 
   // 🔹 ESTADOS Y SIGNALS DE LICENCIA
   readonly infoLicencia = signal<{
@@ -80,7 +92,7 @@ export class AjustesComponent implements OnInit {
     ip_o_puerto: '192.168.1.100',
     puerto_tcp: 9100,
     ancho_papel: '80mm',
-    activa: true
+    activa: true,
   };
 
   nuevoProducto: ProductoAdmin = {
@@ -88,14 +100,14 @@ export class AjustesComponent implements OnInit {
     nombre: '',
     precio: 0,
     disponible: true,
-    imagen_url: ''
+    imagen_url: '',
   };
 
   nuevaCategoria: CategoriaAdmin = {
     nombre: '',
     icono: 'restaurant',
     orden: 0,
-    destino_impresion: 'COCINA'
+    destino_impresion: 'COCINA',
   };
 
   nuevaZonaNombre = signal<string>('');
@@ -103,7 +115,7 @@ export class AjustesComponent implements OnInit {
   nuevaMesa: MesaAdmin = {
     numero: '',
     zona_id: 0,
-    capacidad: 4
+    capacidad: 4,
   };
 
   datosNegocio: DatosNegocio = {
@@ -115,14 +127,14 @@ export class AjustesComponent implements OnInit {
     mensaje_recibo: '',
     visitas_requeridas_frecuente: 5,
     puntos_por_cada_diez_pesos: 1,
-    pesos_por_punto: 10
+    pesos_por_punto: 10,
   };
 
   datosTransferencia: DatosTransferencia = {
     banco: '',
     titular: '',
     clabe: '',
-    email: ''
+    email: '',
   };
 
   nuevoCliente: Cliente = {
@@ -130,7 +142,7 @@ export class AjustesComponent implements OnInit {
     telefono: '',
     direccion: '',
     email: '',
-    notas: ''
+    notas: '',
   };
 
   readonly promociones = signal<Promocion[]>([]);
@@ -143,14 +155,14 @@ export class AjustesComponent implements OnInit {
     categoria_id: null,
     producto_id: null,
     descripcion: '',
-    activo: true
+    activo: true,
   };
 
   nuevoEmpleado = {
     nombre: '',
     pin: '',
     rol: 'MESERO',
-    activo: true
+    activo: true,
   };
 
   productoEditando = signal<ProductoAdmin | null>(null);
@@ -164,6 +176,7 @@ export class AjustesComponent implements OnInit {
 
   ngOnInit() {
     this.cargarDatosFormularios();
+    this.cargarImpresorasWindows();
     this.consultarEstadoLicencia();
   }
 
@@ -205,7 +218,7 @@ export class AjustesComponent implements OnInit {
           valida: true,
           cliente: 'Restaurante Borboto Demo',
           vencimiento: '2026-12-31',
-          diasRestantes: 120
+          diasRestantes: 120,
         });
       });
     }
@@ -214,43 +227,49 @@ export class AjustesComponent implements OnInit {
   renovarLicencia() {
     const clave = this.nuevaClaveLicencia.trim();
     if (!clave) {
-      this.snackBar.open('Ingresa una clave de licencia válida.', 'Cerrar', { duration: 3000 });
+      this.notifications.warning('Ingresa una clave de licencia válida.');
       return;
     }
 
     if (!window.require) {
-      this.snackBar.open('Esta función requiere ejecutarse dentro de Electron.', 'Cerrar', { duration: 3000 });
+      this.notifications.warning('Esta función requiere ejecutarse dentro de Electron.');
       return;
     }
 
     this.cargandoLicencia = true;
     const { ipcRenderer } = window.require('electron');
 
-    ipcRenderer.once('submit-license-key-response', (_: any, res: { success: boolean; error?: string }) => {
-      this.zone.run(() => {
-        this.cargandoLicencia = false;
-        if (res.success) {
-          this.snackBar.open('¡Licencia renovada y activada correctamente!', 'Aceptar', { duration: 5000 });
-          this.nuevaClaveLicencia = '';
-          this.consultarEstadoLicencia();
-        } else {
-          this.snackBar.open(`❌ Fallo al aplicar la licencia: ${res.error || 'Clave inválida'}`, 'Cerrar', { duration: 6000 });
-        }
-      });
-    });
+    ipcRenderer.once(
+      'submit-license-key-response',
+      (_: any, res: { success: boolean; error?: string }) => {
+        this.zone.run(() => {
+          this.cargandoLicencia = false;
+          if (res.success) {
+            this.notifications.success('Licencia renovada y activada correctamente.', 5000);
+            this.nuevaClaveLicencia = '';
+            this.consultarEstadoLicencia();
+          } else {
+            this.notifications.error(
+              `Fallo al aplicar la licencia: ${res.error || 'Clave inválida'}`,
+              6000,
+            );
+          }
+        });
+      },
+    );
 
     ipcRenderer.send('submit-license-key', clave);
   }
 
   copiarHardwareId() {
     navigator.clipboard.writeText(this.hardwareIdLocal());
-    this.snackBar.open('Hardware ID copiado al portapapeles.', 'Cerrar', { duration: 2000 });
+    this.notifications.info('Hardware ID copiado al portapapeles.', 2000);
   }
 
   cargarHistorialCortes() {
     this.cajaService.obtenerHistorialCortes().subscribe({
       next: (data) => this.cortesHistory.set(data),
-      error: (err) => console.error('Error al cargar historial de cortes:', err)
+      error: (err) => console.error('Error al cargar historial de cortes:', err),
     });
   }
 
@@ -267,16 +286,16 @@ export class AjustesComponent implements OnInit {
         if (prod) {
           this.productoEditando.set({
             ...prod,
-            imagen_url: res.url
+            imagen_url: res.url,
           });
         } else {
           this.nuevoProducto.imagen_url = res.url;
         }
-        this.snackBar.open('Imagen subida correctamente al servidor.', 'Cerrar', { duration: 2000 });
+        this.notifications.success('Imagen subida correctamente al servidor.', 2000);
       },
       error: (err) => {
-        this.snackBar.open(err.error?.error || 'Error al subir la imagen al servidor.', 'Cerrar', { duration: 3000 });
-      }
+        this.notifications.error(err.error?.error || 'Error al subir la imagen al servidor.');
+      },
     });
   }
 
@@ -293,7 +312,7 @@ export class AjustesComponent implements OnInit {
     if (editando) {
       this.productoEditando.set({
         ...editando,
-        imagen_url: ''
+        imagen_url: '',
       });
     } else {
       this.nuevoProducto.imagen_url = '';
@@ -308,14 +327,14 @@ export class AjustesComponent implements OnInit {
           this.nuevoProducto.categoria_id = data[0].id!;
         }
       },
-      error: (err) => console.error('Error al cargar categorías:', err)
+      error: (err) => console.error('Error al cargar categorías:', err),
     });
   }
 
   private cargarProductos() {
     this.ajustesService.getAdminProductos().subscribe({
       next: (data) => this.productos.set(data),
-      error: (err) => console.error('Error al cargar productos de administración:', err)
+      error: (err) => console.error('Error al cargar productos de administración:', err),
     });
   }
 
@@ -327,35 +346,35 @@ export class AjustesComponent implements OnInit {
           this.nuevaMesa.zona_id = data[0].id!;
         }
       },
-      error: (err) => console.error('Error al cargar zonas:', err)
+      error: (err) => console.error('Error al cargar zonas:', err),
     });
   }
 
   private cargarMesas() {
     this.ajustesService.getAdminMesas().subscribe({
       next: (data) => this.mesas.set(data),
-      error: (err) => console.error('Error al cargar mesas:', err)
+      error: (err) => console.error('Error al cargar mesas:', err),
     });
   }
 
   private cargarClientes() {
     this.ajustesService.getClientes().subscribe({
       next: (data) => this.clientes.set(data),
-      error: (err) => console.error('Error al cargar directorio de clientes:', err)
+      error: (err) => console.error('Error al cargar directorio de clientes:', err),
     });
   }
 
   private cargarPromociones() {
     this.ajustesService.getPromociones().subscribe({
       next: (data) => this.promociones.set(data),
-      error: (err) => console.error('Error al cargar promociones:', err)
+      error: (err) => console.error('Error al cargar promociones:', err),
     });
   }
 
   private cargarEmpleados() {
     this.authService.getUsuarios().subscribe({
       next: (data) => this.empleados.set(data),
-      error: (err) => console.error('Error al cargar empleados:', err)
+      error: (err) => console.error('Error al cargar empleados:', err),
     });
   }
 
@@ -366,7 +385,7 @@ export class AjustesComponent implements OnInit {
           this.datosNegocio = { ...data };
         }
       },
-      error: (err) => console.error('Error al cargar datos del negocio:', err)
+      error: (err) => console.error('Error al cargar datos del negocio:', err),
     });
 
     this.ajustesService.getDatosTransferencia().subscribe({
@@ -375,7 +394,7 @@ export class AjustesComponent implements OnInit {
           this.datosTransferencia = { ...data };
         }
       },
-      error: (err) => console.error('Error al cargar datos de transferencia:', err)
+      error: (err) => console.error('Error al cargar datos de transferencia:', err),
     });
   }
 
@@ -397,28 +416,35 @@ export class AjustesComponent implements OnInit {
         const productosRaw: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         if (productosRaw.length === 0) {
-          this.snackBar.open('El archivo no contiene registros.', 'Cerrar', { duration: 3000 });
+          this.notifications.warning('El archivo no contiene registros.');
           return;
         }
 
-        const productosProcesados = productosRaw.map(row => ({
-          nombre: row.Nombre || row.nombre || '',
-          categoria: row.Categoria || row.categoria || 'General',
-          precio: Number(row.Precio || row.precio || 0),
-          disponible: row.Disponible !== undefined ? String(row.Disponible).toLowerCase() !== 'false' && row.Disponible !== 0 : true,
-          clave_sat: row.ClaveSAT || row.clave_sat || null
-        })).filter(p => p.nombre.trim().length > 0 && p.precio >= 0);
+        const productosProcesados = productosRaw
+          .map((row) => ({
+            nombre: row.Nombre || row.nombre || '',
+            categoria: row.Categoria || row.categoria || 'General',
+            precio: Number(row.Precio || row.precio || 0),
+            disponible:
+              row.Disponible !== undefined
+                ? String(row.Disponible).toLowerCase() !== 'false' && row.Disponible !== 0
+                : true,
+            clave_sat: row.ClaveSAT || row.clave_sat || null,
+          }))
+          .filter((p) => p.nombre.trim().length > 0 && p.precio >= 0);
 
         if (productosProcesados.length === 0) {
-          this.snackBar.open('No se encontraron productos válidos en el archivo.', 'Cerrar', { duration: 3000 });
+          this.notifications.warning('No se encontraron productos válidos en el archivo.');
           return;
         }
 
         this.importarProductosLote(productosProcesados);
-
       } catch (err) {
         console.error('Error leyendo archivo Excel/CSV:', err);
-        this.snackBar.open('Error al leer el archivo. Asegúrate de que sea un formato válido (.xlsx, .csv).', 'Cerrar', { duration: 4000 });
+        this.notifications.error(
+          'Error al leer el archivo. Asegúrate de que sea un formato válido (.xlsx, .csv).',
+          4000,
+        );
       } finally {
         target.value = '';
       }
@@ -428,20 +454,28 @@ export class AjustesComponent implements OnInit {
   }
 
   private importarProductosLote(productos: any[]) {
-    this.http.post<{ agregados: number }>('http://127.0.0.1:3000/api/productos/importar-lote', { productos }).subscribe({
-      next: (res) => {
-        this.snackBar.open(`¡Se importaron ${res.agregados} productos con éxito!`, 'Cerrar', { duration: 4000 });
-        this.cargarProductos();
-      },
-      error: (err) => {
-        console.error('Error al importar lote:', err);
-        this.snackBar.open('Error al guardar los productos importados en la base de datos.', 'Cerrar', { duration: 4000 });
-      }
-    });
+    this.http
+      .post<{ agregados: number }>('http://127.0.0.1:3000/api/productos/importar-lote', {
+        productos,
+      })
+      .subscribe({
+        next: (res) => {
+          this.notifications.success(`Se importaron ${res.agregados} productos con éxito.`, 4000);
+          this.cargarProductos();
+        },
+        error: (err) => {
+          console.error('Error al importar lote:', err);
+          this.notifications.error(
+            'Error al guardar los productos importados en la base de datos.',
+            4000,
+          );
+        },
+      });
   }
 
   descargarPlantillaEjemplo() {
-    const contenidoCsv = 'Nombre,Categoria,Precio,Disponible,ClaveSAT\nTacos al Pastor,Entradas,25.00,true,01010101\nRefresco 600ml,Bebidas,30.00,true,01010101';
+    const contenidoCsv =
+      'Nombre,Categoria,Precio,Disponible,ClaveSAT\nTacos al Pastor,Entradas,25.00,true,01010101\nRefresco 600ml,Bebidas,30.00,true,01010101';
     const blob = new Blob([contenidoCsv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -456,17 +490,17 @@ export class AjustesComponent implements OnInit {
   guardarProducto() {
     this.ajustesService.crearProducto(this.nuevoProducto).subscribe({
       next: (p) => {
-        this.snackBar.open(`Producto "${p.nombre}" registrado exitosamente.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Producto "${p.nombre}" registrado exitosamente.`);
         this.nuevoProducto = {
           categoria_id: this.categorias()[0]?.id || 0,
           nombre: '',
           precio: 0,
           disponible: true,
-          imagen_url: ''
+          imagen_url: '',
         };
         this.cargarProductos();
       },
-      error: () => this.snackBar.open('Error al intentar crear el producto.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al intentar crear el producto.'),
     });
   }
 
@@ -474,7 +508,7 @@ export class AjustesComponent implements OnInit {
     const imagenNormalizada = p.imagen_url || p.imagen || p.imagenUrl || '';
     this.productoEditando.set({
       ...p,
-      imagen_url: imagenNormalizada
+      imagen_url: imagenNormalizada,
     });
   }
 
@@ -484,26 +518,30 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.actualizarProducto(editado.id, editado).subscribe({
       next: (p) => {
-        this.snackBar.open(`Producto "${p.nombre}" actualizado correctamente.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Producto "${p.nombre}" actualizado correctamente.`);
         this.productoEditando.set(null);
         this.cargarProductos();
       },
-      error: () => this.snackBar.open('Error al intentar actualizar el producto.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al intentar actualizar el producto.'),
     });
   }
 
   eliminarProducto(id: number) {
-    if (!confirm('¿Estás seguro de eliminar este producto? En caso de tener historial de ventas, se desactivará del menú.')) return;
-
-    this.ajustesService.eliminarProducto(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 4000 });
-        this.cargarProductos();
+    this.notifications.confirmAction(
+      'Eliminar producto. Si tiene historial, se desactivará del menú.',
+      'Eliminar',
+      () => {
+        this.ajustesService.eliminarProducto(id).subscribe({
+          next: (res) => {
+            this.notifications.success(res.mensaje);
+            this.cargarProductos();
+          },
+          error: (err) => {
+            this.notifications.error(err.error?.error || 'Error al intentar eliminar el producto.');
+          },
+        });
       },
-      error: (err) => {
-        this.snackBar.open(err.error?.error || 'Error al intentar eliminar el producto.', 'Cerrar', { duration: 3000 });
-      }
-    });
+    );
   }
 
   cancelarEdicionProducto() {
@@ -515,24 +553,24 @@ export class AjustesComponent implements OnInit {
   guardarCategoria() {
     this.ajustesService.crearCategoria(this.nuevaCategoria).subscribe({
       next: (cat) => {
-        this.snackBar.open(`Categoría "${cat.nombre}" agregada al sistema.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Categoría "${cat.nombre}" agregada al sistema.`);
         this.nuevaCategoria = {
           nombre: '',
           icono: 'restaurant',
           orden: 0,
-          destino_impresion: 'COCINA'
+          destino_impresion: 'COCINA',
         };
         this.cargarCategorias();
         this.cargarProductos();
       },
-      error: () => this.snackBar.open('Error al intentar dar de alta la categoría.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al intentar dar de alta la categoría.'),
     });
   }
 
   habilitarEdicionCategoria(cat: CategoriaAdmin) {
     this.categoriaEditando.set({
       ...cat,
-      destino_impresion: cat.destino_impresion || 'COCINA'
+      destino_impresion: cat.destino_impresion || 'COCINA',
     });
   }
 
@@ -542,27 +580,33 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.actualizarCategoria(editado.id, editado).subscribe({
       next: (cat) => {
-        this.snackBar.open(`Categoría "${cat.nombre}" actualizada.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Categoría "${cat.nombre}" actualizada.`);
         this.categoriaEditando.set(null);
         this.cargarCategorias();
         this.cargarProductos();
       },
-      error: () => this.snackBar.open('Error al actualizar la categoría.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al actualizar la categoría.'),
     });
   }
 
   eliminarCategoria(id: number) {
-    if (!confirm('¿Estás seguro de eliminar esta categoría? Solo se permite si no contiene productos.')) return;
-
-    this.ajustesService.eliminarCategoria(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 3000 });
-        this.cargarCategorias();
+    this.notifications.confirmAction(
+      'Eliminar categoría. Solo procede si no contiene productos.',
+      'Eliminar',
+      () => {
+        this.ajustesService.eliminarCategoria(id).subscribe({
+          next: (res) => {
+            this.notifications.success(res.mensaje);
+            this.cargarCategorias();
+          },
+          error: (err) => {
+            this.notifications.error(
+              err.error?.error || 'Error al intentar eliminar la categoría.',
+            );
+          },
+        });
       },
-      error: (err) => {
-        this.snackBar.open(err.error?.error || 'Error al intentar eliminar la categoría.', 'Cerrar', { duration: 4000 });
-      }
-    });
+    );
   }
 
   cancelarEdicionCategoria() {
@@ -577,11 +621,12 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.crearZona({ nombre }).subscribe({
       next: (z) => {
-        this.snackBar.open(`Zona "${z.nombre}" creada correctamente para el salón.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Zona "${z.nombre}" creada correctamente para el salón.`);
         this.nuevaZonaNombre.set('');
         this.cargarZonas();
       },
-      error: () => this.snackBar.open('Error al crear la zona. Valida que no esté duplicada.', 'Cerrar', { duration: 3000 })
+      error: () =>
+        this.notifications.error('Error al crear la zona. Valida que no esté duplicada.'),
     });
   }
 
@@ -595,27 +640,31 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.actualizarZona(editado.id, { nombre: editado.nombre }).subscribe({
       next: (z) => {
-        this.snackBar.open(`Zona actualizada a "${z.nombre}".`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Zona actualizada a "${z.nombre}".`);
         this.zonaEditando.set(null);
         this.cargarZonas();
         this.cargarMesas();
       },
-      error: () => this.snackBar.open('Error al actualizar la zona.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al actualizar la zona.'),
     });
   }
 
   eliminarZona(id: number) {
-    if (!confirm('¿Estás seguro de eliminar esta zona? Solo se permite si no hay mesas asignadas a ella.')) return;
-
-    this.ajustesService.eliminarZona(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 3000 });
-        this.cargarZonas();
+    this.notifications.confirmAction(
+      'Eliminar zona. Solo procede si no tiene mesas asignadas.',
+      'Eliminar',
+      () => {
+        this.ajustesService.eliminarZona(id).subscribe({
+          next: (res) => {
+            this.notifications.success(res.mensaje);
+            this.cargarZonas();
+          },
+          error: (err) => {
+            this.notifications.error(err.error?.error || 'Error al eliminar zona.');
+          },
+        });
       },
-      error: (err) => {
-        this.snackBar.open(err.error?.error || 'Error al eliminar zona.', 'Cerrar', { duration: 4000 });
-      }
-    });
+    );
   }
 
   cancelarEdicionZona() {
@@ -627,15 +676,18 @@ export class AjustesComponent implements OnInit {
   guardarMesa() {
     this.ajustesService.crearMesa(this.nuevaMesa).subscribe({
       next: (m) => {
-        this.snackBar.open(`Mesa ${m.numero} dada de alta correctamente.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Mesa ${m.numero} dada de alta correctamente.`);
         this.nuevaMesa = {
           numero: '',
           zona_id: this.zonas()[0]?.id || 0,
-          capacidad: 4
+          capacidad: 4,
         };
         this.cargarMesas();
       },
-      error: () => this.snackBar.open('Error al guardar la mesa. Asegúrate de que no esté duplicada en la misma zona.', 'Cerrar', { duration: 3000 })
+      error: () =>
+        this.notifications.error(
+          'Error al guardar la mesa. Asegúrate de que no esté duplicada en la misma zona.',
+        ),
     });
   }
 
@@ -649,25 +701,25 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.actualizarMesa(editado.id, editado).subscribe({
       next: (m) => {
-        this.snackBar.open(`Mesa "${m.numero}" guardada exitosamente.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Mesa "${m.numero}" guardada exitosamente.`);
         this.mesaEditando.set(null);
         this.cargarMesas();
       },
-      error: () => this.snackBar.open('Error al modificar la mesa. Valida duplicados.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al modificar la mesa. Valida duplicados.'),
     });
   }
 
   eliminarMesa(id: number) {
-    if (!confirm('¿Estás seguro de eliminar esta mesa del catálogo?')) return;
-
-    this.ajustesService.eliminarMesa(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 3000 });
-        this.cargarMesas();
-      },
-      error: (err) => {
-        this.snackBar.open(err.error?.error || 'La mesa no puede borrarse por historial.', 'Cerrar', { duration: 4000 });
-      }
+    this.notifications.confirmAction('Eliminar mesa del catálogo.', 'Eliminar', () => {
+      this.ajustesService.eliminarMesa(id).subscribe({
+        next: (res) => {
+          this.notifications.success(res.mensaje);
+          this.cargarMesas();
+        },
+        error: (err) => {
+          this.notifications.error(err.error?.error || 'La mesa no puede borrarse por historial.');
+        },
+      });
     });
   }
 
@@ -680,18 +732,19 @@ export class AjustesComponent implements OnInit {
   guardarNegocio() {
     this.ajustesService.guardarDatosNegocio(this.datosNegocio).subscribe({
       next: () => {
-        this.snackBar.open('Datos comerciales actualizados en los recibos.', 'Cerrar', { duration: 3000 });
+        this.notifications.success('Datos comerciales actualizados en los recibos.');
       },
-      error: () => this.snackBar.open('No fue posible actualizar la información del negocio.', 'Cerrar', { duration: 3000 })
+      error: () =>
+        this.notifications.error('No fue posible actualizar la información del negocio.'),
     });
   }
 
   guardarTransferencia() {
     this.ajustesService.guardarDatosTransferencia(this.datosTransferencia).subscribe({
       next: () => {
-        this.snackBar.open('Ajustes de cuenta de transferencia grabados.', 'Cerrar', { duration: 3000 });
+        this.notifications.success('Ajustes de cuenta de transferencia grabados.');
       },
-      error: () => this.snackBar.open('Error al guardar la configuración de transferencia.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al guardar la configuración de transferencia.'),
     });
   }
 
@@ -700,17 +753,17 @@ export class AjustesComponent implements OnInit {
   guardarCliente() {
     this.ajustesService.crearCliente(this.nuevoCliente).subscribe({
       next: (cli) => {
-        this.snackBar.open(`Cliente "${cli.nombre}" registrado.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Cliente "${cli.nombre}" registrado.`);
         this.nuevoCliente = {
           nombre: '',
           telefono: '',
           direccion: '',
           email: '',
-          notas: ''
+          notas: '',
         };
         this.cargarClientes();
       },
-      error: () => this.snackBar.open('Error al ingresar el cliente a la libreta.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al ingresar el cliente a la libreta.'),
     });
   }
 
@@ -724,23 +777,23 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.actualizarCliente(editado.id, editado).subscribe({
       next: (cli) => {
-        this.snackBar.open(`Cliente "${cli.nombre}" actualizado en el directorio.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Cliente "${cli.nombre}" actualizado en el directorio.`);
         this.clienteEditando.set(null);
         this.cargarClientes();
       },
-      error: () => this.snackBar.open('No se pudo guardar la información del cliente.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('No se pudo guardar la información del cliente.'),
     });
   }
 
   eliminarCliente(id: number) {
-    if (!confirm('¿Estás seguro de eliminar este cliente del directorio?')) return;
-
-    this.ajustesService.eliminarCliente(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 3000 });
-        this.cargarClientes();
-      },
-      error: () => this.snackBar.open('Error al eliminar cliente.', 'Cerrar', { duration: 3000 })
+    this.notifications.confirmAction('Eliminar cliente del directorio.', 'Eliminar', () => {
+      this.ajustesService.eliminarCliente(id).subscribe({
+        next: (res) => {
+          this.notifications.success(res.mensaje);
+          this.cargarClientes();
+        },
+        error: () => this.notifications.error('Error al eliminar cliente.'),
+      });
     });
   }
 
@@ -753,7 +806,7 @@ export class AjustesComponent implements OnInit {
   guardarPromocion() {
     this.ajustesService.crearPromocion(this.nuevaPromocion).subscribe({
       next: (p) => {
-        this.snackBar.open(`Promoción "${p.nombre}" guardada con éxito.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Promoción "${p.nombre}" guardada con éxito.`);
         this.nuevaPromocion = {
           nombre: '',
           codigo: '',
@@ -763,11 +816,12 @@ export class AjustesComponent implements OnInit {
           categoria_id: null,
           producto_id: null,
           descripcion: '',
-          activo: true
+          activo: true,
         };
         this.cargarPromociones();
       },
-      error: () => this.snackBar.open('Error al guardar la promoción. Valide el código único.', 'Cerrar', { duration: 3000 })
+      error: () =>
+        this.notifications.error('Error al guardar la promoción. Valide el código único.'),
     });
   }
 
@@ -776,7 +830,7 @@ export class AjustesComponent implements OnInit {
       ...p,
       aplica_a: p.aplica_a || 'TOTAL_ORDEN',
       categoria_id: p.categoria_id || null,
-      producto_id: p.producto_id || null
+      producto_id: p.producto_id || null,
     });
   }
 
@@ -786,23 +840,23 @@ export class AjustesComponent implements OnInit {
 
     this.ajustesService.actualizarPromocion(editado.id, editado).subscribe({
       next: (p) => {
-        this.snackBar.open(`Promoción "${p.nombre}" actualizada.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Promoción "${p.nombre}" actualizada.`);
         this.promocionEditando.set(null);
         this.cargarPromociones();
       },
-      error: () => this.snackBar.open('No se pudo actualizar la promoción.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('No se pudo actualizar la promoción.'),
     });
   }
 
   eliminarPromocion(id: number) {
-    if (!confirm('¿Estás seguro de eliminar esta promoción?')) return;
-
-    this.ajustesService.eliminarPromocion(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 3000 });
-        this.cargarPromociones();
-      },
-      error: () => this.snackBar.open('Error al eliminar promoción.', 'Cerrar', { duration: 3000 })
+    this.notifications.confirmAction('Eliminar promoción.', 'Eliminar', () => {
+      this.ajustesService.eliminarPromocion(id).subscribe({
+        next: (res) => {
+          this.notifications.success(res.mensaje);
+          this.cargarPromociones();
+        },
+        error: () => this.notifications.error('Error al eliminar promoción.'),
+      });
     });
   }
 
@@ -815,16 +869,17 @@ export class AjustesComponent implements OnInit {
   guardarEmpleado() {
     this.authService.crearUsuario(this.nuevoEmpleado).subscribe({
       next: (emp) => {
-        this.snackBar.open(`Empleado "${emp.nombre}" registrado con éxito.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Empleado "${emp.nombre}" registrado con éxito.`);
         this.nuevoEmpleado = {
           nombre: '',
           pin: '',
           rol: 'MESERO',
-          activo: true
+          activo: true,
         };
         this.cargarEmpleados();
       },
-      error: (err) => this.snackBar.open(err.error?.error || 'Error al intentar registrar el empleado.', 'Cerrar', { duration: 3000 })
+      error: (err) =>
+        this.notifications.error(err.error?.error || 'Error al intentar registrar el empleado.'),
     });
   }
 
@@ -838,23 +893,26 @@ export class AjustesComponent implements OnInit {
 
     this.authService.actualizarUsuario(editado.id, editado).subscribe({
       next: (emp) => {
-        this.snackBar.open(`Empleado "${emp.nombre}" actualizado correctamente.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Empleado "${emp.nombre}" actualizado correctamente.`);
         this.empleadoEditando.set(null);
         this.cargarEmpleados();
       },
-      error: (err) => this.snackBar.open(err.error?.error || 'No se pudo guardar la información del empleado.', 'Cerrar', { duration: 3000 })
+      error: (err) =>
+        this.notifications.error(
+          err.error?.error || 'No se pudo guardar la información del empleado.',
+        ),
     });
   }
 
   eliminarEmpleado(id: number) {
-    if (!confirm('¿Estás seguro de eliminar o retirar este empleado?')) return;
-
-    this.authService.eliminarUsuario(id).subscribe({
-      next: (res) => {
-        this.snackBar.open(res.mensaje, 'Cerrar', { duration: 3000 });
-        this.cargarEmpleados();
-      },
-      error: () => this.snackBar.open('Error al eliminar el empleado.', 'Cerrar', { duration: 3000 })
+    this.notifications.confirmAction('Eliminar o retirar empleado.', 'Eliminar', () => {
+      this.authService.eliminarUsuario(id).subscribe({
+        next: (res) => {
+          this.notifications.success(res.mensaje);
+          this.cargarEmpleados();
+        },
+        error: () => this.notifications.error('Error al eliminar el empleado.'),
+      });
     });
   }
 
@@ -867,25 +925,43 @@ export class AjustesComponent implements OnInit {
   cargarImpresoras() {
     this.printerService.getImpresoras().subscribe({
       next: (data) => this.impresoras.set(data),
-      error: (err) => console.error('Error al cargar impresoras:', err)
+      error: (err) => console.error('Error al cargar impresoras:', err),
     });
+  }
+
+  cargarImpresorasWindows() {
+    void this.cargarImpresorasWindowsDesdeElectron();
+  }
+
+  obtenerEtiquetaImpresoraWindows(printer: WindowsPrinterInfo): string {
+    const extras: string[] = [];
+
+    if (printer.description) {
+      extras.push(printer.description);
+    }
+
+    if (printer.isDefault) {
+      extras.push('Predeterminada');
+    }
+
+    return extras.length > 0 ? `${printer.name} - ${extras.join(' - ')}` : printer.name;
   }
 
   guardarImpresora() {
     this.printerService.crearImpresora(this.nuevaImpresora).subscribe({
       next: (imp) => {
-        this.snackBar.open(`Impresora "${imp.nombre}" guardada.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Impresora "${imp.nombre}" guardada.`);
         this.nuevaImpresora = {
           nombre: '',
           destino: 'COCINA',
           tipo: 'SIMULACION',
           ip_o_puerto: '192.168.1.100',
           puerto_tcp: 9100,
-          activa: true
+          activa: true,
         };
         this.cargarImpresoras();
       },
-      error: () => this.snackBar.open('Error al guardar la impresora.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al guardar la impresora.'),
     });
   }
 
@@ -899,33 +975,82 @@ export class AjustesComponent implements OnInit {
 
     this.printerService.actualizarImpresora(editado.id, editado).subscribe({
       next: (imp) => {
-        this.snackBar.open(`Impresora "${imp.nombre}" actualizada.`, 'Cerrar', { duration: 3000 });
+        this.notifications.success(`Impresora "${imp.nombre}" actualizada.`);
         this.impresoraEditando.set(null);
         this.cargarImpresoras();
       },
-      error: () => this.snackBar.open('Error al actualizar la impresora.', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al actualizar la impresora.'),
     });
   }
 
   eliminarImpresora(id: number) {
-    if (!confirm('¿Deseas eliminar esta configuración de impresora?')) return;
-    this.printerService.eliminarImpresora(id).subscribe({
-      next: () => {
-        this.snackBar.open('Impresora eliminada.', 'Cerrar', { duration: 3000 });
-        this.cargarImpresoras();
-      },
-      error: () => this.snackBar.open('Error al eliminar impresora.', 'Cerrar', { duration: 3000 })
+    this.notifications.confirmAction('Eliminar configuración de impresora.', 'Eliminar', () => {
+      this.printerService.eliminarImpresora(id).subscribe({
+        next: () => {
+          this.notifications.success('Impresora eliminada.');
+          this.cargarImpresoras();
+        },
+        error: () => this.notifications.error('Error al eliminar impresora.'),
+      });
     });
   }
 
   probarImpresora(id: number) {
+    const impresora = this.impresoras().find((item) => item.id === id);
+    if (!impresora) {
+      this.notifications.warning('Impresora no encontrada.');
+      return;
+    }
+
+    if (impresora.tipo === 'USB') {
+      void this.probarImpresoraUsb(impresora);
+      return;
+    }
+
     this.printerService.probarImpresora(id).subscribe({
-      next: (res) => this.snackBar.open(res.mensaje, 'Cerrar', { duration: 4000 }),
-      error: (err) => this.snackBar.open(err.error?.error || 'Error al probar impresora.', 'Cerrar', { duration: 4000 })
+      next: (res) => this.notifications.info(res.mensaje, 4000),
+      error: (err) =>
+        this.notifications.error(err.error?.error || 'Error al probar impresora.', 4000),
     });
   }
 
   cancelarEdicionImpresora() {
     this.impresoraEditando.set(null);
+  }
+
+  private async cargarImpresorasWindowsDesdeElectron() {
+    try {
+      const data = await this.printerService.getSystemPrinters();
+      this.impresorasWindows.set(data);
+    } catch (err) {
+      console.error('Error al consultar impresoras Windows:', err);
+      this.impresorasWindows.set([]);
+    }
+  }
+
+  private async probarImpresoraUsb(impresora: Impresora) {
+    try {
+      await this.printerService.printTicketSilently({
+        tipo: 'USB',
+        printerName: impresora.ip_o_puerto,
+        contenido: [
+          'BORBOTO POS',
+          'PRUEBA DE IMPRESION USB',
+          '------------------------------',
+          `Impresora: ${impresora.nombre}`,
+          `Cola: ${impresora.ip_o_puerto}`,
+          `Fecha: ${new Date().toLocaleString('es-MX')}`,
+          '------------------------------',
+          'Si ves este ticket, Electron pudo imprimir en modo silencioso.',
+          '',
+        ].join('\n'),
+        titulo: 'Prueba de Impresion USB',
+        anchoPapel: impresora.ancho_papel || '80mm',
+      });
+
+      this.notifications.success(`Prueba de impresión enviada a "${impresora.nombre}".`, 4000);
+    } catch (err: any) {
+      this.notifications.error(err?.message || 'Error al probar impresora USB.', 5000);
+    }
   }
 }

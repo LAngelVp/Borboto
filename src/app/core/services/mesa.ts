@@ -164,20 +164,20 @@ export class MesaService {
   cargarMesas() {
     this.http.get<Mesa[]>(`${this.apiUrl}/mesas`).subscribe({
       next: (data) => {
-        console.log('📡 [DEBUG HTTP] Mesas cargadas desde backend:', data);
+        console.log('📡 Mesas cargadas');
         this.mesas.set(data || []);
       },
-      error: (err) => console.error('❌ [DEBUG HTTP] Error cargando mesas:', err)
+      error: (err) => console.error('❌ Error cargando mesas:', err)
     });
   }
 
   cargarZonas() {
     this.http.get<Zona[]>(`${this.apiUrl}/zonas`).subscribe({
       next: (data) => {
-        console.log('📡 [DEBUG HTTP] Zonas cargadas desde backend:', data);
+        console.log('📡 Zonas cargadas:', data);
         this.zonas.set(data || []);
       },
-      error: (err) => console.error('❌ [DEBUG HTTP] Error cargando zonas:', err)
+      error: (err) => console.error('❌ Error cargando zonas:', err)
     });
   }
 

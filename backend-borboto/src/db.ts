@@ -28,11 +28,13 @@ export const pool = new Pool({
 });
 
 pool.on('connect', () => {
-  console.log(`🟢 Conexión activa a PostgreSQL en ${dbTargetName}:${dbPort}`);
+  // console.log(`🟢 Conexión activa a PostgreSQL en ${dbTargetName}:${dbPort}`);
+  console.log(`🟢 Conexión activa a DB`);
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Error imprevisto en el pool de PostgreSQL:', err);
+  console.error('❌ Error imprevisto en el pool de DB');
+  // console.error('❌ Error imprevisto en el pool de PostgreSQL:', err);
 });
 
 // Función auxiliar para localizar la carpeta Database
@@ -50,12 +52,14 @@ function getDatabaseDirectory(): string {
 
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
-      console.log(`📂 Carpeta "Database" localizada en: ${p}`);
+      console.log(`📂 Carpeta localizada`);
+      // console.log(`📂 Carpeta "Database" localizada en: ${p}`);
       return p;
     }
   }
 
-  throw new Error('❌ No se encontró la carpeta "Database" con el archivo 000_init.sql');
+  throw new Error('❌ No se encontró la File DB');
+  // throw new Error('❌ No se encontró la carpeta "Database" con el archivo 000_init.sql');
 }
 
 export async function sincronizarCombosComoProductos() {
@@ -190,17 +194,20 @@ export async function initDB(): Promise<void> {
             ['000_init.sql']
           );
           await targetPool.query('COMMIT');
-          console.log('✅ Estructura inicial (000_init.sql) creada exitosamente en borboto_pos.');
+          console.log('✅ Estructura inicial creada exitosamente en borboto_pos.');
+          // console.log('✅ Estructura inicial (000_init.sql) creada exitosamente en borboto_pos.');
         } catch (migrationError: any) {
           await targetPool.query('ROLLBACK');
           console.error('❌ Falló la migración 000_init.sql:', migrationError.message);
           throw migrationError;
         }
       } else {
-        console.warn(`⚠️ No se encontró el archivo 000_init.sql en: ${initPath}`);
+        console.warn(`⚠️ No se encontró el archivo inicial`);
+        // console.warn(`⚠️ No se encontró el archivo 000_init.sql en: ${initPath}`);
       }
     } else {
-      console.log('ℹ️ La migración 000_init.sql ya se encontraba aplicada.');
+      console.log('ℹ️ La migración inicial ya se encontraba aplicada.');
+      // console.log('ℹ️ La migración 000_init.sql ya se encontraba aplicada.');
     }
 
     // Incremental migrations to ensure 'facturas' table satisfies new audit requirements

@@ -4,7 +4,10 @@
       <mat-icon class="header-icon">settings</mat-icon>
       <div>
         <h1>Ajustes Administrativos POS</h1>
-        <p>Configura el menú, las mesas, datos fiscales de facturación y directorio de clientes de confianza.</p>
+        <p>
+          Configura el menú, las mesas, datos fiscales de facturación y directorio de clientes de
+          confianza.
+        </p>
       </div>
     </div>
     <button mat-stroked-button color="primary" routerLink="/mesas">
@@ -13,7 +16,6 @@
   </header>
 
   <mat-tab-group class="ajustes-tabs" mat-stretch-tabs="false">
-
     <!-- PESTAÑA 1: CATÁLOGO Y MENÚ -->
     <mat-tab>
       <ng-template mat-tab-label>
@@ -23,12 +25,22 @@
       <div class="tab-content row-layout">
         <!-- Izquierda: Formulario de Productos -->
         <div class="form-card col-sm">
-          <div class="acciones-productos-row" style="display: flex; gap: 10px; margin-bottom: 16px;">
-            <input type="file" #fileInput (change)="onFileSelectedImportarProductos($event)" accept=".csv, .xlsx, .xls" style="display: none;">
+          <div class="acciones-productos-row" style="display: flex; gap: 10px; margin-bottom: 16px">
+            <input
+              type="file"
+              #fileInput
+              (change)="onFileSelectedImportarProductos($event)"
+              accept=".csv, .xlsx, .xls"
+              style="display: none"
+            />
             <button mat-stroked-button color="primary" (click)="fileInput.click()">
               <mat-icon>file_upload</mat-icon> Importar Productos (CSV / Excel)
             </button>
-            <button mat-button (click)="descargarPlantillaEjemplo()" title="Descargar plantilla de ejemplo">
+            <button
+              mat-button
+              (click)="descargarPlantillaEjemplo()"
+              title="Descargar plantilla de ejemplo"
+            >
               <mat-icon>download</mat-icon> Plantilla Ejemplo
             </button>
           </div>
@@ -41,12 +53,20 @@
             <form (submit)="guardarEdicionProducto(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre</mat-label>
-                <input matInput [(ngModel)]="prod.nombre" name="editProdNombre" required>
+                <input matInput [(ngModel)]="prod.nombre" name="editProdNombre" required />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Precio ($)</mat-label>
-                <input matInput type="number" step="0.01" [(ngModel)]="prod.precio" name="editProdPrecio" required min="0">
+                <input
+                  matInput
+                  type="number"
+                  step="0.01"
+                  [(ngModel)]="prod.precio"
+                  name="editProdPrecio"
+                  required
+                  min="0"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -60,17 +80,39 @@
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Imagen del Producto</mat-label>
-                <input matInput [(ngModel)]="prod.imagen_url" name="editProdImagen" placeholder="https://... o carga desde tu PC">
-                <button mat-icon-button matSuffix type="button" (click)="fileInputEdit.click()" title="Subir desde la computadora">
+                <input
+                  matInput
+                  [(ngModel)]="prod.imagen_url"
+                  name="editProdImagen"
+                  placeholder="https://... o carga desde tu PC"
+                />
+                <button
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  (click)="fileInputEdit.click()"
+                  title="Subir desde la computadora"
+                >
                   <mat-icon class="upload-btn-icon">cloud_upload</mat-icon>
                 </button>
               </mat-form-field>
-              <input #fileInputEdit type="file" (change)="onFileSelected($event)" accept="image/*" style="display: none;">
+              <input
+                #fileInputEdit
+                type="file"
+                (change)="onFileSelected($event)"
+                accept="image/*"
+                style="display: none"
+              />
 
               @if (prod.imagen_url) {
                 <div class="image-preview">
-                  <img [src]="obtenerUrlImagen(prod.imagen_url)" alt="Previsualización">
-                  <button type="button" class="btn-remove-img" (click)="limpiarImagen()" title="Quitar imagen">
+                  <img [src]="obtenerUrlImagen(prod.imagen_url)" alt="Previsualización" />
+                  <button
+                    type="button"
+                    class="btn-remove-img"
+                    (click)="limpiarImagen()"
+                    title="Quitar imagen"
+                  >
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
@@ -78,14 +120,23 @@
 
               <div class="checkbox-container">
                 <label class="custom-checkbox">
-                  <input type="checkbox" [(ngModel)]="prod.disponible" name="editProdDisp">
+                  <input type="checkbox" [(ngModel)]="prod.disponible" name="editProdDisp" />
                   <span>Disponible para Venta</span>
                 </label>
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!prod.nombre || prod.precio === null">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionProducto()">Cancelar</button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!prod.nombre || prod.precio === null"
+                >
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionProducto()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -96,12 +147,27 @@
             <form (submit)="guardarProducto(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre del Producto</mat-label>
-                <input matInput [(ngModel)]="nuevoProducto.nombre" name="prodNombre" placeholder="Ej. Tacos de Pastor" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevoProducto.nombre"
+                  name="prodNombre"
+                  placeholder="Ej. Tacos de Pastor"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Precio ($ MXN)</mat-label>
-                <input matInput type="number" step="0.01" [(ngModel)]="nuevoProducto.precio" name="prodPrecio" placeholder="0.00" required min="0">
+                <input
+                  matInput
+                  type="number"
+                  step="0.01"
+                  [(ngModel)]="nuevoProducto.precio"
+                  name="prodPrecio"
+                  placeholder="0.00"
+                  required
+                  min="0"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -115,24 +181,55 @@
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Imagen del Producto</mat-label>
-                <input matInput [(ngModel)]="nuevoProducto.imagen_url" name="prodImagen" placeholder="https://... o carga desde tu PC">
-                <button mat-icon-button matSuffix type="button" (click)="fileInputCreate.click()" title="Subir desde la computadora">
+                <input
+                  matInput
+                  [(ngModel)]="nuevoProducto.imagen_url"
+                  name="prodImagen"
+                  placeholder="https://... o carga desde tu PC"
+                />
+                <button
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  (click)="fileInputCreate.click()"
+                  title="Subir desde la computadora"
+                >
                   <mat-icon class="upload-btn-icon">cloud_upload</mat-icon>
                 </button>
               </mat-form-field>
-              <input #fileInputCreate type="file" (change)="onFileSelected($event)" accept="image/*" style="display: none;">
+              <input
+                #fileInputCreate
+                type="file"
+                (change)="onFileSelected($event)"
+                accept="image/*"
+                style="display: none"
+              />
 
               @if (nuevoProducto.imagen_url) {
                 <div class="image-preview">
-                  <img [src]="obtenerUrlImagen(nuevoProducto.imagen_url)" alt="Previsualización">
-                  <button type="button" class="btn-remove-img" (click)="limpiarImagen()" title="Quitar imagen">
+                  <img [src]="obtenerUrlImagen(nuevoProducto.imagen_url)" alt="Previsualización" />
+                  <button
+                    type="button"
+                    class="btn-remove-img"
+                    (click)="limpiarImagen()"
+                    title="Quitar imagen"
+                  >
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
               }
 
               <div class="form-actions">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoProducto.nombre || nuevoProducto.precio === null || !nuevoProducto.categoria_id">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="
+                    !nuevoProducto.nombre ||
+                    nuevoProducto.precio === null ||
+                    !nuevoProducto.categoria_id
+                  "
+                >
                   <mat-icon>add</mat-icon> Crear Platillo
                 </button>
               </div>
@@ -147,34 +244,45 @@
               <h3>Editar Categoría</h3>
               <p>Ajusta el nombre, ícono, orden o destino de impresión.</p>
             </div>
-            <form (submit)="guardarEdicionCategoria(); $event.preventDefault()" class="ajustes-form">
+            <form
+              (submit)="guardarEdicionCategoria(); $event.preventDefault()"
+              class="ajustes-form"
+            >
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre</mat-label>
-                <input matInput [(ngModel)]="catEdit.nombre" name="editCatNombre" required>
+                <input matInput [(ngModel)]="catEdit.nombre" name="editCatNombre" required />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Ícono de Material</mat-label>
-                <input matInput [(ngModel)]="catEdit.icono" name="editCatIcono">
+                <input matInput [(ngModel)]="catEdit.icono" name="editCatIcono" />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Orden</mat-label>
-                <input matInput type="number" [(ngModel)]="catEdit.orden" name="editCatOrden">
+                <input matInput type="number" [(ngModel)]="catEdit.orden" name="editCatOrden" />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Destino de Impresión</mat-label>
                 <mat-select [(ngModel)]="catEdit.destino_impresion" name="editCatDestino" required>
-                  <mat-option value="COCINA"><mat-icon>restaurant</mat-icon> Cocina (Alimentos)</mat-option>
-                  <mat-option value="BARRA"><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option>
+                  <mat-option value="COCINA"
+                    ><mat-icon>restaurant</mat-icon> Cocina (Alimentos)</mat-option
+                  >
+                  <mat-option value="BARRA"
+                    ><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option
+                  >
                   <mat-option value="NINGUNO"><mat-icon>block</mat-icon> Sin Impresión</mat-option>
                 </mat-select>
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!catEdit.nombre">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionCategoria()">Cancelar</button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!catEdit.nombre">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionCategoria()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -185,30 +293,61 @@
             <form (submit)="guardarCategoria(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre de Categoría</mat-label>
-                <input matInput [(ngModel)]="nuevaCategoria.nombre" name="catNombre" placeholder="Ej. BEBIDAS" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevaCategoria.nombre"
+                  name="catNombre"
+                  placeholder="Ej. BEBIDAS"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Ícono de Material</mat-label>
-                <input matInput [(ngModel)]="nuevaCategoria.icono" name="catIcono" placeholder="Ej. restaurant">
+                <input
+                  matInput
+                  [(ngModel)]="nuevaCategoria.icono"
+                  name="catIcono"
+                  placeholder="Ej. restaurant"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Orden de visualización</mat-label>
-                <input matInput type="number" [(ngModel)]="nuevaCategoria.orden" name="catOrden" placeholder="0">
+                <input
+                  matInput
+                  type="number"
+                  [(ngModel)]="nuevaCategoria.orden"
+                  name="catOrden"
+                  placeholder="0"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Destino de Impresión</mat-label>
-                <mat-select [(ngModel)]="nuevaCategoria.destino_impresion" name="catDestino" required>
-                  <mat-option value="COCINA"><mat-icon>restaurant</mat-icon> Cocina (Alimentos)</mat-option>
-                  <mat-option value="BARRA"><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option>
+                <mat-select
+                  [(ngModel)]="nuevaCategoria.destino_impresion"
+                  name="catDestino"
+                  required
+                >
+                  <mat-option value="COCINA"
+                    ><mat-icon>restaurant</mat-icon> Cocina (Alimentos)</mat-option
+                  >
+                  <mat-option value="BARRA"
+                    ><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option
+                  >
                   <mat-option value="NINGUNO"><mat-icon>block</mat-icon> Sin Impresión</mat-option>
                 </mat-select>
               </mat-form-field>
 
               <div class="form-actions">
-                <button mat-stroked-button color="primary" type="submit" [disabled]="!nuevaCategoria.nombre" class="w-full">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!nuevaCategoria.nombre"
+                  class="w-full"
+                >
                   <mat-icon>category</mat-icon> Crear Categoría
                 </button>
               </div>
@@ -229,29 +368,56 @@
               @for (cat of categorias(); track cat.id) {
                 <div class="crud-row-item">
                   <span class="row-text font-bold">
-                    <mat-icon class="inline-icon">{{ cat.icono || 'restaurant' }}</mat-icon> {{ cat.nombre }}
+                    <mat-icon class="inline-icon">{{ cat.icono || 'restaurant' }}</mat-icon>
+                    {{ cat.nombre }}
                     <span class="badge">Orden: {{ cat.orden || 0 }}</span>
-                    <span class="badge" [style.background-color]="cat.destino_impresion === 'BARRA' ? '#e3f2fd' : '#fbe9e7'" [style.color]="cat.destino_impresion === 'BARRA' ? '#1565c0' : '#d84315'">
+                    <span
+                      class="badge"
+                      [style.background-color]="
+                        cat.destino_impresion === 'BARRA' ? '#e3f2fd' : '#fbe9e7'
+                      "
+                      [style.color]="cat.destino_impresion === 'BARRA' ? '#1565c0' : '#d84315'"
+                    >
                       🖨️ {{ cat.destino_impresion || 'COCINA' }}
                     </span>
                   </span>
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionCategoria(cat)" title="Editar Categoria"><mat-icon>edit</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon edit"
+                      (click)="habilitarEdicionCategoria(cat)"
+                      title="Editar Categoria"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarCategoria(cat.id!)" title="Eliminar Categoria"><mat-icon>delete</mat-icon></button>
+                      <button
+                        type="button"
+                        class="btn-icon delete"
+                        (click)="eliminarCategoria(cat.id!)"
+                        title="Eliminar Categoria"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
                     }
                   </div>
                 </div>
               }
             </div>
 
-            <h4 class="section-subtitle"><mat-icon>fastfood</mat-icon> Menú de Platillos / Bebidas</h4>
+            <h4 class="section-subtitle">
+              <mat-icon>fastfood</mat-icon> Menú de Platillos / Bebidas
+            </h4>
             <div class="crud-items-grid">
               @for (p of productos(); track p.id) {
                 <div class="crud-row-item" [class.inactive]="!p.disponible">
                   <div class="prod-thumb">
                     @if (p.imagen_url) {
-                      <img [src]="obtenerUrlImagen(p.imagen_url)" [alt]="p.nombre" class="thumb-img">
+                      <img
+                        [src]="obtenerUrlImagen(p.imagen_url)"
+                        [alt]="p.nombre"
+                        class="thumb-img"
+                      />
                     } @else {
                       <div class="thumb-placeholder"><mat-icon>restaurant</mat-icon></div>
                     }
@@ -259,15 +425,33 @@
 
                   <div class="row-text">
                     <span class="font-bold">{{ p.nombre }}</span>
-                    <span class="secondary-info">({{ p['categoriaNombre'] || 'Sin categoría' }})</span>
-                    <span class="price-info">${{ p.precio | number:'1.2-2' }}</span>
-                    @if (!p.disponible) { <span class="no-disp-badge">No disponible</span> }
+                    <span class="secondary-info"
+                      >({{ p['categoriaNombre'] || 'Sin categoría' }})</span
+                    >
+                    <span class="price-info">${{ p.precio | number: '1.2-2' }}</span>
+                    @if (!p.disponible) {
+                      <span class="no-disp-badge">No disponible</span>
+                    }
                   </div>
 
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionProducto(p)" title="Editar Producto"><mat-icon>edit</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon edit"
+                      (click)="habilitarEdicionProducto(p)"
+                      title="Editar Producto"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarProducto(p.id!)" title="Eliminar Producto"><mat-icon>delete</mat-icon></button>
+                      <button
+                        type="button"
+                        class="btn-icon delete"
+                        (click)="eliminarProducto(p.id!)"
+                        title="Eliminar Producto"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
                     }
                   </div>
                 </div>
@@ -296,7 +480,7 @@
             <form (submit)="guardarEdicionMesa(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Identificador / Número</mat-label>
-                <input matInput [(ngModel)]="me.numero" name="editMesaNum" required>
+                <input matInput [(ngModel)]="me.numero" name="editMesaNum" required />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -310,12 +494,28 @@
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Capacidad</mat-label>
-                <input matInput type="number" [(ngModel)]="me.capacidad" name="editMesaCap" required min="1">
+                <input
+                  matInput
+                  type="number"
+                  [(ngModel)]="me.capacidad"
+                  name="editMesaCap"
+                  required
+                  min="1"
+                />
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!me.numero || !me.zona_id">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionMesa()">Cancelar</button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!me.numero || !me.zona_id"
+                >
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionMesa()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -326,7 +526,13 @@
             <form (submit)="guardarMesa(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Identificador de Mesa (Ej: Mesa 1, Mesa 2)</mat-label>
-                <input matInput [(ngModel)]="nuevaMesa.numero" name="mesaNum" placeholder="Ej. 10 o Barra 2" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevaMesa.numero"
+                  name="mesaNum"
+                  placeholder="Ej. 10 o Barra 2"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -340,11 +546,24 @@
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Capacidad Máxima (Comensales)</mat-label>
-                <input matInput type="number" [(ngModel)]="nuevaMesa.capacidad" name="mesaCapacidad" placeholder="Ej. 4" required min="1">
+                <input
+                  matInput
+                  type="number"
+                  [(ngModel)]="nuevaMesa.capacidad"
+                  name="mesaCapacidad"
+                  placeholder="Ej. 4"
+                  required
+                  min="1"
+                />
               </mat-form-field>
 
               <div class="form-actions">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevaMesa.numero || !nuevaMesa.zona_id || !nuevaMesa.capacidad">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!nuevaMesa.numero || !nuevaMesa.zona_id || !nuevaMesa.capacidad"
+                >
                   <mat-icon>add_box</mat-icon> Dar de Alta Mesa
                 </button>
               </div>
@@ -361,12 +580,16 @@
             <form (submit)="guardarEdicionZona(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre de Zona</mat-label>
-                <input matInput [(ngModel)]="ze.nombre" name="editZonaNombre" required>
+                <input matInput [(ngModel)]="ze.nombre" name="editZonaNombre" required />
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!ze.nombre">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionZona()">Cancelar</button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!ze.nombre">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionZona()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -377,11 +600,24 @@
             <form (submit)="guardarZona(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre del Espacio</mat-label>
-                <input matInput [ngModel]="nuevaZonaNombre()" (ngModelChange)="nuevaZonaNombre.set($event)" name="zonaNombre" placeholder="Ej. Terraza, Balcón" required>
+                <input
+                  matInput
+                  [ngModel]="nuevaZonaNombre()"
+                  (ngModelChange)="nuevaZonaNombre.set($event)"
+                  name="zonaNombre"
+                  placeholder="Ej. Terraza, Balcón"
+                  required
+                />
               </mat-form-field>
 
               <div class="form-actions">
-                <button mat-stroked-button color="primary" type="submit" [disabled]="!nuevaZonaNombre()" class="w-full">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!nuevaZonaNombre()"
+                  class="w-full"
+                >
                   <mat-icon>add_circle_outline</mat-icon> Crear Zona
                 </button>
               </div>
@@ -400,29 +636,63 @@
             <div class="crud-items-grid">
               @for (z of zonas(); track z.id) {
                 <div class="crud-row-item">
-                  <span class="row-text font-bold"><mat-icon class="inline-icon">layers</mat-icon> {{ z.nombre }}</span>
+                  <span class="row-text font-bold"
+                    ><mat-icon class="inline-icon">layers</mat-icon> {{ z.nombre }}</span
+                  >
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionZona(z)" title="Editar Zona"><mat-icon>edit</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon edit"
+                      (click)="habilitarEdicionZona(z)"
+                      title="Editar Zona"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarZona(z.id)" title="Eliminar Zona"><mat-icon>delete</mat-icon></button>
+                      <button
+                        type="button"
+                        class="btn-icon delete"
+                        (click)="eliminarZona(z.id)"
+                        title="Eliminar Zona"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
                     }
                   </div>
                 </div>
               }
             </div>
 
-            <h4 class="section-subtitle"><mat-icon>table_restaurant</mat-icon> Mesas Disponibles</h4>
+            <h4 class="section-subtitle">
+              <mat-icon>table_restaurant</mat-icon> Mesas Disponibles
+            </h4>
             <div class="crud-items-grid">
               @for (m of mesas(); track m.id) {
                 <div class="crud-row-item">
                   <div class="row-text">
                     <span class="font-bold">Mesa {{ m.numero }}</span>
-                    <span class="secondary-info">({{ m['zona'] }}) - Capacidad: {{ m.capacidad }} personas</span>
+                    <span class="secondary-info"
+                      >({{ m['zona'] }}) - Capacidad: {{ m.capacidad }} personas</span
+                    >
                   </div>
                   <div class="row-actions">
-                    <button type="button" class="btn-icon edit" (click)="habilitarEdicionMesa(m)" title="Editar Mesa"><mat-icon>edit</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon edit"
+                      (click)="habilitarEdicionMesa(m)"
+                      title="Editar Mesa"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
                     @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                      <button type="button" class="btn-icon delete" (click)="eliminarMesa(m.id!)" title="Eliminar Mesa"><mat-icon>delete</mat-icon></button>
+                      <button
+                        type="button"
+                        class="btn-icon delete"
+                        (click)="eliminarMesa(m.id!)"
+                        title="Eliminar Mesa"
+                      >
+                        <mat-icon>delete</mat-icon>
+                      </button>
                     }
                   </div>
                 </div>
@@ -445,69 +715,124 @@
         <div class="form-card width-xl mx-auto">
           <div class="card-header">
             <h3>Información Comercial de Facturación y Recibos</h3>
-            <p>Estos datos se imprimen al pie de los tickets de cobro emitidos para tus clientes.</p>
+            <p>
+              Estos datos se imprimen al pie de los tickets de cobro emitidos para tus clientes.
+            </p>
           </div>
           <form (submit)="guardarNegocio(); $event.preventDefault()" class="grid-form">
             <mat-form-field appearance="outline" class="grid-span-2">
               <mat-label>Nombre Comercial / Razón Social</mat-label>
-              <input matInput [(ngModel)]="datosNegocio.nombre" name="negName" required>
+              <input matInput [(ngModel)]="datosNegocio.nombre" name="negName" required />
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>RFC (Registro Federal de Contribuyentes)</mat-label>
-              <input matInput [(ngModel)]="datosNegocio.rfc" name="negRfc">
+              <input matInput [(ngModel)]="datosNegocio.rfc" name="negRfc" />
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Teléfono de Contacto</mat-label>
-              <input matInput [(ngModel)]="datosNegocio.telefono" name="negTel">
+              <input matInput [(ngModel)]="datosNegocio.telefono" name="negTel" />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="grid-span-2">
               <mat-label>Dirección Física del Establecimiento</mat-label>
-              <input matInput [(ngModel)]="datosNegocio.direccion" name="negDir">
+              <input matInput [(ngModel)]="datosNegocio.direccion" name="negDir" />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="grid-span-2">
               <mat-label>Correo Electrónico Comercial</mat-label>
-              <input matInput type="email" [(ngModel)]="datosNegocio.email" name="negEmail">
+              <input matInput type="email" [(ngModel)]="datosNegocio.email" name="negEmail" />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="grid-span-2">
               <mat-label>Mensaje de Agradecimiento en Tickets</mat-label>
-              <textarea matInput [(ngModel)]="datosNegocio.mensaje_recibo" name="negMsg" rows="3" placeholder="Disfrute de su comida... ¡Vuelva pronto!"></textarea>
+              <textarea
+                matInput
+                [(ngModel)]="datosNegocio.mensaje_recibo"
+                name="negMsg"
+                rows="3"
+                placeholder="Disfrute de su comida... ¡Vuelva pronto!"
+              ></textarea>
             </mat-form-field>
 
-            <div class="grid-span-2" style="border-top: 1px dashed #ccc; padding-top: 16px; margin-top: 12px;">
-              <h3 style="margin: 0 0 8px 0; color: #1e88e5; font-size: 1.1rem; display: flex; align-items: center; gap: 6px;">
+            <div
+              class="grid-span-2"
+              style="border-top: 1px dashed #ccc; padding-top: 16px; margin-top: 12px"
+            >
+              <h3
+                style="
+                  margin: 0 0 8px 0;
+                  color: #1e88e5;
+                  font-size: 1.1rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                "
+              >
                 <mat-icon>stars</mat-icon> Configuración de Clientes Frecuentes y Lealtad
               </h3>
-              <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #666;">Ajusta los criterios exigidos para determinar que un solicitante califique en el grupo de clientes de fidelidad constante, así como sus beneficios de puntos de lealtad.</p>
+              <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #666">
+                Ajusta los criterios exigidos para determinar que un solicitante califique en el
+                grupo de clientes de fidelidad constante, así como sus beneficios de puntos de
+                lealtad.
+              </p>
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px">
                 <mat-form-field appearance="outline">
                   <mat-label>Visitas para "Frecuente"</mat-label>
-                  <input matInput type="number" [(ngModel)]="datosNegocio.visitas_requeridas_frecuente" name="negVisitasReq" min="1" required>
-                  <span matSuffix style="padding-right: 8px;">visitas</span>
+                  <input
+                    matInput
+                    type="number"
+                    [(ngModel)]="datosNegocio.visitas_requeridas_frecuente"
+                    name="negVisitasReq"
+                    min="1"
+                    required
+                  />
+                  <span matSuffix style="padding-right: 8px">visitas</span>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
                   <mat-label>Equivalencia Puntos (Pesos por Punto)</mat-label>
-                  <input matInput type="number" [(ngModel)]="datosNegocio.pesos_por_punto" name="negPesosPorPto" min="1" required>
+                  <input
+                    matInput
+                    type="number"
+                    [(ngModel)]="datosNegocio.pesos_por_punto"
+                    name="negPesosPorPto"
+                    min="1"
+                    required
+                  />
                   <span matPrefix>$&nbsp;</span>
-                  <span matSuffix style="padding-right: 8px;">/pt</span>
+                  <span matSuffix style="padding-right: 8px">/pt</span>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
                   <mat-label>Multiplicador de Puntos</mat-label>
-                  <input matInput type="number" [(ngModel)]="datosNegocio.puntos_por_cada_diez_pesos" name="negPuntosFactor" min="1" required>
-                  <span matSuffix style="padding-right: 8px;">pts</span>
+                  <input
+                    matInput
+                    type="number"
+                    [(ngModel)]="datosNegocio.puntos_por_cada_diez_pesos"
+                    name="negPuntosFactor"
+                    min="1"
+                    required
+                  />
+                  <span matSuffix style="padding-right: 8px">pts</span>
                 </mat-form-field>
               </div>
             </div>
 
             <div class="grid-span-2 form-actions">
-              <button mat-flat-button color="primary" type="submit" [disabled]="!datosNegocio.nombre || !datosNegocio.visitas_requeridas_frecuente || !datosNegocio.puntos_por_cada_diez_pesos || !datosNegocio.pesos_por_punto">
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="
+                  !datosNegocio.nombre ||
+                  !datosNegocio.visitas_requeridas_frecuente ||
+                  !datosNegocio.puntos_por_cada_diez_pesos ||
+                  !datosNegocio.pesos_por_punto
+                "
+              >
                 <mat-icon>save</mat-icon> Guardar Cambios Comerciales
               </button>
             </div>
@@ -526,33 +851,71 @@
         <div class="form-card width-xl mx-auto">
           <div class="card-header">
             <h3>Cuenta Clabe para Recibir Transferencias Bancarias</h3>
-            <p>Se desplegará una ventana emergente en pantalla cuando el cajero seleccione la forma de pago "Transferencia" para agilizar el proceso.</p>
+            <p>
+              Se desplegará una ventana emergente en pantalla cuando el cajero seleccione la forma
+              de pago "Transferencia" para agilizar el proceso.
+            </p>
           </div>
           <form (submit)="guardarTransferencia(); $event.preventDefault()" class="ajustes-form">
             <div class="grid-row-2">
               <mat-form-field appearance="outline">
                 <mat-label>Institución Bancaria (Banco)</mat-label>
-                <input matInput [(ngModel)]="datosTransferencia.banco" name="bank" placeholder="Ej. BBVA, Santander" required>
+                <input
+                  matInput
+                  [(ngModel)]="datosTransferencia.banco"
+                  name="bank"
+                  placeholder="Ej. BBVA, Santander"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline">
                 <mat-label>Titular de la Cuenta</mat-label>
-                <input matInput [(ngModel)]="datosTransferencia.titular" name="owner" placeholder="Ej. Borboto S.A. de C.V." required>
+                <input
+                  matInput
+                  [(ngModel)]="datosTransferencia.titular"
+                  name="owner"
+                  placeholder="Ej. Borboto S.A. de C.V."
+                  required
+                />
               </mat-form-field>
             </div>
 
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Clabe Interbancaria (18 dígitos)</mat-label>
-              <input matInput [(ngModel)]="datosTransferencia.clabe" name="clabe" placeholder="Ej. 012180001234567890" maxlength="18" minlength="18" required>
+              <input
+                matInput
+                [(ngModel)]="datosTransferencia.clabe"
+                name="clabe"
+                placeholder="Ej. 012180001234567890"
+                maxlength="18"
+                minlength="18"
+                required
+              />
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Correo de Envío para Comprobantes</mat-label>
-              <input matInput type="email" [(ngModel)]="datosTransferencia.email" name="transferEmail" placeholder="Ej. pagos@borboto.com">
+              <input
+                matInput
+                type="email"
+                [(ngModel)]="datosTransferencia.email"
+                name="transferEmail"
+                placeholder="Ej. pagos@borboto.com"
+              />
             </mat-form-field>
 
             <div class="form-actions">
-              <button mat-flat-button color="primary" type="submit" [disabled]="!datosTransferencia.banco || !datosTransferencia.titular || !datosTransferencia.clabe">
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="
+                  !datosTransferencia.banco ||
+                  !datosTransferencia.titular ||
+                  !datosTransferencia.clabe
+                "
+              >
                 <mat-icon>save</mat-icon> Guardar Ajustes de Cuenta
               </button>
             </div>
@@ -577,67 +940,136 @@
             <form (submit)="guardarEdicionCliente(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Completo</mat-label>
-                <input matInput [(ngModel)]="cliEdit.nombre" name="editCliNombre" placeholder="Ej. María Pérez" required>
+                <input
+                  matInput
+                  [(ngModel)]="cliEdit.nombre"
+                  name="editCliNombre"
+                  placeholder="Ej. María Pérez"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Número de Teléfono</mat-label>
-                <input matInput [(ngModel)]="cliEdit.telefono" name="editCliTel" placeholder="Ej. 5511223344">
+                <input
+                  matInput
+                  [(ngModel)]="cliEdit.telefono"
+                  name="editCliTel"
+                  placeholder="Ej. 5511223344"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Correo Electrónico</mat-label>
-                <input matInput type="email" [(ngModel)]="cliEdit.email" name="editCliEmail" placeholder="ejemplo@email.com">
+                <input
+                  matInput
+                  type="email"
+                  [(ngModel)]="cliEdit.email"
+                  name="editCliEmail"
+                  placeholder="ejemplo@email.com"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Dirección Física (Envíos)</mat-label>
-                <input matInput [(ngModel)]="cliEdit.direccion" name="editCliDir" placeholder="Calle Falsa 123, Col. Centro">
+                <input
+                  matInput
+                  [(ngModel)]="cliEdit.direccion"
+                  name="editCliDir"
+                  placeholder="Calle Falsa 123, Col. Centro"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Notas Internas</mat-label>
-                <textarea matInput [(ngModel)]="cliEdit.notas" name="editCliNotas" placeholder="Escribe alguna acotación..." rows="3"></textarea>
+                <textarea
+                  matInput
+                  [(ngModel)]="cliEdit.notas"
+                  name="editCliNotas"
+                  placeholder="Escribe alguna acotación..."
+                  rows="3"
+                ></textarea>
               </mat-form-field>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!cliEdit.nombre">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionCliente()">Cancelar</button>
+                <button mat-flat-button color="primary" type="submit" [disabled]="!cliEdit.nombre">
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionCliente()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
             <div class="card-header">
               <h3>Añadir Nuevo Cliente</h3>
-              <p>Utilizado para registrar envíos a domicilio o aplicar políticas de beneficio de confianza.</p>
+              <p>
+                Utilizado para registrar envíos a domicilio o aplicar políticas de beneficio de
+                confianza.
+              </p>
             </div>
             <form (submit)="guardarCliente(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Completo</mat-label>
-                <input matInput [(ngModel)]="nuevoCliente.nombre" name="cliNombre" placeholder="Ej. María Pérez" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevoCliente.nombre"
+                  name="cliNombre"
+                  placeholder="Ej. María Pérez"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Número de Teléfono</mat-label>
-                <input matInput [(ngModel)]="nuevoCliente.telefono" name="cliTel" placeholder="Ej. 5511223344">
+                <input
+                  matInput
+                  [(ngModel)]="nuevoCliente.telefono"
+                  name="cliTel"
+                  placeholder="Ej. 5511223344"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Correo Electrónico</mat-label>
-                <input matInput type="email" [(ngModel)]="nuevoCliente.email" name="cliEmail" placeholder="ejemplo@email.com">
+                <input
+                  matInput
+                  type="email"
+                  [(ngModel)]="nuevoCliente.email"
+                  name="cliEmail"
+                  placeholder="ejemplo@email.com"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Dirección Física (Envíos)</mat-label>
-                <input matInput [(ngModel)]="nuevoCliente.direccion" name="cliDir" placeholder="Calle Falsa 123, Col. Centro">
+                <input
+                  matInput
+                  [(ngModel)]="nuevoCliente.direccion"
+                  name="cliDir"
+                  placeholder="Calle Falsa 123, Col. Centro"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Notas Internas (Descuentos, Confianza, etc.)</mat-label>
-                <textarea matInput [(ngModel)]="nuevoCliente.notas" name="cliNotas" placeholder="Cliente de confianza... crédito hasta $500." rows="3"></textarea>
+                <textarea
+                  matInput
+                  [(ngModel)]="nuevoCliente.notas"
+                  name="cliNotas"
+                  placeholder="Cliente de confianza... crédito hasta $500."
+                  rows="3"
+                ></textarea>
               </mat-form-field>
 
               <div class="form-actions">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoCliente.nombre" class="w-full">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!nuevoCliente.nombre"
+                  class="w-full"
+                >
                   <mat-icon>person_add</mat-icon> Registrar Cliente
                 </button>
               </div>
@@ -648,7 +1080,9 @@
         <div class="form-card col-md">
           <div class="card-header">
             <h3>Cartera de Clientes Registrados</h3>
-            <p>Consulta, edita o elimina clientes vigentes dentro de la red corporativa del sistema.</p>
+            <p>
+              Consulta, edita o elimina clientes vigentes dentro de la red corporativa del sistema.
+            </p>
           </div>
 
           <div class="client-list scrollable-crud-list">
@@ -659,17 +1093,43 @@
                   <div class="meta-row">
                     <span class="meta-name">{{ c.nombre }}</span>
                     @if (c.telefono) {
-                      <span class="meta-tag"><mat-icon class="sub-icon">phone</mat-icon>{{ c.telefono }}</span>
+                      <span class="meta-tag"
+                        ><mat-icon class="sub-icon">phone</mat-icon>{{ c.telefono }}</span
+                      >
                     }
                   </div>
-                  @if (c.email) { <p class="meta-text"><mat-icon class="sub-icon">email</mat-icon> {{ c.email }}</p> }
-                  @if (c.direccion) { <p class="meta-text"><mat-icon class="sub-icon">location_on</mat-icon> {{ c.direccion }}</p> }
-                  @if (c.notas) { <div class="meta-notes"><strong>Nota:</strong> {{ c.notas }}</div> }
+                  @if (c.email) {
+                    <p class="meta-text">
+                      <mat-icon class="sub-icon">email</mat-icon> {{ c.email }}
+                    </p>
+                  }
+                  @if (c.direccion) {
+                    <p class="meta-text">
+                      <mat-icon class="sub-icon">location_on</mat-icon> {{ c.direccion }}
+                    </p>
+                  }
+                  @if (c.notas) {
+                    <div class="meta-notes"><strong>Nota:</strong> {{ c.notas }}</div>
+                  }
                 </div>
                 <div class="client-actions">
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionCliente(c)" title="Editar Cliente"><mat-icon>edit</mat-icon></button>
+                  <button
+                    type="button"
+                    class="btn-icon edit"
+                    (click)="habilitarEdicionCliente(c)"
+                    title="Editar Cliente"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarCliente(c.id!)" title="Eliminar Cliente"><mat-icon>delete</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon delete"
+                      (click)="eliminarCliente(c.id!)"
+                      title="Eliminar Cliente"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
                   }
                 </div>
               </div>
@@ -697,15 +1157,30 @@
               <h3>Editar Promoción</h3>
               <p>Actualiza la oferta comercial del POS.</p>
             </div>
-            <form (submit)="guardarEdicionPromocion(); $event.preventDefault()" class="ajustes-form">
+            <form
+              (submit)="guardarEdicionPromocion(); $event.preventDefault()"
+              class="ajustes-form"
+            >
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Oficial*</mat-label>
-                <input matInput [(ngModel)]="promoEdit.nombre" name="editPromoName" placeholder="Ej. Combo Taco y Refresco" required>
+                <input
+                  matInput
+                  [(ngModel)]="promoEdit.nombre"
+                  name="editPromoName"
+                  placeholder="Ej. Combo Taco y Refresco"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Código Único canjeable*</mat-label>
-                <input matInput [(ngModel)]="promoEdit.codigo" name="editPromoCode" placeholder="Ej. COMBO_TACO" required>
+                <input
+                  matInput
+                  [(ngModel)]="promoEdit.codigo"
+                  name="editPromoCode"
+                  placeholder="Ej. COMBO_TACO"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -742,7 +1217,9 @@
                   <mat-label>Producto Elegible*</mat-label>
                   <mat-select [(ngModel)]="promoEdit.producto_id" name="editPromoProd" required>
                     @for (prod of productos(); track prod.id) {
-                      <mat-option [value]="prod.id">{{ prod.nombre }} (${{ prod.precio | number:'1.2-2' }})</mat-option>
+                      <mat-option [value]="prod.id"
+                        >{{ prod.nombre }} (${{ prod.precio | number: '1.2-2' }})</mat-option
+                      >
                     }
                   </mat-select>
                 </mat-form-field>
@@ -750,24 +1227,48 @@
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Valor numérico*</mat-label>
-                <input matInput type="number" step="0.01" [(ngModel)]="promoEdit.valor" name="editPromoVal" placeholder="0.00" required min="0">
+                <input
+                  matInput
+                  type="number"
+                  step="0.01"
+                  [(ngModel)]="promoEdit.valor"
+                  name="editPromoVal"
+                  placeholder="0.00"
+                  required
+                  min="0"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Descripción / Restricción</mat-label>
-                <textarea matInput [(ngModel)]="promoEdit.descripcion" name="editPromoDesc" rows="3" placeholder="Ej. Válido solo de lunes a viernes en mostrador..."></textarea>
+                <textarea
+                  matInput
+                  [(ngModel)]="promoEdit.descripcion"
+                  name="editPromoDesc"
+                  rows="3"
+                  placeholder="Ej. Válido solo de lunes a viernes en mostrador..."
+                ></textarea>
               </mat-form-field>
 
               <div class="checkbox-container">
                 <label class="custom-checkbox">
-                  <input type="checkbox" [(ngModel)]="promoEdit.activo" name="editPromoActiva">
+                  <input type="checkbox" [(ngModel)]="promoEdit.activo" name="editPromoActiva" />
                   <span>Promoción Activa / Vigente</span>
                 </label>
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!promoEdit.nombre || !promoEdit.codigo || promoEdit.valor === null">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionPromocion()">Cancelar</button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!promoEdit.nombre || !promoEdit.codigo || promoEdit.valor === null"
+                >
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionPromocion()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -778,12 +1279,24 @@
             <form (submit)="guardarPromocion(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Corto de Promoción*</mat-label>
-                <input matInput [(ngModel)]="nuevaPromocion.nombre" name="promoNombre" placeholder="Ej. Descuento Familiar" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevaPromocion.nombre"
+                  name="promoNombre"
+                  placeholder="Ej. Descuento Familiar"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Código Canjeable (Sin espacios)*</mat-label>
-                <input matInput [(ngModel)]="nuevaPromocion.codigo" name="promoCodigo" placeholder="Ej. FAMILIA20" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevaPromocion.codigo"
+                  name="promoCodigo"
+                  placeholder="Ej. FAMILIA20"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -820,7 +1333,9 @@
                   <mat-label>Seleccionar Producto*</mat-label>
                   <mat-select [(ngModel)]="nuevaPromocion.producto_id" name="promoProdId" required>
                     @for (prod of productos(); track prod.id) {
-                      <mat-option [value]="prod.id">{{ prod.nombre }} (${{ prod.precio | number:'1.2-2' }})</mat-option>
+                      <mat-option [value]="prod.id"
+                        >{{ prod.nombre }} (${{ prod.precio | number: '1.2-2' }})</mat-option
+                      >
                     }
                   </mat-select>
                 </mat-form-field>
@@ -828,16 +1343,40 @@
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Valor (Porcentaje / Monto Fijo)*</mat-label>
-                <input matInput type="number" step="0.01" [(ngModel)]="nuevaPromocion.valor" name="promoValor" placeholder="0.00" required min="0">
+                <input
+                  matInput
+                  type="number"
+                  step="0.01"
+                  [(ngModel)]="nuevaPromocion.valor"
+                  name="promoValor"
+                  placeholder="0.00"
+                  required
+                  min="0"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Descripción e Instrucciones</mat-label>
-                <textarea matInput [(ngModel)]="nuevaPromocion.descripcion" name="promoDesc" rows="3" placeholder="Ej. Descuenta 20% al total del pedido..."></textarea>
+                <textarea
+                  matInput
+                  [(ngModel)]="nuevaPromocion.descripcion"
+                  name="promoDesc"
+                  rows="3"
+                  placeholder="Ej. Descuenta 20% al total del pedido..."
+                ></textarea>
               </mat-form-field>
 
               <div class="form-actions">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevaPromocion.nombre || !nuevaPromocion.codigo || nuevaPromocion.valor === null">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="
+                    !nuevaPromocion.nombre ||
+                    !nuevaPromocion.codigo ||
+                    nuevaPromocion.valor === null
+                  "
+                >
                   <mat-icon>add</mat-icon> Crear Promoción
                 </button>
               </div>
@@ -858,15 +1397,25 @@
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name font-bold">{{ p.nombre }}</span>
-                    <span class="meta-tag"><mat-icon class="sub-icon">fingerprint</mat-icon> {{ p.codigo }}</span>
+                    <span class="meta-tag"
+                      ><mat-icon class="sub-icon">fingerprint</mat-icon> {{ p.codigo }}</span
+                    >
                   </div>
                   <p class="meta-text">
                     <mat-icon class="sub-icon">auto_awesome</mat-icon>
                     <strong>Tipo: </strong>
                     @switch (p.tipo) {
-                      @case ('COMBO_PRECIO') { Precio Combo Cerrado: <span class="price-info">${{ p.valor | number:'1.2-2' }}</span> }
-                      @case ('DESCUENTO_PORCENTAJE') { Porcentaje Restado: <span class="price-info">{{ p.valor }}%</span> }
-                      @case ('DESCUENTO_MONTO') { Monto Restado: <span class="price-info">${{ p.valor | number:'1.2-2' }}</span> }
+                      @case ('COMBO_PRECIO') {
+                        Precio Combo Cerrado:
+                        <span class="price-info">${{ p.valor | number: '1.2-2' }}</span>
+                      }
+                      @case ('DESCUENTO_PORCENTAJE') {
+                        Porcentaje Restado: <span class="price-info">{{ p.valor }}%</span>
+                      }
+                      @case ('DESCUENTO_MONTO') {
+                        Monto Restado:
+                        <span class="price-info">${{ p.valor | number: '1.2-2' }}</span>
+                      }
                     }
                   </p>
 
@@ -874,19 +1423,45 @@
                     <mat-icon class="sub-icon">category</mat-icon>
                     <strong>Aplica a: </strong>
                     @switch (p.aplica_a) {
-                      @case ('CATEGORIA') { Categoría especificada }
-                      @case ('PRODUCTO') { Producto especificado }
-                      @default { Toda la orden }
+                      @case ('CATEGORIA') {
+                        Categoría especificada
+                      }
+                      @case ('PRODUCTO') {
+                        Producto especificado
+                      }
+                      @default {
+                        Toda la orden
+                      }
                     }
                   </p>
 
-                  @if (p.descripcion) { <p class="meta-text"><mat-icon class="sub-icon">notes</mat-icon> {{ p.descripcion }}</p> }
-                  @if (!p.activo) { <div style="margin-top: 6px;"><span class="no-disp-badge">Inactiva</span></div> }
+                  @if (p.descripcion) {
+                    <p class="meta-text">
+                      <mat-icon class="sub-icon">notes</mat-icon> {{ p.descripcion }}
+                    </p>
+                  }
+                  @if (!p.activo) {
+                    <div style="margin-top: 6px"><span class="no-disp-badge">Inactiva</span></div>
+                  }
                 </div>
                 <div class="client-actions">
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionPromocion(p)" title="Editar Promoción"><mat-icon>edit</mat-icon></button>
+                  <button
+                    type="button"
+                    class="btn-icon edit"
+                    (click)="habilitarEdicionPromocion(p)"
+                    title="Editar Promoción"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarPromocion(p.id!)" title="Eliminar Promoción"><mat-icon>delete</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon delete"
+                      (click)="eliminarPromocion(p.id!)"
+                      title="Eliminar Promoción"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
                   }
                 </div>
               </div>
@@ -917,12 +1492,20 @@
             <form (submit)="guardarEdicionEmpleado(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Completo</mat-label>
-                <input matInput [(ngModel)]="emp.nombre" name="editEmpNombre" required>
+                <input matInput [(ngModel)]="emp.nombre" name="editEmpNombre" required />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>NIP / PIN de Acceso (4-6 dígitos)</mat-label>
-                <input matInput type="password" [(ngModel)]="emp.pin" name="editEmpPin" required maxlength="6" minlength="4">
+                <input
+                  matInput
+                  type="password"
+                  [(ngModel)]="emp.pin"
+                  name="editEmpPin"
+                  required
+                  maxlength="6"
+                  minlength="4"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -937,14 +1520,23 @@
 
               <div class="checkbox-container">
                 <label class="custom-checkbox">
-                  <input type="checkbox" [(ngModel)]="emp.activo" name="editEmpActivo">
+                  <input type="checkbox" [(ngModel)]="emp.activo" name="editEmpActivo" />
                   <span>Colaborador Activo</span>
                 </label>
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!emp.nombre || !emp.pin">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionEmpleado()">Cancelar</button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!emp.nombre || !emp.pin"
+                >
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionEmpleado()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -955,12 +1547,28 @@
             <form (submit)="guardarEmpleado(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Completo</mat-label>
-                <input matInput [(ngModel)]="nuevoEmpleado.nombre" name="empNombre" placeholder="Ej. Carlos Cocinero" required autocomplete="off">
+                <input
+                  matInput
+                  [(ngModel)]="nuevoEmpleado.nombre"
+                  name="empNombre"
+                  placeholder="Ej. Carlos Cocinero"
+                  required
+                  autocomplete="off"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>NIP / PIN de Acceso (4-6 dígitos)</mat-label>
-                <input matInput type="password" [(ngModel)]="nuevoEmpleado.pin" name="empPin" placeholder="Ej. 1234" required maxlength="6" minlength="4">
+                <input
+                  matInput
+                  type="password"
+                  [(ngModel)]="nuevoEmpleado.pin"
+                  name="empPin"
+                  placeholder="Ej. 1234"
+                  required
+                  maxlength="6"
+                  minlength="4"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -974,7 +1582,12 @@
               </mat-form-field>
 
               <div class="form-actions">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevoEmpleado.nombre || !nuevoEmpleado.pin">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="!nuevoEmpleado.nombre || !nuevoEmpleado.pin"
+                >
                   <mat-icon>person_add</mat-icon> Registrar Colaborador
                 </button>
               </div>
@@ -995,15 +1608,35 @@
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name font-bold">{{ emp.nombre }}</span>
-                    <span class="meta-tag"><mat-icon class="sub-icon">security</mat-icon> {{ emp.rol }}</span>
+                    <span class="meta-tag"
+                      ><mat-icon class="sub-icon">security</mat-icon> {{ emp.rol }}</span
+                    >
                   </div>
-                  <p class="meta-text"><mat-icon class="sub-icon">password</mat-icon> PIN configurado: (••••)</p>
-                  @if (!emp.activo) { <div style="margin-top: 6px;"><span class="no-disp-badge">Inactivo</span></div> }
+                  <p class="meta-text">
+                    <mat-icon class="sub-icon">password</mat-icon> PIN configurado: (••••)
+                  </p>
+                  @if (!emp.activo) {
+                    <div style="margin-top: 6px"><span class="no-disp-badge">Inactivo</span></div>
+                  }
                 </div>
                 <div class="client-actions">
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionEmpleado(emp)" title="Editar Colaborador"><mat-icon>edit</mat-icon></button>
+                  <button
+                    type="button"
+                    class="btn-icon edit"
+                    (click)="habilitarEdicionEmpleado(emp)"
+                    title="Editar Colaborador"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarEmpleado(emp.id)" title="Eliminar Colaborador"><mat-icon>delete</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon delete"
+                      (click)="eliminarEmpleado(emp.id)"
+                      title="Eliminar Colaborador"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
                   }
                 </div>
               </div>
@@ -1024,54 +1657,134 @@
         <mat-icon class="tab-icon">history_edu</mat-icon>
         <span>Historial de Cortes</span>
       </ng-template>
-      <div class="tab-content" style="padding: 24px;">
-        <div class="card-header border-red" style="margin-bottom: 20px;">
-          <h3 style="margin: 0 0 4px 0; color: #333; font-size: 1.3rem;">Historial de Cortes de Caja</h3>
-          <p style="margin: 0; color: #666; font-size: 0.9rem;">Auditoría y conciliación de cierres de caja realizados por los cajeros y administradores.</p>
+      <div class="tab-content" style="padding: 24px">
+        <div class="card-header border-red" style="margin-bottom: 20px">
+          <h3 style="margin: 0 0 4px 0; color: #333; font-size: 1.3rem">
+            Historial de Cortes de Caja
+          </h3>
+          <p style="margin: 0; color: #666; font-size: 0.9rem">
+            Auditoría y conciliación de cierres de caja realizados por los cajeros y
+            administradores.
+          </p>
         </div>
 
         @if (cortesHistory().length === 0) {
-          <div class="no-data-card" style="text-align: center; padding: 48px; background: white; border: 1px dashed #ccc; border-radius: 12px; color: #666;">
-            <mat-icon style="font-size: 48px; width: 48px; height: 48px; color: #999; margin-bottom: 8px;">account_balance_wallet</mat-icon>
-            <p style="margin: 0; font-size: 1.1rem;">No se han registrado cortes de caja en el sistema aún.</p>
+          <div
+            class="no-data-card"
+            style="
+              text-align: center;
+              padding: 48px;
+              background: white;
+              border: 1px dashed #ccc;
+              border-radius: 12px;
+              color: #666;
+            "
+          >
+            <mat-icon
+              style="font-size: 48px; width: 48px; height: 48px; color: #999; margin-bottom: 8px"
+              >account_balance_wallet</mat-icon
+            >
+            <p style="margin: 0; font-size: 1.1rem">
+              No se han registrado cortes de caja en el sistema aún.
+            </p>
           </div>
         } @else {
-          <div class="table-container" style="overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-            <table class="modern-table inline-edit-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+          <div
+            class="table-container"
+            style="
+              overflow-x: auto;
+              background: white;
+              border-radius: 12px;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            "
+          >
+            <table
+              class="modern-table inline-edit-table"
+              style="width: 100%; border-collapse: collapse; text-align: left"
+            >
               <thead>
-                <tr style="background: #f1f3f4; color: #333; border-bottom: 2px solid #e1e4e6;">
-                  <th style="padding: 14px 16px; font-weight: 600;">Cajero</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Fecha de Cierre</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Fondo Apertura</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Ventas Efec (Sist.)</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Ventas Tarj (Sist.)</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Ventas Transf (Sist.)</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Total Ventas</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Efectivo Real (Contado)</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Diferencia</th>
-                  <th style="padding: 14px 16px; font-weight: 600;">Notas</th>
+                <tr style="background: #f1f3f4; color: #333; border-bottom: 2px solid #e1e4e6">
+                  <th style="padding: 14px 16px; font-weight: 600">Cajero</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Fecha de Cierre</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Fondo Apertura</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Ventas Efec (Sist.)</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Ventas Tarj (Sist.)</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Ventas Transf (Sist.)</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Total Ventas</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Efectivo Real (Contado)</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Diferencia</th>
+                  <th style="padding: 14px 16px; font-weight: 600">Notas</th>
                 </tr>
               </thead>
               <tbody>
                 @for (corte of cortesHistory(); track corte.id) {
-                  <tr style="border-bottom: 1px solid #e1e4e6;">
-                    <td style="padding: 14px 16px;"><strong>{{ corte.usuarioNombre }}</strong></td>
-                    <td style="padding: 14px 16px; font-size: 0.95rem; color: #555;">{{ corte.fecha_cierre | date: 'dd/MM/yyyy HH:mm' }}</td>
-                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.fondo_apertura | currency }}</td>
-                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.efectivo_calculado | currency }}</td>
-                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.tarjeta_calculado | currency }}</td>
-                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.transferencia_calculado | currency }}</td>
-                    <td style="padding: 14px 16px; font-weight: 600; color: #2e7d32;">{{ corte.ventas_totales | currency }}</td>
-                    <td style="padding: 14px 16px; font-size: 0.95rem;">{{ corte.efectivo_real | currency }}</td>
-                    <td style="padding: 14px 16px;">
-                      <span [style.background-color]="corte.diferencia < 0 ? '#ffebee' : (corte.diferencia > 0 ? '#e8f5e9' : '#f5f5f5')"
-                            [style.color]="corte.diferencia < 0 ? '#c62828' : (corte.diferencia > 0 ? '#2e7d32' : '#333')"
-                            style="padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; display: inline-block;">
-                        @if (corte.diferencia > 0) { + }
+                  <tr style="border-bottom: 1px solid #e1e4e6">
+                    <td style="padding: 14px 16px">
+                      <strong>{{ corte.usuarioNombre }}</strong>
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem; color: #555">
+                      {{ corte.fecha_cierre | date: 'dd/MM/yyyy HH:mm' }}
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem">
+                      {{ corte.fondo_apertura | currency }}
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem">
+                      {{ corte.efectivo_calculado | currency }}
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem">
+                      {{ corte.tarjeta_calculado | currency }}
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem">
+                      {{ corte.transferencia_calculado | currency }}
+                    </td>
+                    <td style="padding: 14px 16px; font-weight: 600; color: #2e7d32">
+                      {{ corte.ventas_totales | currency }}
+                    </td>
+                    <td style="padding: 14px 16px; font-size: 0.95rem">
+                      {{ corte.efectivo_real | currency }}
+                    </td>
+                    <td style="padding: 14px 16px">
+                      <span
+                        [style.background-color]="
+                          corte.diferencia < 0
+                            ? '#ffebee'
+                            : corte.diferencia > 0
+                              ? '#e8f5e9'
+                              : '#f5f5f5'
+                        "
+                        [style.color]="
+                          corte.diferencia < 0
+                            ? '#c62828'
+                            : corte.diferencia > 0
+                              ? '#2e7d32'
+                              : '#333'
+                        "
+                        style="
+                          padding: 4px 8px;
+                          border-radius: 4px;
+                          font-weight: 600;
+                          font-size: 0.85rem;
+                          display: inline-block;
+                        "
+                      >
+                        @if (corte.diferencia > 0) {
+                          +
+                        }
                         {{ corte.diferencia | currency }}
                       </span>
                     </td>
-                    <td style="padding: 14px 16px; font-size: 0.9rem; color: #666; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" [title]="corte.notas || ''">
+                    <td
+                      style="
+                        padding: 14px 16px;
+                        font-size: 0.9rem;
+                        color: #666;
+                        max-width: 200px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                      "
+                      [title]="corte.notas || ''"
+                    >
                       {{ corte.notas || 'Sin notas.' }}
                     </td>
                   </tr>
@@ -1089,7 +1802,7 @@
         <mat-icon class="tab-icon">receipt_long</mat-icon>
         <span>Facturación CFDI</span>
       </ng-template>
-      <div class="tab-content" style="padding: 24px;">
+      <div class="tab-content" style="padding: 24px">
         <app-billing-component></app-billing-component>
       </div>
     </mat-tab>
@@ -1100,17 +1813,26 @@
         <mat-icon class="tab-icon">print</mat-icon>
         <span>Impresoras</span>
       </ng-template>
-      <div class="tab-content row-layout" style="padding: 24px;">
+      <div class="tab-content row-layout" style="padding: 24px">
         <div class="form-card col-sm">
           @if (impresoraEditando(); as impEdit) {
             <div class="card-header border-orange">
               <h3>Editar Impresora</h3>
               <p>Actualiza los parámetros o la asignación de área.</p>
             </div>
-            <form (submit)="guardarEdicionImpresora(); $event.preventDefault()" class="ajustes-form">
+            <form
+              (submit)="guardarEdicionImpresora(); $event.preventDefault()"
+              class="ajustes-form"
+            >
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Descriptivo</mat-label>
-                <input matInput [(ngModel)]="impEdit.nombre" name="editImpNombre" placeholder="Ej. Impresora Cocina" required>
+                <input
+                  matInput
+                  [(ngModel)]="impEdit.nombre"
+                  name="editImpNombre"
+                  placeholder="Ej. Impresora Cocina"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -1142,33 +1864,65 @@
               @if (impEdit.tipo === 'RED') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Dirección IP de Red</mat-label>
-                  <input matInput [(ngModel)]="impEdit.ip_o_puerto" name="editImpIp" placeholder="Ej. 192.168.1.100" required>
+                  <input
+                    matInput
+                    [(ngModel)]="impEdit.ip_o_puerto"
+                    name="editImpIp"
+                    placeholder="Ej. 192.168.1.100"
+                    required
+                  />
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Puerto TCP</mat-label>
-                  <input matInput type="number" [(ngModel)]="impEdit.puerto_tcp" name="editImpPuertoTcp" placeholder="9100">
+                  <input
+                    matInput
+                    type="number"
+                    [(ngModel)]="impEdit.puerto_tcp"
+                    name="editImpPuertoTcp"
+                    placeholder="9100"
+                  />
                 </mat-form-field>
               }
 
               @if (impEdit.tipo === 'USB') {
                 <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>Nombre de Impresora en el Sistema (USB)</mat-label>
-                  <input matInput [(ngModel)]="impEdit.ip_o_puerto" name="editImpUsbName" placeholder="Ej. EPSON_TM_T20 o POS58" required>
-                  <mat-hint>Nombre exacto de la impresora instalada o compartida en el SO</mat-hint>
+                  <mat-label>Cola de Impresión de Windows (USB)</mat-label>
+                  <mat-select [(ngModel)]="impEdit.ip_o_puerto" name="editImpUsbName" required>
+                    @for (printer of impresorasWindows(); track printer.name) {
+                      <mat-option [value]="printer.name">
+                        {{ obtenerEtiquetaImpresoraWindows(printer) }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint
+                    >Selecciona la cola real registrada en Windows para evitar errores de nombre
+                    manual.</mat-hint
+                  >
                 </mat-form-field>
               }
 
               <div class="checkbox-container">
                 <label class="custom-checkbox">
-                  <input type="checkbox" [(ngModel)]="impEdit.activa" name="editImpActiva">
+                  <input type="checkbox" [(ngModel)]="impEdit.activa" name="editImpActiva" />
                   <span>Impresora Habilitada</span>
                 </label>
               </div>
 
               <div class="form-actions gap-8">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!impEdit.nombre || (impEdit.tipo !== 'SIMULACION' && !impEdit.ip_o_puerto)">Guardar</button>
-                <button mat-stroked-button type="button" (click)="cancelarEdicionImpresora()">Cancelar</button>
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="
+                    !impEdit.nombre || (impEdit.tipo !== 'SIMULACION' && !impEdit.ip_o_puerto)
+                  "
+                >
+                  Guardar
+                </button>
+                <button mat-stroked-button type="button" (click)="cancelarEdicionImpresora()">
+                  Cancelar
+                </button>
               </div>
             </form>
           } @else {
@@ -1179,7 +1933,13 @@
             <form (submit)="guardarImpresora(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre Descriptivo</mat-label>
-                <input matInput [(ngModel)]="nuevaImpresora.nombre" name="impNombre" placeholder="Ej. Termica Cocina 1" required>
+                <input
+                  matInput
+                  [(ngModel)]="nuevaImpresora.nombre"
+                  name="impNombre"
+                  placeholder="Ej. Termica Cocina 1"
+                  required
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -1211,25 +1971,62 @@
               @if (nuevaImpresora.tipo === 'RED') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Dirección IP de Red</mat-label>
-                  <input matInput [(ngModel)]="nuevaImpresora.ip_o_puerto" name="impIp" placeholder="Ej. 192.168.1.150" required>
+                  <input
+                    matInput
+                    [(ngModel)]="nuevaImpresora.ip_o_puerto"
+                    name="impIp"
+                    placeholder="Ej. 192.168.1.150"
+                    required
+                  />
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Puerto TCP</mat-label>
-                  <input matInput type="number" [(ngModel)]="nuevaImpresora.puerto_tcp" name="impPuertoTcp" placeholder="9100">
+                  <input
+                    matInput
+                    type="number"
+                    [(ngModel)]="nuevaImpresora.puerto_tcp"
+                    name="impPuertoTcp"
+                    placeholder="9100"
+                  />
                 </mat-form-field>
               }
 
               @if (nuevaImpresora.tipo === 'USB') {
                 <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>Nombre de Impresora en el Sistema (USB)</mat-label>
-                  <input matInput [(ngModel)]="nuevaImpresora.ip_o_puerto" name="impUsbName" placeholder="Ej. EPSON_TM_T20 o POS58" required>
-                  <mat-hint>Nombre exacto de la impresora instalada o compartida en el SO</mat-hint>
+                  <mat-label>Cola de Impresión de Windows (USB)</mat-label>
+                  <mat-select [(ngModel)]="nuevaImpresora.ip_o_puerto" name="impUsbName" required>
+                    @for (printer of impresorasWindows(); track printer.name) {
+                      <mat-option [value]="printer.name">
+                        {{ obtenerEtiquetaImpresoraWindows(printer) }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint
+                    >Selecciona la cola real registrada en Windows para evitar errores de nombre
+                    manual.</mat-hint
+                  >
                 </mat-form-field>
+
+                @if (impresorasWindows().length === 0) {
+                  <p style="margin: 4px 0 0; color: #c62828; font-size: 0.85rem">
+                    No se detectaron impresoras Windows disponibles. Verifica que la impresora USB
+                    esté instalada en el sistema operativo.
+                  </p>
+                }
               }
 
               <div class="form-actions">
-                <button mat-flat-button color="primary" type="submit" [disabled]="!nuevaImpresora.nombre || (nuevaImpresora.tipo !== 'SIMULACION' && !nuevaImpresora.ip_o_puerto)" class="w-full">
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="
+                    !nuevaImpresora.nombre ||
+                    (nuevaImpresora.tipo !== 'SIMULACION' && !nuevaImpresora.ip_o_puerto)
+                  "
+                  class="w-full"
+                >
                   <mat-icon>add</mat-icon> Agregar Impresora
                 </button>
               </div>
@@ -1250,24 +2047,52 @@
                 <div class="client-meta">
                   <div class="meta-row">
                     <span class="meta-name font-bold">{{ imp.nombre }}</span>
-                    <span class="meta-tag"><mat-icon class="sub-icon">place</mat-icon> {{ imp.destino }}</span>
+                    <span class="meta-tag"
+                      ><mat-icon class="sub-icon">place</mat-icon> {{ imp.destino }}</span
+                    >
                   </div>
                   <p class="meta-text">
                     <mat-icon class="sub-icon">lan</mat-icon>
                     <strong>Conexión: </strong> {{ imp.tipo }}
-                    @if (imp.tipo === 'RED') { ({{ imp.ip_o_puerto }}:{{ imp.puerto_tcp || 9100 }}) }
-                    @else if (imp.tipo === 'USB') { ({{ imp.ip_o_puerto }}) }
+                    @if (imp.tipo === 'RED') {
+                      ({{ imp.ip_o_puerto }}:{{ imp.puerto_tcp || 9100 }})
+                    } @else if (imp.tipo === 'USB') {
+                      ({{ imp.ip_o_puerto }})
+                    }
                     | <strong>Papel:</strong> {{ imp.ancho_papel || '80mm' }}
                   </p>
-                  @if (!imp.activa) { <div style="margin-top: 6px;"><span class="no-disp-badge">Desactivada</span></div> }
+                  @if (!imp.activa) {
+                    <div style="margin-top: 6px">
+                      <span class="no-disp-badge">Desactivada</span>
+                    </div>
+                  }
                 </div>
-                <div class="client-actions" style="display: flex; gap: 4px;">
-                  <button type="button" class="btn-icon" (click)="probarImpresora(imp.id!)" title="Probar Impresión">
-                    <mat-icon style="color: #1976d2;">play_circle</mat-icon>
+                <div class="client-actions" style="display: flex; gap: 4px">
+                  <button
+                    type="button"
+                    class="btn-icon"
+                    (click)="probarImpresora(imp.id!)"
+                    title="Probar Impresión"
+                  >
+                    <mat-icon style="color: #1976d2">play_circle</mat-icon>
                   </button>
-                  <button type="button" class="btn-icon edit" (click)="habilitarEdicionImpresora(imp)" title="Editar Impresora"><mat-icon>edit</mat-icon></button>
+                  <button
+                    type="button"
+                    class="btn-icon edit"
+                    (click)="habilitarEdicionImpresora(imp)"
+                    title="Editar Impresora"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
                   @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-                    <button type="button" class="btn-icon delete" (click)="eliminarImpresora(imp.id!)" title="Eliminar Impresora"><mat-icon>delete</mat-icon></button>
+                    <button
+                      type="button"
+                      class="btn-icon delete"
+                      (click)="eliminarImpresora(imp.id!)"
+                      title="Eliminar Impresora"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
                   }
                 </div>
               </div>
@@ -1288,35 +2113,106 @@
         <mat-icon class="tab-icon">verified_user</mat-icon>
         <span>Licencia del Sistema</span>
       </ng-template>
-      <div class="tab-content" style="padding: 24px;">
-        <div class="form-card width-xl mx-auto" style="max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-
-          <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #eee; padding-bottom: 16px; margin-bottom: 24px;">
+      <div class="tab-content" style="padding: 24px">
+        <div
+          class="form-card width-xl mx-auto"
+          style="
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+          "
+        >
+          <div
+            class="card-header"
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 1px solid #eee;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+            "
+          >
             <div>
-              <h3 style="margin: 0 0 4px 0; color: #1565c0; font-size: 1.4rem; display: flex; align-items: center; gap: 8px;">
-                <mat-icon style="color: #1565c0;">security</mat-icon> Estado de Licencia y Renovación Preventiva
+              <h3
+                style="
+                  margin: 0 0 4px 0;
+                  color: #1565c0;
+                  font-size: 1.4rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                "
+              >
+                <mat-icon style="color: #1565c0">security</mat-icon> Estado de Licencia y Renovación
+                Preventiva
               </h3>
-              <p style="margin: 0; color: #666; font-size: 0.9rem;">
-                Administra la vigencia del software para garantizar la operatividad continua del punto de venta.
+              <p style="margin: 0; color: #666; font-size: 0.9rem">
+                Administra la vigencia del software para garantizar la operatividad continua del
+                punto de venta.
               </p>
             </div>
 
             <!-- BADGE DINÁMICO DE ESTADO Y DÍAS RESTANTES -->
             @if (infoLicencia(); as lic) {
-              <div style="text-align: right;">
+              <div style="text-align: right">
                 @if (lic.valida && (lic.diasRestantes ?? 0) > 15) {
-                  <span style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
-                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">check_circle</mat-icon>
+                  <span
+                    style="
+                      background-color: #e8f5e9;
+                      color: #2e7d32;
+                      border: 1px solid #c8e6c9;
+                      padding: 8px 16px;
+                      border-radius: 20px;
+                      font-weight: bold;
+                      font-size: 0.95rem;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 6px;
+                    "
+                  >
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px"
+                      >check_circle</mat-icon
+                    >
                     Licencia Activa: {{ lic.diasRestantes }} días restantes
                   </span>
                 } @else if (lic.valida && (lic.diasRestantes ?? 0) <= 15) {
-                  <span style="background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
-                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">warning</mat-icon>
+                  <span
+                    style="
+                      background-color: #fff3e0;
+                      color: #ef6c00;
+                      border: 1px solid #ffe0b2;
+                      padding: 8px 16px;
+                      border-radius: 20px;
+                      font-weight: bold;
+                      font-size: 0.95rem;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 6px;
+                    "
+                  >
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px">warning</mat-icon>
                     Por vencer: {{ lic.diasRestantes }} días restantes
                   </span>
                 } @else {
-                  <span style="background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
-                    <mat-icon style="font-size: 18px; width: 18px; height: 18px;">error</mat-icon>
+                  <span
+                    style="
+                      background-color: #ffebee;
+                      color: #c62828;
+                      border: 1px solid #ffcdd2;
+                      padding: 8px 16px;
+                      border-radius: 20px;
+                      font-weight: bold;
+                      font-size: 0.95rem;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 6px;
+                    "
+                  >
+                    <mat-icon style="font-size: 18px; width: 18px; height: 18px">error</mat-icon>
                     Licencia Inválida o Expirada
                   </span>
                 }
@@ -1325,71 +2221,167 @@
           </div>
 
           <!-- DETALLES DE TITULAR Y FECHA -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 16px; border-radius: 8px;">
-              <span style="font-size: 0.8rem; color: #6c757d; font-weight: bold; text-transform: uppercase;">Cliente / Titular</span>
-              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem;">
+          <div
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px"
+          >
+            <div
+              style="
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 16px;
+                border-radius: 8px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.8rem;
+                  color: #6c757d;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                "
+                >Cliente / Titular</span
+              >
+              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem">
                 {{ infoLicencia()?.cliente || 'No registrado' }}
               </p>
             </div>
 
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 16px; border-radius: 8px;">
-              <span style="font-size: 0.8rem; color: #6c757d; font-weight: bold; text-transform: uppercase;">Fecha de Expiración</span>
-              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem;">
+            <div
+              style="
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 16px;
+                border-radius: 8px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.8rem;
+                  color: #6c757d;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                "
+                >Fecha de Expiración</span
+              >
+              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem">
                 {{ infoLicencia()?.vencimiento || 'Indefinida' }}
               </p>
             </div>
           </div>
 
           <!-- HARDWARE ID LOCAL CON BOTÓN COPIAR -->
-          <div style="background: #eef6fc; border: 1px dashed #1e88e5; padding: 16px; border-radius: 8px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between;">
+          <div
+            style="
+              background: #eef6fc;
+              border: 1px dashed #1e88e5;
+              padding: 16px;
+              border-radius: 8px;
+              margin-bottom: 28px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            "
+          >
             <div>
-              <span style="font-size: 0.85rem; color: #1565c0; font-weight: bold;">Hardware ID (Tarjeta Madre Local):</span>
-              <p style="margin: 2px 0 0 0; font-family: monospace; font-size: 1.1rem; color: #0d47a1; font-weight: bold;">
+              <span style="font-size: 0.85rem; color: #1565c0; font-weight: bold"
+                >Hardware ID (Tarjeta Madre Local):</span
+              >
+              <p
+                style="
+                  margin: 2px 0 0 0;
+                  font-family: monospace;
+                  font-size: 1.1rem;
+                  color: #0d47a1;
+                  font-weight: bold;
+                "
+              >
                 {{ hardwareIdLocal() }}
               </p>
             </div>
-            <button mat-stroked-button color="primary" type="button" (click)="copiarHardwareId()" style="background: #ffffff; color: #1976d2; border-color: #1976d2;">
+            <button
+              mat-stroked-button
+              color="primary"
+              type="button"
+              (click)="copiarHardwareId()"
+              style="background: #ffffff; color: #1976d2; border-color: #1976d2"
+            >
               <mat-icon>content_copy</mat-icon> Copiar Identificador
             </button>
           </div>
 
           <!-- FORMULARIO DE INGRESO DE NUEVA CLAVE -->
           <form (submit)="renovarLicencia(); $event.preventDefault()">
-            <h4 style="margin: 0 0 8px 0; color: #333333; font-size: 1.1rem; display: flex; align-items: center; gap: 6px;">
-              <mat-icon style="color: #1565c0;">key</mat-icon> Ingresar Clave de Renovación
+            <h4
+              style="
+                margin: 0 0 8px 0;
+                color: #333333;
+                font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              "
+            >
+              <mat-icon style="color: #1565c0">key</mat-icon> Ingresar Clave de Renovación
             </h4>
-            <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #555555;">
-              Ingresa la nueva clave proporcionada por tu proveedor antes de la fecha límite para extender la validez del sistema sin interrupciones operativas.
+            <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: #555555">
+              Ingresa la nueva clave proporcionada por tu proveedor antes de la fecha límite para
+              extender la validez del sistema sin interrupciones operativas.
             </p>
 
-            <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 20px">
               <textarea
                 [(ngModel)]="nuevaClaveLicencia"
                 name="keyLicInput"
                 rows="5"
                 placeholder="Pega aquí la nueva clave de licencia..."
-                style="width: 100%; box-sizing: border-box; background-color: #f8f9fa; color: #111111; border: 2px solid #0288d1; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.85rem; resize: vertical; outline: none;">
+                style="
+                  width: 100%;
+                  box-sizing: border-box;
+                  background-color: #f8f9fa;
+                  color: #111111;
+                  border: 2px solid #0288d1;
+                  border-radius: 8px;
+                  padding: 12px;
+                  font-family: monospace;
+                  font-size: 0.85rem;
+                  resize: vertical;
+                  outline: none;
+                "
+              >
               </textarea>
             </div>
 
             <!-- BOTÓN DESTACADO Y VISIBLE -->
-            <div style="display: flex; justify-content: flex-end;">
+            <div style="display: flex; justify-content: flex-end">
               <button
                 type="submit"
                 [disabled]="!nuevaClaveLicencia.trim() || cargandoLicencia"
-                [style.background-color]="!nuevaClaveLicencia.trim() || cargandoLicencia ? '#cccccc' : '#0288d1'"
-                [style.cursor]="!nuevaClaveLicencia.trim() || cargandoLicencia ? 'not-allowed' : 'pointer'"
-                style="color: #ffffff; border: none; padding: 12px 28px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;">
-                <mat-icon style="font-size: 20px; width: 20px; height: 20px;">verified</mat-icon>
+                [style.background-color]="
+                  !nuevaClaveLicencia.trim() || cargandoLicencia ? '#cccccc' : '#0288d1'
+                "
+                [style.cursor]="
+                  !nuevaClaveLicencia.trim() || cargandoLicencia ? 'not-allowed' : 'pointer'
+                "
+                style="
+                  color: #ffffff;
+                  border: none;
+                  padding: 12px 28px;
+                  border-radius: 6px;
+                  font-weight: bold;
+                  font-size: 0.95rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  transition: all 0.2s ease;
+                "
+              >
+                <mat-icon style="font-size: 20px; width: 20px; height: 20px">verified</mat-icon>
                 {{ cargandoLicencia ? 'Verificando Clave...' : 'Validar y Aplicar Licencia' }}
               </button>
             </div>
           </form>
-
         </div>
       </div>
     </mat-tab>
-
   </mat-tab-group>
 </div>

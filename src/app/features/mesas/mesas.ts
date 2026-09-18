@@ -1,8 +1,15 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  OnInit,
+  OnDestroy,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
@@ -21,6 +28,7 @@ import { CrearEnvioDialogComponent } from './components/crear-envio-dialog/crear
 import { Mesa } from '../../core/models/mesa';
 import { CrearMostradorDialogComponent } from './components/crear-mostrador-dialog/crear-mostrador-dialog';
 import { FormatoNumeroMesaPipe } from '../../core/pipes/formato-numero-mesa.pipe';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-mesas',
@@ -35,11 +43,11 @@ import { FormatoNumeroMesaPipe } from '../../core/pipes/formato-numero-mesa.pipe
     MatFormFieldModule,
     MesaFiltrosComponent,
     MesaCardComponent,
-    FormatoNumeroMesaPipe
+    FormatoNumeroMesaPipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mesas.html',
-  styleUrl: './mesas.scss'
+  styleUrl: './mesas.scss',
 })
 export class MesasComponent implements OnInit, OnDestroy {
   protected readonly mesaService = inject(MesaService);
@@ -47,7 +55,7 @@ export class MesasComponent implements OnInit, OnDestroy {
   protected readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
 
   // Controla la pestaña activa del panel derecho ('MOSTRADOR' o 'DOMICILIO')
   readonly vistaEspecial = signal<'MOSTRADOR' | 'DOMICILIO'>('MOSTRADOR');
@@ -72,7 +80,7 @@ export class MesasComponent implements OnInit, OnDestroy {
   registrarPedidoMostrador() {
     const dialogRef = this.dialog.open(CrearMostradorDialogComponent, {
       width: '460px',
-      disableClose: false
+      disableClose: false,
     });
 
     dialogRef.afterClosed().subscribe((result) => {
@@ -96,18 +104,18 @@ export class MesasComponent implements OnInit, OnDestroy {
               minutosAbierta: 1,
               total: 0,
               clienteNombre: result.nombre || 'Cliente Mostrador',
-              mesero: usuarioNombre
+              mesero: usuarioNombre,
             };
 
             this.mesaService.seleccionarMesaActiva(mesaVirtual);
-            this.snackBar.open(`¡Pedido #${numeroLimpio} registrado con éxito!`, 'Cerrar', { duration: 3000 });
+            this.notifications.success(`Pedido #${numeroLimpio} registrado con éxito.`);
 
             this.router.navigate(['/comanda'], {
-              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId }
+              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId },
             });
             this.mesaService.cargarMesas();
           },
-          error: () => this.snackBar.open('Error al crear la orden de mostrador', 'Cerrar', { duration: 3000 })
+          error: () => this.notifications.error('Error al crear la orden de mostrador'),
         });
       }
     });
@@ -117,7 +125,7 @@ export class MesasComponent implements OnInit, OnDestroy {
   registrarEnvioDomicilio() {
     const dialogRef = this.dialog.open(CrearEnvioDialogComponent, {
       width: '480px',
-      disableClose: false
+      disableClose: false,
     });
 
     dialogRef.afterClosed().subscribe((result) => {
@@ -140,16 +148,16 @@ export class MesasComponent implements OnInit, OnDestroy {
               comensales: 1,
               minutosAbierta: 1,
               total: 0,
-              mesero: usuarioNombre
+              mesero: usuarioNombre,
             };
             this.mesaService.seleccionarMesaActiva(mesaVirtual);
-            this.snackBar.open(`¡Envío #${numeroLimpio} registrado con éxito!`, 'Cerrar', { duration: 3000 });
+            this.notifications.success(`Envío #${numeroLimpio} registrado con éxito.`);
             this.router.navigate(['/comanda'], {
-              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId }
+              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId },
             });
             this.mesaService.cargarMesas();
           },
-          error: () => this.snackBar.open('Error al crear el envío a domicilio', 'Cerrar', { duration: 3000 })
+          error: () => this.notifications.error('Error al crear el envío a domicilio'),
         });
       }
     });
@@ -166,7 +174,7 @@ export class MesasComponent implements OnInit, OnDestroy {
       case 'VER_DETALLE':
         this.dialog.open(DesgloseMesaDialogComponent, {
           width: '450px',
-          data: { mesa }
+          data: { mesa },
         });
         break;
 
@@ -176,7 +184,7 @@ export class MesasComponent implements OnInit, OnDestroy {
         break;
 
       case 'IMPRIMIR_PRECUENTA':
-        this.snackBar.open(`Imprimiendo precuenta de ${mesa.numero}...`, 'Cerrar', { duration: 3000 });
+        this.notifications.info(`Imprimiendo precuenta de ${mesa.numero}...`);
         break;
 
       case 'MOVER_MESA':
@@ -191,31 +199,39 @@ export class MesasComponent implements OnInit, OnDestroy {
   }
 
   moverMesaModal(mesaOrigen: Mesa) {
-    const mesasLibres = this.mesaService.mesas().filter(m =>
-      m.estado === 'DISPONIBLE' &&
-      m.zona !== 'Domicilio' &&
-      m.zona !== 'Mostrador' &&
-      m.id !== mesaOrigen.id
-    );
+    const mesasLibres = this.mesaService
+      .mesas()
+      .filter(
+        (m) =>
+          m.estado === 'DISPONIBLE' &&
+          m.zona !== 'Domicilio' &&
+          m.zona !== 'Mostrador' &&
+          m.id !== mesaOrigen.id,
+      );
 
     if (mesasLibres.length === 0) {
-      this.snackBar.open('No hay mesas de salón disponibles para realizar la transferencia.', 'Cerrar', { duration: 3000 });
+      this.notifications.warning(
+        'No hay mesas de salón disponibles para realizar la transferencia.',
+      );
       return;
     }
 
     const dialogRef = this.dialog.open(MoverMesaDialogComponent, {
       width: '420px',
-      data: { mesaOrigen, mesasLibres }
+      data: { mesaOrigen, mesasLibres },
     });
 
-    dialogRef.afterClosed().subscribe(res => {
+    dialogRef.afterClosed().subscribe((res) => {
       if (res?.confirmado && res.destinoId) {
         this.mesaService.moverMesa(mesaOrigen.id, res.destinoId).subscribe({
           next: () => {
-            this.snackBar.open(`¡El pedido de ${mesaOrigen.numero} se transfirió exitosamente a la mesa seleccionada!`, 'Cerrar', { duration: 3000 });
+            this.notifications.success(
+              `El pedido de ${mesaOrigen.numero} se transfirió exitosamente a la mesa seleccionada.`,
+            );
             this.mesaService.cargarMesas();
           },
-          error: () => this.snackBar.open('Error al transferir el pedido en la base de datos', 'Cerrar', { duration: 3000 })
+          error: () =>
+            this.notifications.error('Error al transferir el pedido en la base de datos'),
         });
       }
     });
@@ -225,10 +241,10 @@ export class MesasComponent implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(AbrirMesaDialogComponent, {
       width: '420px',
       data: { mesa },
-      disableClose: false
+      disableClose: false,
     });
 
-    dialogRef.afterClosed().subscribe(res => {
+    dialogRef.afterClosed().subscribe((res) => {
       if (res?.confirmado) {
         const usuarioActivo = this.authService.usuarioActivo();
         const usuarioId = usuarioActivo?.id || 1;
@@ -239,15 +255,15 @@ export class MesasComponent implements OnInit, OnDestroy {
               estado: 'PENDIENTE',
               comensales: res.comensales,
               minutosAbierta: 1,
-              mesero: usuarioActivo?.nombre || 'Atención'
+              mesero: usuarioActivo?.nombre || 'Atención',
             };
 
             this.mesaService.seleccionarMesaActiva(mesaActualizada);
             this.router.navigate(['/comanda'], {
-              queryParams: { mesaId: mesa.id, comandaId: respuesta.comandaId }
+              queryParams: { mesaId: mesa.id, comandaId: respuesta.comandaId },
             });
           },
-          error: () => this.snackBar.open('Error al abrir la mesa en base de datos', 'Cerrar', { duration: 3000 })
+          error: () => this.notifications.error('Error al abrir la mesa en base de datos'),
         });
       }
     });

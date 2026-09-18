@@ -1,12 +1,12 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { NotificationService } from '../services/notification.service';
 
 export const adminGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
-  const snackBar = inject(MatSnackBar);
+  const notifications = inject(NotificationService);
 
   const usuario = authService.usuarioActivo();
 
@@ -15,10 +15,7 @@ export const adminGuard: CanActivateFn = (route, state) => {
   }
 
   // De lo contrario, se notifica y se redirige a mesas
-  snackBar.open('Acceso denegado: Se requieren privilegios de Administrador.', 'Cerrar', {
-    duration: 3000,
-    panelClass: ['warn-snackbar']
-  });
+  notifications.warning('Acceso denegado: se requieren privilegios de Administrador.');
 
   if (usuario) {
     router.navigate(['/mesas']);

@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal, computed } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  OnInit,
+  signal,
+  computed,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,10 +13,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { CajaService } from '../../../../core/services/caja-service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { Router } from '@angular/router';
+import { NotificationService } from '../../../../core/services/notification.service';
 
 @Component({
   selector: 'app-corte-caja-dialog',
@@ -21,17 +28,17 @@ import { Router } from '@angular/router';
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
-    FormsModule
+    FormsModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './corte-caja-dialog.html',
-  styleUrl: './corte-caja-dialog.scss'
+  styleUrl: './corte-caja-dialog.scss',
 })
 export class CorteCajaDialog implements OnInit {
   private readonly dialogRef = inject(MatDialogRef<CorteCajaDialog>);
   private readonly cajaService = inject(CajaService);
   private readonly authService = inject(AuthService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
   private readonly router = inject(Router);
 
   loading = signal<boolean>(true);
@@ -60,7 +67,7 @@ export class CorteCajaDialog implements OnInit {
   ngOnInit() {
     const user = this.authService.usuarioActivo();
     if (!user) {
-      this.snackBar.open('Inicie sesión para realizar corte de caja', 'Cerrar', { duration: 3000 });
+      this.notifications.warning('Inicie sesión para realizar corte de caja');
       this.dialogRef.close();
       return;
     }
@@ -81,9 +88,9 @@ export class CorteCajaDialog implements OnInit {
       },
       error: (err) => {
         console.error(err);
-        this.snackBar.open('Error al obtener datos del corte de caja', 'Cerrar', { duration: 3000 });
+        this.notifications.error('Error al obtener datos del corte de caja');
         this.loading.set(false);
-      }
+      },
     });
   }
 
@@ -98,17 +105,17 @@ export class CorteCajaDialog implements OnInit {
       transferenciaCalculado: Number(this.transferenciaCalculado()),
       ventasTotales: Number(this.ventasTotales()),
       diferencia: Number(this.diferencia()),
-      notas: this.notas()
+      notas: this.notas(),
     };
 
     this.cajaService.guardarCorte(payload).subscribe({
       next: () => {
-        this.snackBar.open('¡Corte de caja registrado con éxito! Sesión cerrada.', 'Cerrar', { duration: 4000 });
+        this.notifications.success('Corte de caja registrado con éxito. Sesión cerrada.', 4000);
         this.authService.cerrarSesion();
         this.dialogRef.close(true);
         this.router.navigate(['/login']);
       },
-      error: () => this.snackBar.open('Error al registrar corte de caja', 'Cerrar', { duration: 3000 })
+      error: () => this.notifications.error('Error al registrar corte de caja'),
     });
   }
 

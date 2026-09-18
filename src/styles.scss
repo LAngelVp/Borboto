@@ -5,23 +5,24 @@
    ========================================================================== */
 
 /* 1. TEMA CLARO (Default) */
-:root, html.light-theme {
+:root,
+html.light-theme {
   /* Marca (Neuromarketing Gastronómico) */
-  --color-primary: #E65100;       /* Naranja (Acción / Comanda) */
-  --color-primary-hover: #BF360C;
-  --color-secondary: #263238;     /* Azul Pizarra (Navegación / Estabilidad) */
-  --color-bg: #F4F6F8;            /* Gris Niebla (Descanso visual) */
-  --color-surface: #FFFFFF;       /* Blanco Puro (Tarjetas / Limpieza) */
-  --color-text-main: #1C1E21;
-  --color-text-muted: #5F6368;
-  --color-border: #E0E0E0;
-  --color-hover: #F0F2F5;
+  --color-primary: #e65100; /* Naranja (Acción / Comanda) */
+  --color-primary-hover: #bf360c;
+  --color-secondary: #263238; /* Azul Pizarra (Navegación / Estabilidad) */
+  --color-bg: #f4f6f8; /* Gris Niebla (Descanso visual) */
+  --color-surface: #ffffff; /* Blanco Puro (Tarjetas / Limpieza) */
+  --color-text-main: #1c1e21;
+  --color-text-muted: #5f6368;
+  --color-border: #e0e0e0;
+  --color-hover: #f0f2f5;
 
   /* Estados de Comandas */
-  --status-pendiente: #FFB300;   /* Ámbar */
-  --status-cocinando: #0288D1;   /* Azul */
-  --status-listo: #4CAF50;       /* Verde */
-  --status-urgente: #D32F2F;     /* Rojo */
+  --status-pendiente: #ffb300; /* Ámbar */
+  --status-cocinando: #0288d1; /* Azul */
+  --status-listo: #4caf50; /* Verde */
+  --status-urgente: #d32f2f; /* Rojo */
 
   color-scheme: light;
 }
@@ -29,21 +30,21 @@
 /* 2. TEMA OSCURO */
 html.dark-theme {
   /* Adaptación visual para ambiente nocturno / gastronómico */
-  --color-primary: #FF7D33;       /* Naranja más brillante para contraste */
-  --color-primary-hover: #E65100;
-  --color-secondary: #0F172A;     /* Oscuro profundo */
-  --color-bg: #0F172A;            /* Fondo Oscuro */
-  --color-surface: #1E293B;       /* Tarjetas y Modales en Oscuro */
-  --color-text-main: #F8FAFC;     /* Texto Blanco Suave */
-  --color-text-muted: #94A3B8;    /* Texto Secundario Oscuro */
+  --color-primary: #ff7d33; /* Naranja más brillante para contraste */
+  --color-primary-hover: #e65100;
+  --color-secondary: #0f172a; /* Oscuro profundo */
+  --color-bg: #0f172a; /* Fondo Oscuro */
+  --color-surface: #1e293b; /* Tarjetas y Modales en Oscuro */
+  --color-text-main: #f8fafc; /* Texto Blanco Suave */
+  --color-text-muted: #94a3b8; /* Texto Secundario Oscuro */
   --color-border: #334155;
   --color-hover: #334155;
 
   /* Estados de Comandas (Ajustados para contraste en oscuro) */
-  --status-pendiente: #FFC107;
-  --status-cocinando: #38BDF8;
-  --status-listo: #4ADE80;
-  --status-urgente: #F87171;
+  --status-pendiente: #ffc107;
+  --status-cocinando: #38bdf8;
+  --status-listo: #4ade80;
+  --status-urgente: #f87171;
 
   color-scheme: dark;
 }
@@ -52,17 +53,21 @@ html.dark-theme {
    ESTILOS GENERALES
    ========================================================================== */
 
-html, body {
+html,
+body {
   height: 100%;
   margin: 0;
   font-family: 'Inter', 'Roboto', sans-serif;
   background-color: var(--color-bg);
   color: var(--color-text-main);
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
 }
 
 /* Formato de precios alineado verticalmente para la caja */
-.precio, .total-monto {
+.precio,
+.total-monto {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
@@ -76,9 +81,10 @@ html, body {
   background-color: var(--color-surface) !important;
   color: var(--color-text-main) !important;
   border-radius: 16px !important;
-  box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.2),
-              0 24px 38px 3px rgba(0, 0, 0, 0.14),
-              0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
+  box-shadow:
+    0 11px 15px -7px rgba(0, 0, 0, 0.2),
+    0 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0 9px 46px 8px rgba(0, 0, 0, 0.12) !important;
   border: 1px solid var(--color-border) !important;
 }
 
@@ -124,9 +130,9 @@ html, body {
 
 /* Fondo gris claro sólido, opaco y con sombra para eliminar la transparencia */
 .mat-mdc-snack-bar-container .mdc-snackbar__surface {
-  background-color: #E8ECEF !important; /* Gris claro sólido */
+  background-color: #e8ecef !important; /* Gris claro sólido */
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
-  border: 1px solid #B0BEC5 !important;
+  border: 1px solid #b0bec5 !important;
   border-radius: 8px !important;
 }
 
@@ -139,6 +145,26 @@ html, body {
 
 /* Botón de acción (ej. "Cerrar" / "Aceptar") */
 .mat-mdc-snack-bar-container .mdc-snackbar__action .mdc-button__label {
-  color: #0288D1 !important;
+  color: #0288d1 !important;
   font-weight: 700 !important;
+}
+
+.success-snackbar .mdc-snackbar__surface {
+  background-color: #e8f5e9 !important;
+  border-color: #81c784 !important;
+}
+
+.info-snackbar .mdc-snackbar__surface {
+  background-color: #e3f2fd !important;
+  border-color: #64b5f6 !important;
+}
+
+.warn-snackbar .mdc-snackbar__surface {
+  background-color: #fff3e0 !important;
+  border-color: #ffb74d !important;
+}
+
+.error-snackbar .mdc-snackbar__surface {
+  background-color: #ffebee !important;
+  border-color: #e57373 !important;
 }

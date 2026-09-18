@@ -1,4 +1,11 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  OnInit,
+  signal,
+  computed,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogRef, MatDialogModule } from '@angular/material/dialog';
@@ -7,8 +14,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { AjustesService, Cliente } from '../../../../core/services/ajustes.service';
+import { NotificationService } from '../../../../core/services/notification.service';
 
 @Component({
   selector: 'app-crear-mostrador-dialog',
@@ -21,7 +28,7 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
     MatIconModule,
     MatInputModule,
     MatFormFieldModule,
-    MatSelectModule
+    MatSelectModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -39,8 +46,8 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
             <mat-select
               [(ngModel)]="clienteSeleccionadoId"
               (selectionChange)="onSeleccionarCliente($event.value)"
-              (openedChange)="alAbrirSelect($event)">
-
+              (openedChange)="alAbrirSelect($event)"
+            >
               <!-- Campo de búsqueda rápida -->
               <div class="search-input-box" (click)="$event.stopPropagation()">
                 <mat-icon class="search-icon">search</mat-icon>
@@ -49,7 +56,8 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
                   placeholder="Buscar por nombre o teléfono..."
                   [(ngModel)]="busquedaCliente"
                   (keydown)="$event.stopPropagation()"
-                  class="search-input">
+                  class="search-input"
+                />
                 @if (busquedaCliente()) {
                   <button mat-icon-button class="btn-clear" (click)="busquedaCliente.set('')">
                     <mat-icon>close</mat-icon>
@@ -61,7 +69,10 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
 
               @for (c of clientesFiltrados(); track c.id) {
                 <mat-option [value]="c.id">
-                  {{ c.nombre }} @if(c.telefono) { ({{ c.telefono }}) }
+                  {{ c.nombre }}
+                  @if (c.telefono) {
+                    ({{ c.telefono }})
+                  }
                 </mat-option>
               } @empty {
                 <mat-option disabled class="no-results">
@@ -83,152 +94,153 @@ import { AjustesService, Cliente } from '../../../../core/services/ajustes.servi
               matInput
               [(ngModel)]="nombre"
               placeholder="Ej. Juan Pérez / Gorra azul"
-              [disabled]="clienteSeleccionadoId !== 0">
+              [disabled]="clienteSeleccionadoId !== 0"
+            />
           </mat-form-field>
         </div>
       </mat-dialog-content>
 
       <mat-dialog-actions class="dialog-actions">
         <button mat-stroked-button (click)="cerrar(false)">Cancelar</button>
-        <button mat-flat-button color="primary" (click)="confirmar()">
-          Proceder a Comanda
-        </button>
+        <button mat-flat-button color="primary" (click)="confirmar()">Proceder a Comanda</button>
       </mat-dialog-actions>
     </div>
   `,
-  styles: [`
-    .dialog-container {
-      padding: 16px;
-      background-color: var(--color-surface) !important;
-      color: var(--color-text-main) !important;
-    }
-    .dialog-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 20px;
-      font-weight: 800;
-      color: #0288d1 !important;
-      margin-bottom: 16px;
-    }
-    .dialog-content {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .form-section h3 {
-      margin: 0 0 8px 0;
-      font-size: 13px;
-      text-transform: uppercase;
-      color: var(--color-text-muted) !important;
-      letter-spacing: 0.5px;
-      font-weight: 700;
-    }
-
-    /* Sobreescritura profunda de Angular Material MDC */
-    ::ng-deep {
-      .mat-mdc-text-field-wrapper {
-        background-color: var(--color-bg) !important;
-        border-radius: 8px;
-      }
-
-      .mat-mdc-input-element,
-      .mat-mdc-select-value {
+  styles: [
+    `
+      .dialog-container {
+        padding: 16px;
+        background-color: var(--color-surface) !important;
         color: var(--color-text-main) !important;
       }
-
-      .mat-mdc-floating-label,
-      .mat-mdc-select-placeholder {
-        color: var(--color-text-muted) !important;
-      }
-
-      .mat-mdc-form-field-disabled {
-        .mat-mdc-input-element {
-          color: var(--color-text-muted) !important;
-          opacity: 0.8;
-        }
-      }
-    }
-
-    .search-input-box {
-      display: flex;
-      align-items: center;
-      padding: 8px 12px;
-      position: sticky;
-      top: 0;
-      background: var(--color-surface) !important;
-      z-index: 10;
-      border-bottom: 1px solid var(--color-border);
-
-      .search-icon {
-        color: var(--color-text-muted) !important;
+      .dialog-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         font-size: 20px;
-        width: 20px;
-        height: 20px;
-        margin-right: 8px;
+        font-weight: 800;
+        color: #0288d1 !important;
+        margin-bottom: 16px;
       }
-
-      .search-input {
-        border: none;
-        outline: none;
-        width: 100%;
+      .dialog-content {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .form-section h3 {
+        margin: 0 0 8px 0;
         font-size: 13px;
-        color: var(--color-text-main) !important;
-        background: transparent;
-
-        &::placeholder {
-          color: var(--color-text-muted) !important;
-        }
-      }
-
-      .btn-clear {
-        width: 24px;
-        height: 24px;
-        line-height: 24px;
-
-        mat-icon {
-          font-size: 16px;
-          width: 16px;
-          height: 16px;
-          color: var(--color-text-muted) !important;
-        }
-      }
-    }
-
-    .no-results {
-      font-size: 12px;
-      color: var(--color-text-muted) !important;
-      text-align: center;
-    }
-
-    .divider {
-      height: 1px;
-      background-color: var(--color-border);
-      margin: 8px 0;
-    }
-
-    .w-full {
-      width: 100%;
-    }
-
-    .dialog-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 20px;
-
-      button {
+        text-transform: uppercase;
+        color: var(--color-text-muted) !important;
+        letter-spacing: 0.5px;
         font-weight: 700;
-        border-radius: 8px;
-        height: 40px;
       }
-    }
-  `]
+
+      /* Sobreescritura profunda de Angular Material MDC */
+      ::ng-deep {
+        .mat-mdc-text-field-wrapper {
+          background-color: var(--color-bg) !important;
+          border-radius: 8px;
+        }
+
+        .mat-mdc-input-element,
+        .mat-mdc-select-value {
+          color: var(--color-text-main) !important;
+        }
+
+        .mat-mdc-floating-label,
+        .mat-mdc-select-placeholder {
+          color: var(--color-text-muted) !important;
+        }
+
+        .mat-mdc-form-field-disabled {
+          .mat-mdc-input-element {
+            color: var(--color-text-muted) !important;
+            opacity: 0.8;
+          }
+        }
+      }
+
+      .search-input-box {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        position: sticky;
+        top: 0;
+        background: var(--color-surface) !important;
+        z-index: 10;
+        border-bottom: 1px solid var(--color-border);
+
+        .search-icon {
+          color: var(--color-text-muted) !important;
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          margin-right: 8px;
+        }
+
+        .search-input {
+          border: none;
+          outline: none;
+          width: 100%;
+          font-size: 13px;
+          color: var(--color-text-main) !important;
+          background: transparent;
+
+          &::placeholder {
+            color: var(--color-text-muted) !important;
+          }
+        }
+
+        .btn-clear {
+          width: 24px;
+          height: 24px;
+          line-height: 24px;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: var(--color-text-muted) !important;
+          }
+        }
+      }
+
+      .no-results {
+        font-size: 12px;
+        color: var(--color-text-muted) !important;
+        text-align: center;
+      }
+
+      .divider {
+        height: 1px;
+        background-color: var(--color-border);
+        margin: 8px 0;
+      }
+
+      .w-full {
+        width: 100%;
+      }
+
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 20px;
+
+        button {
+          font-weight: 700;
+          border-radius: 8px;
+          height: 40px;
+        }
+      }
+    `,
+  ],
 })
 export class CrearMostradorDialogComponent implements OnInit {
   private readonly dialogRef = inject(MatDialogRef<CrearMostradorDialogComponent>);
   private readonly ajustesService = inject(AjustesService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notifications = inject(NotificationService);
 
   readonly clientes = signal<Cliente[]>([]);
   readonly busquedaCliente = signal<string>('');
@@ -236,9 +248,8 @@ export class CrearMostradorDialogComponent implements OnInit {
   readonly clientesFiltrados = computed(() => {
     const query = this.busquedaCliente().toLowerCase().trim();
     if (!query) return this.clientes();
-    return this.clientes().filter(c =>
-      c.nombre.toLowerCase().includes(query) ||
-      (c.telefono && c.telefono.includes(query))
+    return this.clientes().filter(
+      (c) => c.nombre.toLowerCase().includes(query) || (c.telefono && c.telefono.includes(query)),
     );
   });
 
@@ -248,7 +259,7 @@ export class CrearMostradorDialogComponent implements OnInit {
   ngOnInit() {
     this.ajustesService.getClientes().subscribe({
       next: (list) => this.clientes.set(list || []),
-      error: () => console.error('Error cargando cartera de clientes')
+      error: () => console.error('Error cargando cartera de clientes'),
     });
   }
 
@@ -260,7 +271,7 @@ export class CrearMostradorDialogComponent implements OnInit {
     if (id === 0) {
       this.nombre = '';
     } else {
-      const selected = this.clientes().find(c => c.id === id);
+      const selected = this.clientes().find((c) => c.id === id);
       if (selected) {
         this.nombre = selected.nombre;
       }
@@ -280,14 +291,14 @@ export class CrearMostradorDialogComponent implements OnInit {
           this.dialogRef.close({ confirmado: true, clienteId: cli.id, nombre: cli.nombre });
         },
         error: () => {
-          this.snackBar.open('Error al registrar el cliente.', 'Cerrar', { duration: 3000 });
-        }
+          this.notifications.error('Error al registrar el cliente.');
+        },
       });
     } else {
       this.dialogRef.close({
         confirmado: true,
         clienteId: this.clienteSeleccionadoId || null,
-        nombre: this.nombre
+        nombre: this.nombre,
       });
     }
   }

@@ -120630,10 +120630,10 @@ var pool = new Pool2({
   port: dbPort
 });
 pool.on("connect", () => {
-  console.log(`\u{1F7E2} Conexi\xF3n activa a PostgreSQL en ${dbTargetName}:${dbPort}`);
+  console.log(`\u{1F7E2} Conexi\xF3n activa a DB`);
 });
 pool.on("error", (err) => {
-  console.error("\u274C Error imprevisto en el pool de PostgreSQL:", err);
+  console.error("\u274C Error imprevisto en el pool de DB");
 });
 function getDatabaseDirectory() {
   const possiblePaths = [
@@ -120647,11 +120647,11 @@ function getDatabaseDirectory() {
   }
   for (const p2 of possiblePaths) {
     if (import_fs3.default.existsSync(p2)) {
-      console.log(`\u{1F4C2} Carpeta "Database" localizada en: ${p2}`);
+      console.log(`\u{1F4C2} Carpeta localizada`);
       return p2;
     }
   }
-  throw new Error('\u274C No se encontr\xF3 la carpeta "Database" con el archivo 000_init.sql');
+  throw new Error("\u274C No se encontr\xF3 la File DB");
 }
 async function sincronizarCombosComoProductos() {
   const client = await pool.connect();
@@ -120766,17 +120766,17 @@ async function initDB() {
             ["000_init.sql"]
           );
           await targetPool.query("COMMIT");
-          console.log("\u2705 Estructura inicial (000_init.sql) creada exitosamente en borboto_pos.");
+          console.log("\u2705 Estructura inicial creada exitosamente en borboto_pos.");
         } catch (migrationError) {
           await targetPool.query("ROLLBACK");
           console.error("\u274C Fall\xF3 la migraci\xF3n 000_init.sql:", migrationError.message);
           throw migrationError;
         }
       } else {
-        console.warn(`\u26A0\uFE0F No se encontr\xF3 el archivo 000_init.sql en: ${initPath}`);
+        console.warn(`\u26A0\uFE0F No se encontr\xF3 el archivo inicial`);
       }
     } else {
-      console.log("\u2139\uFE0F La migraci\xF3n 000_init.sql ya se encontraba aplicada.");
+      console.log("\u2139\uFE0F La migraci\xF3n inicial ya se encontraba aplicada.");
     }
     console.log('\u{1F504} Ejecutando migraciones incrementales para la tabla "facturas"...');
     await targetPool.query(`
@@ -121165,14 +121165,14 @@ async function enviarConteoAGoogleSheets() {
     } catch (e2) {
     }
     resultObj.data = responseData;
-    console.log("\u2705 Respuesta Google Sheets:", responseData);
+    console.log("\u2705 Respuesta de Sheets:", responseData);
     if (res.ok) {
       resultObj.success = true;
       if (responseData && (responseData.status === "ok" || responseData.status === "success")) {
-        console.log("\u2705 Env\xEDo exitoso a Google Sheets");
+        console.log("\u2705 Exito de Sheets");
       }
     } else {
-      console.warn(`\u26A0\uFE0F [ReporteSheets] Respuesta HTTP fallida al enviar datos a Sheets: ${res.status} ${res.statusText}`);
+      console.warn(`\u26A0\uFE0F [ReporteSheets] Respuesta HTTP fallida de Sheets: ${res.status} ${res.statusText}`);
     }
   } catch (err) {
     resultObj.error = err.message || String(err);
@@ -121185,6 +121185,7 @@ async function enviarConteoAGoogleSheets() {
 var import_net = __toESM(require("net"), 1);
 var import_fs6 = __toESM(require("fs"), 1);
 var import_path4 = __toESM(require("path"), 1);
+var import_child_process2 = require("child_process");
 var import_pdf_to_printer = __toESM(require_bundle(), 1);
 
 // backend-borboto/src/modules/printer/templates/ticket-templates.ts
@@ -121274,6 +121275,192 @@ function generarTemplateCobro(datos, anchoPapel = "80mm") {
 
 // backend-borboto/src/modules/printer/printer.service.ts
 var PrinterService = class {
+  static VIRTUAL_PRINTER_PATTERNS = [
+    "microsoft print to pdf",
+    "microsoft xps document writer",
+    "fax",
+    "onenote",
+    "pdf",
+    "xps"
+  ];
+  static async execCommand(command) {
+    return new Promise((resolve, reject) => {
+      (0, import_child_process2.exec)(command, { windowsHide: true, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr?.trim() || error.message));
+          return;
+        }
+        resolve({ stdout, stderr });
+      });
+    });
+  }
+  static escapePowerShell(value) {
+    return value.replace(/'/g, "''");
+  }
+  static normalizarTexto(value) {
+    return value.trim().toLowerCase();
+  }
+  static crearTrabajoElectron(impresora, contenido, titulo) {
+    return {
+      tipo: "USB",
+      printerName: impresora.ip_o_puerto,
+      contenido,
+      titulo,
+      anchoPapel: impresora.ancho_papel || "80mm"
+    };
+  }
+  static inferirTipoCola(printer) {
+    const portName = printer.portName || "";
+    const driverName = printer.driverName || "";
+    const name = printer.name || printer.deviceId || "";
+    const normalizedName = this.normalizarTexto(name);
+    const normalizedDriver = this.normalizarTexto(driverName);
+    const normalizedPort = this.normalizarTexto(portName);
+    const isUsb = normalizedPort.startsWith("usb") || normalizedPort.includes("dot4");
+    const isNetwork = Boolean(printer.network) || normalizedPort.startsWith("tcp") || normalizedPort.startsWith("ip_") || normalizedPort.startsWith("wsd");
+    const isVirtual = this.VIRTUAL_PRINTER_PATTERNS.some(
+      (pattern) => normalizedName.includes(pattern) || normalizedDriver.includes(pattern)
+    );
+    return {
+      name,
+      deviceId: printer.deviceId || name,
+      driverName: driverName || void 0,
+      portName: portName || void 0,
+      isDefault: Boolean(printer.default),
+      isNetwork,
+      isUsb,
+      isVirtual,
+      isOffline: Boolean(printer.workOffline)
+    };
+  }
+  static async obtenerImpresorasWindows() {
+    if (process.platform !== "win32") {
+      return [];
+    }
+    const psCommand = [
+      "powershell -NoProfile -ExecutionPolicy Bypass -Command",
+      '"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false);',
+      "$printers = Get-CimInstance Win32_Printer | Select-Object Name,DeviceID,DriverName,PortName,WorkOffline,Network,Default;",
+      '$printers | ConvertTo-Json -Depth 3 -Compress"'
+    ].join(" ");
+    const { stdout } = await this.execCommand(psCommand);
+    const raw = stdout.trim();
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    const printers = Array.isArray(parsed) ? parsed : [parsed];
+    return printers.map((printer) => this.inferirTipoCola(printer)).sort((left, right) => left.name.localeCompare(right.name, "es", { sensitivity: "base" }));
+  }
+  static async resolverImpresoraWindows(impresora) {
+    if (process.platform !== "win32" || impresora.tipo !== "USB") {
+      return null;
+    }
+    const impresoras = await this.obtenerImpresorasWindows();
+    const buscados = [impresora.ip_o_puerto, impresora.nombre].map((value) => this.normalizarTexto(value || "")).filter(Boolean);
+    const exacta = impresoras.find(
+      (item) => buscados.some(
+        (value) => value === this.normalizarTexto(item.name) || value === this.normalizarTexto(item.deviceId)
+      )
+    );
+    if (exacta) {
+      return exacta;
+    }
+    return impresoras.find(
+      (item) => buscados.some(
+        (value) => this.normalizarTexto(item.name).includes(value) || this.normalizarTexto(item.deviceId).includes(value)
+      )
+    ) || null;
+  }
+  static construirBufferTermico(contenido, anchoPapel = "80mm") {
+    const initialize = Buffer.from([27, 64]);
+    const lineSpacing = Buffer.from([27, 51, 0]);
+    const text = Buffer.from(contenido.replace(/\r?\n/g, "\r\n"), "latin1");
+    const feed = Buffer.from(anchoPapel === "58mm" ? [10, 10, 10] : [10, 10, 10, 10]);
+    const cut = Buffer.from([29, 86, 0]);
+    return Buffer.concat([initialize, lineSpacing, text, feed, cut]);
+  }
+  static async imprimirUsbWindowsRaw(nombreCola, contenido, anchoPapel = "80mm") {
+    const rawPath = import_path4.default.join(process.cwd(), `temp_ticket_${Date.now()}.bin`);
+    import_fs6.default.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel));
+    try {
+      const escapedPath = this.escapePowerShell(rawPath);
+      const escapedPrinter = this.escapePowerShell(nombreCola);
+      const psCommand = `powershell -NoProfile -ExecutionPolicy Bypass -Command "$printerName = '${escapedPrinter}';$filePath = '${escapedPath}';$source = @"
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+public static class RawPrinterHelper {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  public class DOCINFOA {
+    [MarshalAs(UnmanagedType.LPWStr)] public string pDocName = "RAW Ticket";
+    [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile = null;
+    [MarshalAs(UnmanagedType.LPWStr)] public string pDataType = "RAW";
+  }
+  [DllImport("winspool.Drv", EntryPoint = "OpenPrinterW", SetLastError = true, CharSet = CharSet.Unicode)]
+  public static extern bool OpenPrinter(string szPrinter, out IntPtr hPrinter, IntPtr pd);
+  [DllImport("winspool.Drv", SetLastError = true)] public static extern bool ClosePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError = true, CharSet = CharSet.Unicode)]
+  public static extern bool StartDocPrinter(IntPtr hPrinter, int level, [In] DOCINFOA di);
+  [DllImport("winspool.Drv", SetLastError = true)] public static extern bool EndDocPrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError = true)] public static extern bool StartPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError = true)] public static extern bool EndPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError = true)]
+  public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
+  public static void SendBytesToPrinter(string printerName, byte[] bytes) {
+    IntPtr hPrinter;
+    if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) throw new InvalidOperationException("No se pudo abrir la cola de impresi\xF3n.");
+    try {
+      var doc = new DOCINFOA();
+      if (!StartDocPrinter(hPrinter, 1, doc)) throw new InvalidOperationException("No se pudo iniciar el documento RAW.");
+      try {
+        if (!StartPagePrinter(hPrinter)) throw new InvalidOperationException("No se pudo iniciar la p\xE1gina RAW.");
+        try {
+          IntPtr unmanagedBytes = Marshal.AllocCoTaskMem(bytes.Length);
+          try {
+            Marshal.Copy(bytes, 0, unmanagedBytes, bytes.Length);
+            int written;
+            if (!WritePrinter(hPrinter, unmanagedBytes, bytes.Length, out written) || written != bytes.Length) {
+              throw new InvalidOperationException("No se pudo escribir todo el contenido en la cola RAW.");
+            }
+          } finally { Marshal.FreeCoTaskMem(unmanagedBytes); }
+        } finally { EndPagePrinter(hPrinter); }
+      } finally { EndDocPrinter(hPrinter); }
+    } finally { ClosePrinter(hPrinter); }
+  }
+}
+"@;Add-Type -TypeDefinition $source -Language CSharp;$bytes = [System.IO.File]::ReadAllBytes($filePath);[RawPrinterHelper]::SendBytesToPrinter($printerName, $bytes);"`;
+      await this.execCommand(psCommand);
+    } finally {
+      if (import_fs6.default.existsSync(rawPath)) {
+        import_fs6.default.unlinkSync(rawPath);
+      }
+    }
+  }
+  static async validarImpresoraUsbConfigurada(nombreImpresora) {
+    if (process.platform !== "win32") {
+      return { ok: true };
+    }
+    const printer = await this.resolverImpresoraWindows({
+      nombre: nombreImpresora,
+      ip_o_puerto: nombreImpresora,
+      tipo: "USB"
+    });
+    if (!printer) {
+      return {
+        ok: false,
+        motivo: `La impresora USB "${nombreImpresora}" no existe en Windows. Verifica el nombre exacto de la cola.`
+      };
+    }
+    if (printer.isVirtual) {
+      return {
+        ok: false,
+        motivo: `La impresora "${printer.name}" es virtual. Selecciona una impresora t\xE9rmica real instalada en Windows.`,
+        printer
+      };
+    }
+    return { ok: true, printer };
+  }
   // ─── ENVÍO DINÁMICO CONSULTANDO LA BASE DE DATOS POR DESTINO ─────────────
   static async enviarDirectoAImpresora(impresora, contenido) {
     if (!impresora.activa) {
@@ -121286,7 +121473,9 @@ var PrinterService = class {
         const puerto = impresora.puerto_tcp || 9100;
         client.setTimeout(3e3);
         client.connect(puerto, impresora.ip_o_puerto, () => {
-          console.log(`\u{1F680} Enviando comanda TCP/IP a ${impresora.nombre} (${impresora.ip_o_puerto}:${puerto})`);
+          console.log(
+            `\u{1F680} Enviando comanda TCP/IP a ${impresora.nombre} (${impresora.ip_o_puerto}:${puerto})`
+          );
           client.write(contenido, "utf8", () => {
             client.end();
             resolve(null);
@@ -121306,13 +121495,31 @@ var PrinterService = class {
     }
     if (impresora.tipo === "USB") {
       try {
-        console.log(`\u{1F5A8}\uFE0F Despachando ticket a impresora USB del SO: "${impresora.ip_o_puerto}"`);
-        const tempPath = import_path4.default.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
-        import_fs6.default.writeFileSync(tempPath, contenido, "utf8");
-        await (0, import_pdf_to_printer.print)(tempPath, {
-          printer: impresora.ip_o_puerto
-        });
-        if (import_fs6.default.existsSync(tempPath)) import_fs6.default.unlinkSync(tempPath);
+        const resuelta = await this.resolverImpresoraWindows(impresora);
+        if (!resuelta) {
+          throw new Error(
+            `No se encontr\xF3 en Windows la cola configurada para "${impresora.nombre}" usando "${impresora.ip_o_puerto}".`
+          );
+        }
+        console.log(
+          `\u{1F5A8}\uFE0F Despachando ticket USB a cola Windows: "${resuelta.name}" (driver: ${resuelta.driverName || "N/D"}, puerto: ${resuelta.portName || "N/D"})`
+        );
+        if (process.platform === "win32") {
+          await this.imprimirUsbWindowsRaw(
+            resuelta.name,
+            contenido,
+            impresora.ancho_papel || "80mm"
+          );
+        } else {
+          const tempPath = import_path4.default.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
+          import_fs6.default.writeFileSync(tempPath, contenido, "utf8");
+          await (0, import_pdf_to_printer.print)(tempPath, {
+            printer: impresora.ip_o_puerto
+          });
+          if (import_fs6.default.existsSync(tempPath)) {
+            import_fs6.default.unlinkSync(tempPath);
+          }
+        }
         return null;
       } catch (err) {
         console.error(`\u274C Error al imprimir en USB local (${impresora.nombre}):`, err.message);
@@ -121339,12 +121546,59 @@ var PrinterService = class {
     );
     return rows;
   }
+  static async obtenerImpresoraPorId(id) {
+    const { rows } = await pool.query("SELECT * FROM impresoras WHERE id = $1 LIMIT 1", [id]);
+    return rows[0] || null;
+  }
+  static async generarTicketPrueba(impresora) {
+    const separador = impresora.ancho_papel === "58mm" ? "------------------------------" : "------------------------------------------";
+    return [
+      "BORBOTO POS",
+      "PRUEBA DE IMPRESION",
+      separador,
+      `Impresora: ${impresora.nombre}`,
+      `Tipo: ${impresora.tipo}`,
+      `Destino: ${impresora.destino}`,
+      `Cola/IP: ${impresora.ip_o_puerto}`,
+      `Fecha: ${(/* @__PURE__ */ new Date()).toLocaleString("es-MX")}`,
+      separador,
+      "0123456789",
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "abcdefghijklmnopqrstuvwxyz",
+      separador,
+      "Si ves este ticket, la ruta de impresion funciona.",
+      ""
+    ].join("\n");
+  }
+  static async probarImpresora(id) {
+    const impresora = await this.obtenerImpresoraPorId(id);
+    if (!impresora) {
+      return { ok: false, mensaje: "Impresora no encontrada." };
+    }
+    if (impresora.tipo === "USB") {
+      return {
+        ok: false,
+        mensaje: "Las impresoras USB se prueban desde Electron en el frontend para evitar dependencias de PowerShell en Windows."
+      };
+    }
+    const ticketPrueba = await this.generarTicketPrueba(impresora);
+    const fallback = await this.enviarDirectoAImpresora(impresora, ticketPrueba);
+    if (fallback) {
+      return {
+        ok: false,
+        mensaje: `La prueba de impresi\xF3n no se pudo despachar autom\xE1ticamente a "${impresora.nombre}". Revisa la configuraci\xF3n de la cola o el acceso a la impresora.`,
+        ticketTexto: fallback
+      };
+    }
+    return { ok: true, mensaje: `Prueba de impresi\xF3n enviada a "${impresora.nombre}".` };
+  }
   // ─── 1. PROCESAR IMPRESIÓN DE COMANDAS DE PRODUCCIÓN (COCINA Y BARRA) ───────
   static async imprimirComandaProduccion(comandaId) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const comandaRes = await client.query(`
+      const comandaRes = await client.query(
+        `
         SELECT
           c.id AS folio_comanda,
           m.numero AS mesa,
@@ -121356,12 +121610,15 @@ var PrinterService = class {
         JOIN zonas z ON m.zona_id = z.id
         JOIN usuarios u ON c.usuario_id = u.id
         WHERE c.id = $1
-      `, [comandaId]);
+      `,
+        [comandaId]
+      );
       if (comandaRes.rows.length === 0) {
         throw new Error(`Comanda #${comandaId} no encontrada.`);
       }
       const infoComanda = comandaRes.rows[0];
-      const itemsRes = await client.query(`
+      const itemsRes = await client.query(
+        `
         SELECT
           ci.id,
           ci.cantidad,
@@ -121372,7 +121629,9 @@ var PrinterService = class {
         JOIN productos p ON ci.producto_id = p.id
         JOIN categorias cat ON p.categoria_id = cat.id
         WHERE ci.comanda_id = $1 AND ci.impreso = FALSE
-      `, [comandaId]);
+      `,
+        [comandaId]
+      );
       if (itemsRes.rows.length === 0) {
         await client.query("ROLLBACK");
         return { ok: true, procesados: 0 };
@@ -121394,6 +121653,7 @@ var PrinterService = class {
         }
       });
       let textoTicketsAcumulado = "";
+      const impresionesPendientes = [];
       if (itemsCocina.length > 0) {
         const impresorasCocina = await this.obtenerImpresorasPorDestino("COCINA");
         const datosCocina = {
@@ -121407,6 +121667,12 @@ var PrinterService = class {
         for (const imp of impresorasCocina) {
           const anchoConfigurado = imp.ancho_papel || "80mm";
           const ticketText = generarTemplateProduccion(datosCocina, "COCINA", anchoConfigurado);
+          if (imp.tipo === "USB") {
+            impresionesPendientes.push(
+              this.crearTrabajoElectron(imp, ticketText, "Comanda Cocina")
+            );
+            continue;
+          }
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + "\n\n";
         }
@@ -121424,20 +121690,28 @@ var PrinterService = class {
         for (const imp of impresorasBarra) {
           const anchoConfigurado = imp.ancho_papel || "80mm";
           const ticketText = generarTemplateProduccion(datosBarra, "BARRA", anchoConfigurado);
+          if (imp.tipo === "USB") {
+            impresionesPendientes.push(this.crearTrabajoElectron(imp, ticketText, "Comanda Barra"));
+            continue;
+          }
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + "\n\n";
         }
       }
-      await client.query(`
+      await client.query(
+        `
         UPDATE comanda_items
         SET impreso = TRUE, impreso_en = NOW()
         WHERE id = ANY($1::int[])
-      `, [itemIdsAActualizar]);
+      `,
+        [itemIdsAActualizar]
+      );
       await client.query("COMMIT");
       return {
         ok: true,
         procesados: itemIdsAActualizar.length,
-        ticketTexto: textoTicketsAcumulado.trim() || void 0
+        ticketTexto: textoTicketsAcumulado.trim() || void 0,
+        impresionesPendientes: impresionesPendientes.length > 0 ? impresionesPendientes : void 0
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -121451,7 +121725,8 @@ var PrinterService = class {
   static async imprimirTicketCobro(pagoId) {
     try {
       const impresorasCaja = await this.obtenerImpresorasPorDestino("CAJA");
-      const pagoRes = await pool.query(`
+      const pagoRes = await pool.query(
+        `
         SELECT
           p.id AS pago_id,
           c.id AS folio_comanda,
@@ -121474,12 +121749,15 @@ var PrinterService = class {
         LEFT JOIN clientes cl ON c.cliente_id = cl.id
         LEFT JOIN tickets_autofactura ta ON ta.pago_id = p.id
         WHERE p.id = $1
-      `, [pagoId]);
+      `,
+        [pagoId]
+      );
       if (pagoRes.rows.length === 0) {
         throw new Error(`Pago #${pagoId} no encontrado.`);
       }
       const infoPago = pagoRes.rows[0];
-      const itemsRes = await pool.query(`
+      const itemsRes = await pool.query(
+        `
         SELECT
           ci.cantidad,
           p.nombre,
@@ -121489,7 +121767,9 @@ var PrinterService = class {
         FROM comanda_items ci
         JOIN productos p ON ci.producto_id = p.id
         WHERE ci.comanda_id = $1
-      `, [infoPago.folio_comanda]);
+      `,
+        [infoPago.folio_comanda]
+      );
       const items = itemsRes.rows.map((row) => ({
         cantidad: row.cantidad,
         nombre: row.nombre,
@@ -121514,20 +121794,32 @@ var PrinterService = class {
         urlAutofactura: infoPago.url_autofactura || void 0
       };
       let ticketSimuladoGenerado = null;
+      const impresionesPendientes = [];
       if (impresorasCaja.length === 0) {
-        console.log("\u26A0\uFE0F No hay impresoras configuradas o activas para CAJA. Generando simulaci\xF3n de ticket por defecto.");
+        console.log(
+          "\u26A0\uFE0F No hay impresoras configuradas o activas para CAJA. Generando simulaci\xF3n de ticket por defecto."
+        );
         ticketSimuladoGenerado = generarTemplateCobro(datosCobro, "80mm");
       } else {
         for (const imp of impresorasCaja) {
           const anchoConfigurado = imp.ancho_papel || "80mm";
           const ticketText = generarTemplateCobro(datosCobro, anchoConfigurado);
+          if (imp.tipo === "USB") {
+            impresionesPendientes.push(
+              this.crearTrabajoElectron(imp, ticketText, "Ticket de Cobro")
+            );
+            continue;
+          }
           const resSimulacion = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resSimulacion) {
             ticketSimuladoGenerado = resSimulacion;
           }
         }
       }
-      return ticketSimuladoGenerado;
+      return {
+        ticketTexto: ticketSimuladoGenerado,
+        impresionesPendientes: impresionesPendientes.length > 0 ? impresionesPendientes : void 0
+      };
     } catch (error) {
       console.error("Error procesando ticket de cobro:", error.message);
       return null;
@@ -121545,6 +121837,11 @@ router.get("/", async (_req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+router.get("/system", async (_req, res) => {
+  res.status(410).json({
+    error: "La detecci\xF3n de impresoras del sistema ahora se realiza por Electron IPC con getPrintersAsync(), no por el backend."
+  });
 });
 router.post("/", async (req, res) => {
   const { nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa } = req.body;
@@ -121598,6 +121895,21 @@ router.put("/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+router.post("/:id/test", async (req, res) => {
+  const printerId = Number(req.params.id);
+  if (!Number.isFinite(printerId)) {
+    return res.status(400).json({ error: "ID de impresora inv\xE1lido." });
+  }
+  try {
+    const resultado = await PrinterService.probarImpresora(printerId);
+    if (!resultado.ok) {
+      return res.status(400).json({ error: resultado.mensaje, ticketTexto: resultado.ticketTexto });
+    }
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Error al probar impresora." });
+  }
+});
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -121648,9 +121960,9 @@ function emitirCambioGlobal(evento, data) {
   io2.emit(evento, data);
 }
 io2.on("connection", (socket) => {
-  console.log(`\u{1F50C} Cliente conectado por WebSockets: ${socket.id}`);
+  console.log(`\u{1F50C} Cliente conectado por WebSockets`);
   socket.on("disconnect", () => {
-    console.log(`\u{1F50C} Cliente desconectado: ${socket.id}`);
+    console.log(`\u{1F50C} Cliente desconectado`);
   });
 });
 app.use((0, import_cors.default)());
@@ -121703,7 +122015,7 @@ app.get("/api/mesas", async (_req, res) => {
     const { rows } = await pool.query(query);
     res.json(rows);
   } catch (err) {
-    console.error("\u274C Error en GET /api/mesas:", err.message);
+    console.error("\u274C Error en GET mesas", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -121740,18 +122052,33 @@ app.post("/api/mesas/:origenId/mover", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const mesaOrigenRes = await client.query(`SELECT estado, comensales, minutos_abierta FROM mesas WHERE id = $1`, [origenId]);
+    const mesaOrigenRes = await client.query(
+      `SELECT estado, comensales, minutos_abierta FROM mesas WHERE id = $1`,
+      [origenId]
+    );
     if (mesaOrigenRes.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "La mesa origen no existe." });
     }
     const { estado: estadoOrigen, comensales, minutos_abierta } = mesaOrigenRes.rows[0];
-    const comandaRes = await client.query(`SELECT id FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`, [origenId]);
+    const comandaRes = await client.query(
+      `SELECT id FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`,
+      [origenId]
+    );
     if (comandaRes.rows.length > 0) {
-      await client.query(`UPDATE comandas SET mesa_id = $1 WHERE id = $2`, [destinoId, comandaRes.rows[0].id]);
+      await client.query(`UPDATE comandas SET mesa_id = $1 WHERE id = $2`, [
+        destinoId,
+        comandaRes.rows[0].id
+      ]);
     }
-    await client.query(`UPDATE mesas SET estado = $1, comensales = $2, minutos_abierta = $3 WHERE id = $4`, [estadoOrigen, comensales || 1, minutos_abierta || 1, destinoId]);
-    await client.query(`UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`, [origenId]);
+    await client.query(
+      `UPDATE mesas SET estado = $1, comensales = $2, minutos_abierta = $3 WHERE id = $4`,
+      [estadoOrigen, comensales || 1, minutos_abierta || 1, destinoId]
+    );
+    await client.query(
+      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
+      [origenId]
+    );
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
     res.json({ ok: true, mensaje: "Mesa movida exitosamente" });
@@ -121767,7 +122094,10 @@ app.post("/api/mesas/mover", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`UPDATE comandas SET mesa_id = $1 WHERE mesa_id = $2 AND estado != 'CERRADA'`, [destinoId, origenId]);
+    await client.query(
+      `UPDATE comandas SET mesa_id = $1 WHERE mesa_id = $2 AND estado != 'CERRADA'`,
+      [destinoId, origenId]
+    );
     await client.query(`UPDATE mesas SET estado = 'PENDIENTE' WHERE id = $1`, [destinoId]);
     await client.query(`UPDATE mesas SET estado = 'DISPONIBLE' WHERE id = $1`, [origenId]);
     await client.query("COMMIT");
@@ -121791,17 +122121,28 @@ app.post("/api/productos/importar-lote", async (req, res) => {
     let insertadosCount = 0;
     for (const prod of productos) {
       const nombreCategoria = (prod.categoria || "General").trim();
-      let catRes = await client.query("SELECT id FROM categorias WHERE LOWER(nombre) = LOWER($1)", [nombreCategoria]);
+      let catRes = await client.query("SELECT id FROM categorias WHERE LOWER(nombre) = LOWER($1)", [
+        nombreCategoria
+      ]);
       let categoriaId;
       if (catRes.rows.length === 0) {
-        const nuevaCat = await client.query("INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, 0) RETURNING id", [nombreCategoria, "restaurant"]);
+        const nuevaCat = await client.query(
+          "INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, 0) RETURNING id",
+          [nombreCategoria, "restaurant"]
+        );
         categoriaId = nuevaCat.rows[0].id;
       } else {
         categoriaId = catRes.rows[0].id;
       }
       await client.query(
         `INSERT INTO productos (categoria_id, nombre, precio, disponible, clave_sat) VALUES ($1, $2, $3, $4, $5)`,
-        [categoriaId, prod.nombre.trim(), Number(prod.precio), prod.disponible !== false, prod.clave_sat || null]
+        [
+          categoriaId,
+          prod.nombre.trim(),
+          Number(prod.precio),
+          prod.disponible !== false,
+          prod.clave_sat || null
+        ]
       );
       insertadosCount++;
     }
@@ -121832,10 +122173,14 @@ app.post("/api/mostrador/crear", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    let zonaRes = await client.query(`SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'MOSTRADOR'`);
+    let zonaRes = await client.query(
+      `SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'MOSTRADOR'`
+    );
     let zonaId;
     if (zonaRes.rows.length === 0) {
-      const nuevaZona = await client.query(`INSERT INTO zonas (nombre) VALUES ('Mostrador') RETURNING id`);
+      const nuevaZona = await client.query(
+        `INSERT INTO zonas (nombre) VALUES ('Mostrador') RETURNING id`
+      );
       zonaId = nuevaZona.rows[0].id;
     } else {
       zonaId = zonaRes.rows[0].id;
@@ -121852,7 +122197,12 @@ app.post("/api/mostrador/crear", async (req, res) => {
     );
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
-    res.status(201).json({ ok: true, mesaId: Number(mesaRes.rows[0].id), comandaId: comandaRes.rows[0].id, numero: numeroOrden });
+    res.status(201).json({
+      ok: true,
+      mesaId: Number(mesaRes.rows[0].id),
+      comandaId: comandaRes.rows[0].id,
+      numero: numeroOrden
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
@@ -121863,7 +122213,10 @@ app.post("/api/mostrador/crear", async (req, res) => {
 app.get("/api/comandas/activa/:mesaId", async (req, res) => {
   const { mesaId } = req.params;
   try {
-    const comandaRes = await pool.query(`SELECT id, total FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`, [mesaId]);
+    const comandaRes = await pool.query(
+      `SELECT id, total FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`,
+      [mesaId]
+    );
     if (comandaRes.rows.length === 0) {
       return res.json({ comandaId: 0, total: 0, items: [] });
     }
@@ -121882,7 +122235,9 @@ app.get("/api/comandas/activa/:mesaId", async (req, res) => {
 });
 app.get("/api/usuarios", async (_req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id, nombre, rol, pin, activo FROM usuarios ORDER BY nombre");
+    const { rows } = await pool.query(
+      "SELECT id, nombre, rol, pin, activo FROM usuarios ORDER BY nombre"
+    );
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -121898,7 +122253,10 @@ app.post("/api/auth/register-first-admin", async (req, res) => {
     if (parseInt(checkCount.rows[0].count) > 0) {
       return res.status(403).json({ error: "Ya existen usuarios registrados en el sistema." });
     }
-    const { rows } = await pool.query("INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, 'ADMIN', TRUE) RETURNING id, nombre, rol", [nombre, pin]);
+    const { rows } = await pool.query(
+      "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, 'ADMIN', TRUE) RETURNING id, nombre, rol",
+      [nombre, pin]
+    );
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -121910,7 +122268,10 @@ app.post("/api/usuarios", async (req, res) => {
     return res.status(400).json({ error: "Faltan par\xE1metros: nombre, pin y rol son requeridos." });
   }
   try {
-    const { rows } = await pool.query("INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING *", [nombre, pin, rol, activo !== false]);
+    const { rows } = await pool.query(
+      "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING *",
+      [nombre, pin, rol, activo !== false]
+    );
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -121920,7 +122281,10 @@ app.put("/api/usuarios/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, pin, rol, activo } = req.body;
   try {
-    const { rows } = await pool.query("UPDATE usuarios SET nombre = $1, pin = $2, rol = $3, activo = $4 WHERE id = $5 RETURNING *", [nombre, pin, rol, activo !== false, id]);
+    const { rows } = await pool.query(
+      "UPDATE usuarios SET nombre = $1, pin = $2, rol = $3, activo = $4 WHERE id = $5 RETURNING *",
+      [nombre, pin, rol, activo !== false, id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "Empleado no encontrado" });
     res.json(rows[0]);
   } catch (err) {
@@ -121930,10 +122294,16 @@ app.put("/api/usuarios/:id", async (req, res) => {
 app.delete("/api/usuarios/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const { rows: comandas } = await pool.query("SELECT COUNT(*)::int AS count FROM comandas WHERE usuario_id = $1", [id]);
+    const { rows: comandas } = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM comandas WHERE usuario_id = $1",
+      [id]
+    );
     if (comandas[0].count > 0) {
       await pool.query("UPDATE usuarios SET activo = FALSE WHERE id = $1", [id]);
-      return res.json({ ok: true, mensaje: "El colaborador cuenta con historial. Marcar como inactivo." });
+      return res.json({
+        ok: true,
+        mensaje: "El colaborador cuenta con historial. Marcar como inactivo."
+      });
     }
     await pool.query("DELETE FROM usuarios WHERE id = $1", [id]);
     res.json({ ok: true, mensaje: "Empleado eliminado" });
@@ -121944,7 +122314,10 @@ app.delete("/api/usuarios/:id", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   const { pin } = req.body;
   try {
-    const { rows } = await pool.query("SELECT id, nombre, rol FROM usuarios WHERE pin = $1 AND activo = TRUE", [pin]);
+    const { rows } = await pool.query(
+      "SELECT id, nombre, rol FROM usuarios WHERE pin = $1 AND activo = TRUE",
+      [pin]
+    );
     if (rows.length === 0) {
       return res.status(401).json({ error: "PIN incorrecto o usuario inactivo" });
     }
@@ -121958,15 +122331,22 @@ app.post("/api/envios/crear", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    let zonaRes = await client.query(`SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'DOMICILIO'`);
+    let zonaRes = await client.query(
+      `SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'DOMICILIO'`
+    );
     let zonaId;
     if (zonaRes.rows.length === 0) {
-      const nuevaZona = await client.query(`INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id`);
+      const nuevaZona = await client.query(
+        `INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id`
+      );
       zonaId = nuevaZona.rows[0].id;
     } else {
       zonaId = zonaRes.rows[0].id;
     }
-    const numRes = await client.query(`SELECT COUNT(*)::integer + 1 AS proximo FROM mesas WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE`, [zonaId]);
+    const numRes = await client.query(
+      `SELECT COUNT(*)::integer + 1 AS proximo FROM mesas WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE`,
+      [zonaId]
+    );
     const numeroOrden = `E-${numRes.rows[0].proximo}`;
     const mesaRes = await client.query(
       `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta) VALUES ($1, $2, 1, 'PENDIENTE', 1, 1) RETURNING id, numero`,
@@ -121978,7 +122358,12 @@ app.post("/api/envios/crear", async (req, res) => {
     );
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
-    res.status(201).json({ ok: true, mesaId: Number(mesaRes.rows[0].id), comandaId: comandaRes.rows[0].id, numero: numeroOrden });
+    res.status(201).json({
+      ok: true,
+      mesaId: Number(mesaRes.rows[0].id),
+      comandaId: comandaRes.rows[0].id,
+      numero: numeroOrden
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
@@ -122006,11 +122391,17 @@ app.post("/api/comandas", async (req, res) => {
     await client.query("BEGIN");
     let idComandaActual = comandaId;
     if (!idComandaActual || idComandaActual === 0) {
-      const comandaExistente = await client.query(`SELECT id FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`, [mesaId]);
+      const comandaExistente = await client.query(
+        `SELECT id FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`,
+        [mesaId]
+      );
       if (comandaExistente.rows.length > 0) {
         idComandaActual = comandaExistente.rows[0].id;
       } else {
-        const nuevaComanda = await client.query(`INSERT INTO comandas (mesa_id, usuario_id, estado, total) VALUES ($1, $2, 'ABIERTA', 0.00) RETURNING id`, [mesaId, usuarioId || 1]);
+        const nuevaComanda = await client.query(
+          `INSERT INTO comandas (mesa_id, usuario_id, estado, total) VALUES ($1, $2, 'ABIERTA', 0.00) RETURNING id`,
+          [mesaId, usuarioId || 1]
+        );
         idComandaActual = nuevaComanda.rows[0].id;
       }
     }
@@ -122026,21 +122417,34 @@ app.post("/api/comandas", async (req, res) => {
         [idComandaActual, productoId, cantidad, precioUnitario, item.notas || null]
       );
     }
-    await client.query(`UPDATE comandas SET total = total + $1 WHERE id = $2`, [totalAdicional, idComandaActual]);
+    await client.query(`UPDATE comandas SET total = total + $1 WHERE id = $2`, [
+      totalAdicional,
+      idComandaActual
+    ]);
     await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [mesaId]);
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
     emitirCambioGlobal("actualizar_cocina");
     let ticketTextoRes = null;
+    let impresionesPendientes = [];
     try {
       const resPrinter = await PrinterService.imprimirComandaProduccion(idComandaActual);
       if (resPrinter && resPrinter.ticketTexto) {
         ticketTextoRes = resPrinter.ticketTexto;
       }
+      if (resPrinter && typeof resPrinter === "object" && resPrinter.impresionesPendientes) {
+        impresionesPendientes = resPrinter.impresionesPendientes;
+      }
     } catch (errPrinter) {
       console.error("\u26A0\uFE0F Error al imprimir comanda de producci\xF3n:", errPrinter.message);
     }
-    res.json({ ok: true, totalAdicional, comandaId: idComandaActual, ticketTexto: ticketTextoRes });
+    res.json({
+      ok: true,
+      totalAdicional,
+      comandaId: idComandaActual,
+      ticketTexto: ticketTextoRes,
+      impresionesPendientes
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
@@ -122054,13 +122458,25 @@ app.post("/api/comandas/:comandaId/cancelar", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const comandaRes = await client.query("SELECT mesa_id, estado FROM comandas WHERE id = $1", [comandaId]);
+    const comandaRes = await client.query("SELECT mesa_id, estado FROM comandas WHERE id = $1", [
+      comandaId
+    ]);
     if (comandaRes.rows.length === 0) return res.status(404).json({ error: "Comanda no existe." });
     const { mesa_id, estado } = comandaRes.rows[0];
-    if (estado !== "ABIERTA") return res.status(400).json({ error: "Solo se pueden cancelar comandas abiertas." });
-    await client.query(`UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`, [comandaId]);
-    await client.query(`UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`, [mesa_id]);
-    await client.query(`UPDATE comanda_items SET completado = TRUE, notas = COALESCE($1 || ' - ', '') || COALESCE(notas, '') WHERE comanda_id = $2`, [notas || "CANCELADO POR USUARIO", comandaId]);
+    if (estado !== "ABIERTA")
+      return res.status(400).json({ error: "Solo se pueden cancelar comandas abiertas." });
+    await client.query(
+      `UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
+      [comandaId]
+    );
+    await client.query(
+      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
+      [mesa_id]
+    );
+    await client.query(
+      `UPDATE comanda_items SET completado = TRUE, notas = COALESCE($1 || ' - ', '') || COALESCE(notas, '') WHERE comanda_id = $2`,
+      [notas || "CANCELADO POR USUARIO", comandaId]
+    );
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
     emitirCambioGlobal("actualizar_cocina");
@@ -122076,13 +122492,22 @@ app.patch("/api/comandas/:comandaId/cliente", async (req, res) => {
   const { comandaId } = req.params;
   const { clienteId } = req.body;
   try {
-    const { rows: comandaCheck } = await pool.query("SELECT estado FROM comandas WHERE id = $1", [comandaId]);
+    const { rows: comandaCheck } = await pool.query("SELECT estado FROM comandas WHERE id = $1", [
+      comandaId
+    ]);
     if (comandaCheck.length === 0) return res.status(404).json({ error: "La comanda no existe." });
-    if (comandaCheck[0].estado !== "ABIERTA") return res.status(400).json({ error: "Solo se puede asociar cliente a comandas abiertas." });
-    await pool.query("UPDATE comandas SET cliente_id = $1 WHERE id = $2", [clienteId || null, comandaId]);
+    if (comandaCheck[0].estado !== "ABIERTA")
+      return res.status(400).json({ error: "Solo se puede asociar cliente a comandas abiertas." });
+    await pool.query("UPDATE comandas SET cliente_id = $1 WHERE id = $2", [
+      clienteId || null,
+      comandaId
+    ]);
     let clientInfo = null;
     if (clienteId) {
-      const { rows: cli } = await pool.query('SELECT id, nombre, puntos_acumulados AS "clientePuntos", es_frecuente AS "clienteEsFrecuente", visitas_count AS "clienteVisitas" FROM clientes WHERE id = $1', [clienteId]);
+      const { rows: cli } = await pool.query(
+        'SELECT id, nombre, puntos_acumulados AS "clientePuntos", es_frecuente AS "clienteEsFrecuente", visitas_count AS "clienteVisitas" FROM clientes WHERE id = $1',
+        [clienteId]
+      );
       if (cli.length > 0) clientInfo = cli[0];
     }
     emitirCambioGlobal("actualizar_mesas");
@@ -122121,7 +122546,10 @@ app.get("/api/cocina/tickets", async (_req, res) => {
 app.patch("/api/cocina/items/:itemId/toggle", async (req, res) => {
   const { itemId } = req.params;
   try {
-    await pool.query(`UPDATE comanda_items SET completado = NOT COALESCE(completado, false) WHERE id = $1`, [itemId]);
+    await pool.query(
+      `UPDATE comanda_items SET completado = NOT COALESCE(completado, false) WHERE id = $1`,
+      [itemId]
+    );
     emitirCambioGlobal("actualizar_cocina");
     res.json({ ok: true });
   } catch (err) {
@@ -122133,8 +122561,14 @@ app.post("/api/cocina/tickets/:comandaId/despachar", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`UPDATE comanda_items SET completado = TRUE, estado_kds = 'LISTO' WHERE comanda_id = $1`, [comandaId]);
-    await client.query(`UPDATE mesas SET estado = 'LISTO PARA SERVIR' WHERE id = (SELECT mesa_id FROM comandas WHERE id = $1)`, [comandaId]);
+    await client.query(
+      `UPDATE comanda_items SET completado = TRUE, estado_kds = 'LISTO' WHERE comanda_id = $1`,
+      [comandaId]
+    );
+    await client.query(
+      `UPDATE mesas SET estado = 'LISTO PARA SERVIR' WHERE id = (SELECT mesa_id FROM comandas WHERE id = $1)`,
+      [comandaId]
+    );
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
     emitirCambioGlobal("actualizar_cocina");
@@ -122164,11 +122598,28 @@ app.get("/api/caja/mesa/:mesaId", async (req, res) => {
   }
 });
 app.post("/api/caja/cobrar", async (req, res) => {
-  const { comandaId, mesaId, usuarioId, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta, partesIguales, descuento, promocionId, puntosCanjeados, solicitaFactura, agruparConsumo } = req.body;
+  const {
+    comandaId,
+    mesaId,
+    usuarioId,
+    metodoPago,
+    totalCuenta,
+    montoRecibido,
+    cambio,
+    dividirCuenta,
+    partesIguales,
+    descuento,
+    promocionId,
+    puntosCanjeados,
+    solicitaFactura,
+    agruparConsumo
+  } = req.body;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const configRes = await client.query(`SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto FROM configuracion_facturacion WHERE id = 1`);
+    const configRes = await client.query(
+      `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto FROM configuracion_facturacion WHERE id = 1`
+    );
     const configFiscal = configRes.rows[0];
     const apiKeyActiva = configFiscal?.modo_produccion ? configFiscal.api_key_live : configFiscal?.api_key_test;
     let claveSatDefecto = (configFiscal?.clave_sat_defecto || "").trim();
@@ -122178,13 +122629,26 @@ app.post("/api/caja/cobrar", async (req, res) => {
     const pagoRes = await client.query(
       `INSERT INTO pagos (comanda_id, usuario_id, metodo_pago, total_cuenta, monto_recibido, cambio, dividir_cuenta, partes_iguales, descuento, promocion_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-      [comandaId, usuarioId || 1, metodoPago, totalCuenta, montoRecibido, cambio, dividirCuenta || false, partesIguales || 1, descuento || 0, promocionId || null]
+      [
+        comandaId,
+        usuarioId || 1,
+        metodoPago,
+        totalCuenta,
+        montoRecibido,
+        cambio,
+        dividirCuenta || false,
+        partesIguales || 1,
+        descuento || 0,
+        promocionId || null
+      ]
     );
     const pagoId = pagoRes.rows[0].id;
     let datosAutofactura = null;
     let errorFacturapiMsg = null;
     const solicitaFacturaActual = solicitaFactura === true || solicitaFactura === "true";
-    console.log(`[Cobro #${pagoId}] Iniciando proceso. solicitaFactura: ${solicitaFacturaActual}, apiKeyActiva: ${apiKeyActiva ? "S\xED (Configurada)" : "No (Vac\xEDa)"}`);
+    console.log(
+      `[Cobro #${pagoId}] Iniciando proceso. solicitaFactura: ${solicitaFacturaActual}, apiKeyActiva: ${apiKeyActiva ? "S\xED (Configurada)" : "No (Vac\xEDa)"}`
+    );
     if (solicitaFacturaActual) {
       if (apiKeyActiva) {
         try {
@@ -122194,23 +122658,28 @@ app.post("/api/caja/cobrar", async (req, res) => {
              WHERE ci.comanda_id = $1`,
             [comandaId]
           );
-          console.log(`[Cobro #${pagoId}] Productos obtenidos para Facturapi:`, itemsRes.rows.length);
+          console.log(
+            `[Cobro #${pagoId}] Productos obtenidos para Facturapi:`,
+            itemsRes.rows.length
+          );
           let paymentForm = "01";
           if (metodoPago === "TARJETA") paymentForm = "04";
           if (metodoPago === "TRANSFERENCIA") paymentForm = "03";
           const esConsumoGeneral = agruparConsumo === true || agruparConsumo === "true";
           let lineItemsFacturapi = [];
           if (esConsumoGeneral) {
-            lineItemsFacturapi = [{
-              quantity: 1,
-              product: {
-                description: "CONSUMO DE ALIMENTOS Y BEBIDAS",
-                product_key: "90101501",
-                unit_key: "E48",
-                price: Number(totalCuenta),
-                tax_included: true
+            lineItemsFacturapi = [
+              {
+                quantity: 1,
+                product: {
+                  description: "CONSUMO DE ALIMENTOS Y BEBIDAS",
+                  product_key: "90101501",
+                  unit_key: "E48",
+                  price: Number(totalCuenta),
+                  tax_included: true
+                }
               }
-            }];
+            ];
           } else {
             lineItemsFacturapi = itemsRes.rows.map((row) => {
               let itemKey = (row.prod_clave || row.cat_clave || "").toString().trim();
@@ -122228,30 +122697,58 @@ app.post("/api/caja/cobrar", async (req, res) => {
               };
             });
           }
-          console.log(`[Cobro #${pagoId}] Payload que se env\xEDa a Facturapi (esConsumoGeneral: ${esConsumoGeneral}):`, JSON.stringify(lineItemsFacturapi));
+          console.log(
+            `[Cobro #${pagoId}] Payload que se env\xEDa a Factura`,
+            // `[Cobro #${pagoId}] Payload que se envía a Facturapi (esConsumoGeneral: ${esConsumoGeneral}):`,
+            JSON.stringify(lineItemsFacturapi)
+          );
           const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
-          const receipt = await facturapi.receipts.create({ payment_form: paymentForm, items: lineItemsFacturapi });
-          console.log(`[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, C\xF3digo: ${receipt.key}`);
+          const receipt = await facturapi.receipts.create({
+            payment_form: paymentForm,
+            items: lineItemsFacturapi
+          });
+          console.log(
+            `[Cobro #${pagoId}] Recibo generado exitosamente en Factura`
+            // `[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, Código: ${receipt.key}`,
+          );
           await client.query(
             `INSERT INTO tickets_autofactura (pago_id, facturapi_receipt_id, codigo_ticket, url_autofactura, total, fecha_expiracion)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [pagoId, receipt.id, receipt.key, receipt.self_invoice_url, totalCuenta, receipt.expires_at]
+            [
+              pagoId,
+              receipt.id,
+              receipt.key,
+              receipt.self_invoice_url,
+              totalCuenta,
+              receipt.expires_at
+            ]
           );
-          datosAutofactura = { codigo: receipt.key, url: receipt.self_invoice_url, expiracion: receipt.expires_at };
+          datosAutofactura = {
+            codigo: receipt.key,
+            url: receipt.self_invoice_url,
+            expiracion: receipt.expires_at
+          };
         } catch (fError) {
           const errorDetails = fError.message || String(fError);
-          console.error(`\u274C [Cobro #${pagoId}] Error generando recibo en Facturapi:`, fError);
+          console.error(`\u274C [Cobro #${pagoId}] Error generando recibo en Factura:`, fError);
           errorFacturapiMsg = `Error en servidor Facturapi: ${errorDetails}`;
         }
       } else {
-        console.warn(`\u26A0\uFE0F [Cobro #${pagoId}] Se solicit\xF3 autofactura pero no hay ninguna API Key de Facturapi activa configurada.`);
-        errorFacturapiMsg = "No hay una API Key de Facturapi activa configurada en el sistema (Ajustes -> Facturaci\xF3n).";
+        console.warn(
+          `\u26A0\uFE0F [Cobro #${pagoId}] Se solicit\xF3 autofactura pero no hay ninguna API Key de Factura activa configurada.`
+          // `⚠️ [Cobro #${pagoId}] Se solicitó autofactura pero no hay ninguna API Key de Facturapi activa configurada.`,
+        );
+        errorFacturapiMsg = "No hay una API Key de Factura activa configurada en el sistema (Ajustes -> Facturaci\xF3n).";
       }
     }
-    const comandaInfo = await client.query("SELECT cliente_id FROM comandas WHERE id = $1", [comandaId]);
+    const comandaInfo = await client.query("SELECT cliente_id FROM comandas WHERE id = $1", [
+      comandaId
+    ]);
     const clienteId = comandaInfo.rows[0]?.cliente_id;
     if (clienteId) {
-      const negocioInfo = await client.query("SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1");
+      const negocioInfo = await client.query(
+        "SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1"
+      );
       const visitasRequeridas = negocioInfo.rows[0]?.visitas_requeridas_frecuente || 5;
       const factorPuntos = negocioInfo.rows[0]?.puntos_por_cada_diez_pesos || 1;
       const pesosPorPunto = Number(negocioInfo.rows[0]?.pesos_por_punto) || 10;
@@ -122266,11 +122763,18 @@ app.post("/api/caja/cobrar", async (req, res) => {
         [ptsCanjeados, puntosNuevos, visitasRequeridas, clienteId]
       );
     }
-    await client.query(`UPDATE comandas SET estado = 'CERRADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`, [comandaId]);
-    await client.query(`UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`, [mesaId]);
+    await client.query(
+      `UPDATE comandas SET estado = 'CERRADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
+      [comandaId]
+    );
+    await client.query(
+      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
+      [mesaId]
+    );
     await client.query("COMMIT");
     emitirCambioGlobal("actualizar_mesas");
     let ticketTextoCobro = null;
+    let impresionesPendientes = [];
     try {
       const resCobroPrinter = await PrinterService.imprimirTicketCobro(pagoId);
       if (resCobroPrinter) {
@@ -122279,11 +122783,21 @@ app.post("/api/caja/cobrar", async (req, res) => {
         } else if (typeof resCobroPrinter === "object" && resCobroPrinter.ticketTexto) {
           ticketTextoCobro = resCobroPrinter.ticketTexto;
         }
+        if (typeof resCobroPrinter === "object" && resCobroPrinter.impresionesPendientes) {
+          impresionesPendientes = resCobroPrinter.impresionesPendientes;
+        }
       }
     } catch (errPrinter) {
       console.error("\u26A0\uFE0F Error al imprimir ticket de cobro:", errPrinter.message);
     }
-    res.json({ ok: true, ticketId: pagoId, autofactura: datosAutofactura, ticketTexto: ticketTextoCobro, errorFacturapi: errorFacturapiMsg });
+    res.json({
+      ok: true,
+      ticketId: pagoId,
+      autofactura: datosAutofactura,
+      ticketTexto: ticketTextoCobro,
+      impresionesPendientes,
+      errorFacturapi: errorFacturapiMsg
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
@@ -122294,7 +122808,10 @@ app.post("/api/caja/cobrar", async (req, res) => {
 app.get("/api/caja/corte/actual/:usuarioId", async (req, res) => {
   const { usuarioId } = req.params;
   try {
-    const lastCorteRes = await pool.query(`SELECT fecha_cierre FROM cortes_caja WHERE usuario_id = $1 ORDER BY fecha_cierre DESC LIMIT 1`, [usuarioId]);
+    const lastCorteRes = await pool.query(
+      `SELECT fecha_cierre FROM cortes_caja WHERE usuario_id = $1 ORDER BY fecha_cierre DESC LIMIT 1`,
+      [usuarioId]
+    );
     const lastCorteFecha = lastCorteRes.rows.length > 0 ? lastCorteRes.rows[0].fecha_cierre : null;
     let pagosQuery = `SELECT p.id, p.total_cuenta AS total, p.metodo_pago AS metodo, p.fecha, m.numero AS mesa FROM pagos p JOIN comandas c ON p.comanda_id = c.id JOIN mesas m ON c.mesa_id = m.id WHERE p.usuario_id = $1`;
     const queryParams = [usuarioId];
@@ -122312,19 +122829,50 @@ app.get("/api/caja/corte/actual/:usuarioId", async (req, res) => {
       else if (pago.metodo === "TRANSFERENCIA") transferencia += tot;
       ventasTotales += tot;
     });
-    res.json({ ok: true, fechaUltimoCorte: lastCorteFecha, pagosCount: pagos.length, efectivoCalculado: efectivo, tarjetaCalculado: tarjeta, transferenciaCalculado: transferencia, ventasTotales, pagos });
+    res.json({
+      ok: true,
+      fechaUltimoCorte: lastCorteFecha,
+      pagosCount: pagos.length,
+      efectivoCalculado: efectivo,
+      tarjetaCalculado: tarjeta,
+      transferenciaCalculado: transferencia,
+      ventasTotales,
+      pagos
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 app.post("/api/caja/corte", async (req, res) => {
-  const { usuarioId, fechaApertura, fondoApertura, efectivoReal, efectivoCalculado, tarjetaCalculado, transferenciaCalculado, ventasTotales, diferencia, notas } = req.body;
+  const {
+    usuarioId,
+    fechaApertura,
+    fondoApertura,
+    efectivoReal,
+    efectivoCalculado,
+    tarjetaCalculado,
+    transferenciaCalculado,
+    ventasTotales,
+    diferencia,
+    notas
+  } = req.body;
   try {
     const query = `
       INSERT INTO cortes_caja (usuario_id, fecha_apertura, fecha_cierre, fondo_apertura, efectivo_real, efectivo_calculado, tarjeta_calculado, transferencia_calculado, ventas_totales, diferencia, notas)
       VALUES ($1, COALESCE($2, CURRENT_TIMESTAMP - INTERVAL '1 day'), CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id;
     `;
-    const { rows } = await pool.query(query, [usuarioId, fechaApertura || null, fondoApertura || 0, efectivoReal || 0, efectivoCalculado || 0, tarjetaCalculado || 0, transferenciaCalculado || 0, ventasTotales || 0, diferencia || 0, notas || ""]);
+    const { rows } = await pool.query(query, [
+      usuarioId,
+      fechaApertura || null,
+      fondoApertura || 0,
+      efectivoReal || 0,
+      efectivoCalculado || 0,
+      tarjetaCalculado || 0,
+      transferenciaCalculado || 0,
+      ventasTotales || 0,
+      diferencia || 0,
+      notas || ""
+    ]);
     enviarConteoAGoogleSheets().catch(() => {
     });
     res.json({ ok: true, corteId: rows[0].id });
@@ -122352,7 +122900,10 @@ app.get("/api/categorias", async (_req, res) => {
 app.post("/api/categorias", async (req, res) => {
   const { nombre, icono, orden } = req.body;
   try {
-    const { rows } = await pool.query(`INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, $3) RETURNING *`, [nombre, icono || "restaurant", Number(orden) || 0]);
+    const { rows } = await pool.query(
+      `INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, $3) RETURNING *`,
+      [nombre, icono || "restaurant", Number(orden) || 0]
+    );
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122405,7 +122956,17 @@ app.get("/api/ajustes/negocio", async (_req, res) => {
   }
 });
 app.post("/api/ajustes/negocio", async (req, res) => {
-  const { nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto } = req.body;
+  const {
+    nombre,
+    rfc,
+    telefono,
+    direccion,
+    email,
+    mensaje_recibo,
+    visitas_requeridas_frecuente,
+    puntos_por_cada_diez_pesos,
+    pesos_por_punto
+  } = req.body;
   try {
     const { rows } = await pool.query(
       `INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto)
@@ -122414,7 +122975,17 @@ app.post("/api/ajustes/negocio", async (req, res) => {
          nombre = EXCLUDED.nombre, rfc = EXCLUDED.rfc, telefono = EXCLUDED.telefono, direccion = EXCLUDED.direccion, email = EXCLUDED.email,
          mensaje_recibo = EXCLUDED.mensaje_recibo, visitas_requeridas_frecuente = EXCLUDED.visitas_requeridas_frecuente,
          puntos_por_cada_diez_pesos = EXCLUDED.puntos_por_cada_diez_pesos, pesos_por_punto = EXCLUDED.pesos_por_punto RETURNING *`,
-      [nombre, rfc, telefono, direccion, email, mensaje_recibo, Number(visitas_requeridas_frecuente) || 5, Number(puntos_por_cada_diez_pesos) || 1, Number(pesos_por_punto) || 1]
+      [
+        nombre,
+        rfc,
+        telefono,
+        direccion,
+        email,
+        mensaje_recibo,
+        Number(visitas_requeridas_frecuente) || 5,
+        Number(puntos_por_cada_diez_pesos) || 1,
+        Number(pesos_por_punto) || 1
+      ]
     );
     res.json(rows[0]);
   } catch (err) {
@@ -122453,7 +123024,10 @@ app.get("/api/clientes", async (_req, res) => {
 app.post("/api/clientes", async (req, res) => {
   const { nombre, telefono, direccion, email, notas } = req.body;
   try {
-    const { rows } = await pool.query(`INSERT INTO clientes (nombre, telefono, direccion, email, notas) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [nombre, telefono, direccion, email, notas]);
+    const { rows } = await pool.query(
+      `INSERT INTO clientes (nombre, telefono, direccion, email, notas) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [nombre, telefono, direccion, email, notas]
+    );
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122472,7 +123046,10 @@ app.put("/api/categorias/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, icono, orden } = req.body;
   try {
-    const { rows } = await pool.query(`UPDATE categorias SET nombre = $1, icono = $2, orden = $3 WHERE id = $4 RETURNING *`, [nombre, icono || "restaurant", Number(orden) || 0, id]);
+    const { rows } = await pool.query(
+      `UPDATE categorias SET nombre = $1, icono = $2, orden = $3 WHERE id = $4 RETURNING *`,
+      [nombre, icono || "restaurant", Number(orden) || 0, id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "Categor\xEDa no encontrada" });
     res.json(rows[0]);
   } catch (err) {
@@ -122482,7 +123059,9 @@ app.put("/api/categorias/:id", async (req, res) => {
 app.delete("/api/categorias/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const countRes = await pool.query("SELECT COUNT(*) FROM productos WHERE categoria_id = $1", [id]);
+    const countRes = await pool.query("SELECT COUNT(*) FROM productos WHERE categoria_id = $1", [
+      id
+    ]);
     if (parseInt(countRes.rows[0].count) > 0) {
       return res.status(400).json({ error: "No es posible eliminar la categor\xEDa porque contiene productos activos." });
     }
@@ -122524,7 +123103,9 @@ app.delete("/api/productos/:id", async (req, res) => {
 app.post("/api/zonas", async (req, res) => {
   const { nombre } = req.body;
   try {
-    const { rows } = await pool.query(`INSERT INTO zonas (nombre) VALUES ($1) RETURNING *`, [nombre]);
+    const { rows } = await pool.query(`INSERT INTO zonas (nombre) VALUES ($1) RETURNING *`, [
+      nombre
+    ]);
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122534,7 +123115,10 @@ app.put("/api/zonas/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre } = req.body;
   try {
-    const { rows } = await pool.query(`UPDATE zonas SET nombre = $1 WHERE id = $2 RETURNING *`, [nombre, id]);
+    const { rows } = await pool.query(`UPDATE zonas SET nombre = $1 WHERE id = $2 RETURNING *`, [
+      nombre,
+      id
+    ]);
     if (rows.length === 0) return res.status(404).json({ error: "Zona no encontrada" });
     res.json(rows[0]);
   } catch (err) {
@@ -122558,7 +123142,10 @@ app.put("/api/mesas/:id", async (req, res) => {
   const { id } = req.params;
   const { numero, zona_id, capacidad } = req.body;
   try {
-    const { rows } = await pool.query(`UPDATE mesas SET numero = $1, zona_id = $2, capacidad = $3 WHERE id = $4 RETURNING *`, [numero, Number(zona_id), Number(capacidad) || 4, id]);
+    const { rows } = await pool.query(
+      `UPDATE mesas SET numero = $1, zona_id = $2, capacidad = $3 WHERE id = $4 RETURNING *`,
+      [numero, Number(zona_id), Number(capacidad) || 4, id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "Mesa no encontrada" });
     emitirCambioGlobal("actualizar_mesas");
     res.json(rows[0]);
@@ -122580,7 +123167,10 @@ app.put("/api/clientes/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, telefono, direccion, email, notas } = req.body;
   try {
-    const { rows } = await pool.query(`UPDATE clientes SET nombre = $1, telefono = $2, direccion = $3, email = $4, notas = $5 WHERE id = $6 RETURNING *`, [nombre, telefono, direccion, email, notas, id]);
+    const { rows } = await pool.query(
+      `UPDATE clientes SET nombre = $1, telefono = $2, direccion = $3, email = $4, notas = $5 WHERE id = $6 RETURNING *`,
+      [nombre, telefono, direccion, email, notas, id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "Cliente no encontrado" });
     res.json(rows[0]);
   } catch (err) {
@@ -122599,7 +123189,10 @@ app.delete("/api/clientes/:id", async (req, res) => {
 app.get("/api/promociones/validar/:codigo", async (req, res) => {
   const { codigo } = req.params;
   try {
-    const { rows } = await pool.query("SELECT id, nombre, codigo, tipo, valor, descripcion FROM promociones WHERE UPPER(codigo) = UPPER($1) AND activo = TRUE LIMIT 1", [codigo]);
+    const { rows } = await pool.query(
+      "SELECT id, nombre, codigo, tipo, valor, descripcion FROM promociones WHERE UPPER(codigo) = UPPER($1) AND activo = TRUE LIMIT 1",
+      [codigo]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "C\xF3digo de promoci\xF3n inv\xE1lido" });
     res.json(rows[0]);
   } catch (err) {
@@ -122617,7 +123210,10 @@ app.get("/api/promociones", async (_req, res) => {
 app.post("/api/promociones", async (req, res) => {
   const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
   try {
-    const { rows } = await pool.query(`INSERT INTO promociones (nombre, codigo, tipo, valor, descripcion, activo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false]);
+    const { rows } = await pool.query(
+      `INSERT INTO promociones (nombre, codigo, tipo, valor, descripcion, activo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false]
+    );
     await sincronizarCombosComoProductos();
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -122628,7 +123224,10 @@ app.put("/api/promociones/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
   try {
-    const { rows } = await pool.query(`UPDATE promociones SET nombre = $1, codigo = $2, tipo = $3, valor = $4, descripcion = $5, activo = $6 WHERE id = $7 RETURNING *`, [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false, id]);
+    const { rows } = await pool.query(
+      `UPDATE promociones SET nombre = $1, codigo = $2, tipo = $3, valor = $4, descripcion = $5, activo = $6 WHERE id = $7 RETURNING *`,
+      [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false, id]
+    );
     if (rows.length === 0) return res.status(404).json({ error: "Promoci\xF3n no encontrada" });
     await sincronizarCombosComoProductos();
     res.json(rows[0]);
@@ -122660,18 +123259,40 @@ app.get("/api/ajustes/facturacion", async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.post("/api/ajustes/facturacion", uploadCSD.fields([{ name: "csdCer", maxCount: 1 }, { name: "csdKey", maxCount: 1 }]), async (req, res) => {
-  const { apiKeyTest, apiKeyLive, modoProduccion, rfcEmisor, razonSocial, regimenFiscal, codigoPostal, emailNotificaciones, csdPassword, diasVigenciaTicket } = req.body;
-  try {
-    const modoProdBool = modoProduccion === "true" || modoProduccion === true;
-    let tieneCsd = false;
-    const apiKeyActiva = modoProdBool ? apiKeyLive : apiKeyTest;
-    if (req.files?.csdCer?.[0] && req.files?.csdKey?.[0] && apiKeyActiva) {
-      const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
-      await facturapi.organizations.uploadCertificate("me", req.files.csdCer[0].buffer, req.files.csdKey[0].buffer, csdPassword || "");
-      tieneCsd = true;
-    }
-    const query = `
+app.post(
+  "/api/ajustes/facturacion",
+  uploadCSD.fields([
+    { name: "csdCer", maxCount: 1 },
+    { name: "csdKey", maxCount: 1 }
+  ]),
+  async (req, res) => {
+    const {
+      apiKeyTest,
+      apiKeyLive,
+      modoProduccion,
+      rfcEmisor,
+      razonSocial,
+      regimenFiscal,
+      codigoPostal,
+      emailNotificaciones,
+      csdPassword,
+      diasVigenciaTicket
+    } = req.body;
+    try {
+      const modoProdBool = modoProduccion === "true" || modoProduccion === true;
+      let tieneCsd = false;
+      const apiKeyActiva = modoProdBool ? apiKeyLive : apiKeyTest;
+      if (req.files?.csdCer?.[0] && req.files?.csdKey?.[0] && apiKeyActiva) {
+        const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
+        await facturapi.organizations.uploadCertificate(
+          "me",
+          req.files.csdCer[0].buffer,
+          req.files.csdKey[0].buffer,
+          csdPassword || ""
+        );
+        tieneCsd = true;
+      }
+      const query = `
       INSERT INTO configuracion_facturacion (id, api_key_test, api_key_live, modo_produccion, rfc_emisor, razon_social, regimen_fiscal, codigo_postal, email_notificaciones, dias_vigencia_ticket, tiene_csd, actualizado_en)
       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
       ON CONFLICT (id) DO UPDATE SET
@@ -122681,12 +123302,24 @@ app.post("/api/ajustes/facturacion", uploadCSD.fields([{ name: "csdCer", maxCoun
         dias_vigencia_ticket = EXCLUDED.dias_vigencia_ticket, tiene_csd = CASE WHEN EXCLUDED.tiene_csd THEN TRUE ELSE configuracion_facturacion.tiene_csd END,
         actualizado_en = CURRENT_TIMESTAMP RETURNING *;
     `;
-    await pool.query(query, [apiKeyTest, apiKeyLive || null, modoProdBool, rfcEmisor?.toUpperCase(), razonSocial, regimenFiscal, codigoPostal, emailNotificaciones || null, Number(diasVigenciaTicket) || 7, tieneCsd]);
-    res.json({ ok: true, mensaje: "Configuraci\xF3n fiscal guardada correctamente." });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Error al procesar la configuraci\xF3n fiscal." });
+      await pool.query(query, [
+        apiKeyTest,
+        apiKeyLive || null,
+        modoProdBool,
+        rfcEmisor?.toUpperCase(),
+        razonSocial,
+        regimenFiscal,
+        codigoPostal,
+        emailNotificaciones || null,
+        Number(diasVigenciaTicket) || 7,
+        tieneCsd
+      ]);
+      res.json({ ok: true, mensaje: "Configuraci\xF3n fiscal guardada correctamente." });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Error al procesar la configuraci\xF3n fiscal." });
+    }
   }
-});
+);
 app.post("/api/ajustes/facturacion/test", async (req, res) => {
   const { apiKey } = req.body;
   if (!apiKey) return res.status(400).json({ error: "Proporciona una API Key para validar." });
@@ -122695,7 +123328,7 @@ app.post("/api/ajustes/facturacion/test", async (req, res) => {
     await facturapi.customers.list({ limit: 1 });
     res.json({ ok: true, mensaje: "Conexi\xF3n con Facturapi v2 autenticada correctamente." });
   } catch (err) {
-    console.error("\u274C Error Facturapi:", err?.message || err);
+    console.error("\u274C Error Factura:", err?.message || err);
     res.status(err?.status || 401).json({ error: err?.message || "Error al validar la API Key." });
   }
 });
@@ -122705,21 +123338,25 @@ app.post("/api/ajustes/facturacion/sincronizar", async (_req, res) => {
     if (!r2.ok) {
       return res.status(400).json({ error: r2.error });
     }
-    res.json({ ok: true, total: r2.total, mensaje: `Sincronizaci\xF3n de facturas finalizada con \xE9xito: ${r2.total} procesadas.` });
+    res.json({
+      ok: true,
+      total: r2.total,
+      mensaje: `Sincronizaci\xF3n de facturas finalizada con \xE9xito: ${r2.total} procesadas.`
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 app.get("/api/licencia/test-sheets", async (_req, res) => {
   try {
-    console.log("\u{1F4E1} [PRUEBA MANUAL] Iniciando prueba de conexi\xF3n con Google Sheets...");
+    console.log("\u{1F4E1} [PRUEBA MANUAL] Iniciando prueba de conexi\xF3n con Sheets...");
     const result = await enviarConteoAGoogleSheets();
     res.json({
       ok: result.success,
       ...result
     });
   } catch (err) {
-    console.error("\u274C [PRUEBA MANUAL] Fallo en la ruta de prueba de Google Sheets:", err);
+    console.error("\u274C [PRUEBA MANUAL] Fallo en la ruta de prueba de Sheets:", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -122735,27 +123372,44 @@ app.get("/api/dashboard/stats", async (req, res) => {
       dateFilter = "DATE(fecha) BETWEEN $1 AND $2";
       params.push(fechaInicio, fechaFin);
     }
-    const totalVentasRes = await pool.query(`SELECT COALESCE(SUM(total_cuenta), 0)::float AS "totalVentas", COUNT(*)::int AS "totalOrdenes", COALESCE(AVG(total_cuenta), 0)::float AS "ticketPromedio" FROM pagos WHERE ${dateFilter}`, params);
-    const metodoPagoRes = await pool.query(`SELECT metodo_pago AS metodo, COALESCE(SUM(total_cuenta), 0)::float AS total, COUNT(*)::int as cantidad FROM pagos WHERE ${dateFilter} GROUP BY metodo_pago`, params);
-    const ventasCatRes = await pool.query(`
+    const totalVentasRes = await pool.query(
+      `SELECT COALESCE(SUM(total_cuenta), 0)::float AS "totalVentas", COUNT(*)::int AS "totalOrdenes", COALESCE(AVG(total_cuenta), 0)::float AS "ticketPromedio" FROM pagos WHERE ${dateFilter}`,
+      params
+    );
+    const metodoPagoRes = await pool.query(
+      `SELECT metodo_pago AS metodo, COALESCE(SUM(total_cuenta), 0)::float AS total, COUNT(*)::int as cantidad FROM pagos WHERE ${dateFilter} GROUP BY metodo_pago`,
+      params
+    );
+    const ventasCatRes = await pool.query(
+      `
       SELECT c.nombre AS categoria, COALESCE(SUM(ci.cantidad * ci.precio_unitario), 0)::float AS total
       FROM pagos pa JOIN comanda_items ci ON pa.comanda_id = ci.comanda_id JOIN productos p ON ci.producto_id = p.id JOIN categorias c ON p.categoria_id = c.id
       WHERE DATE(pa.fecha) ${fechaInicio ? fechaFin ? "BETWEEN $1 AND $2" : ">= $1" : "= CURRENT_DATE"} GROUP BY c.nombre ORDER BY total DESC
-    `, params);
-    const ultimosTicketsRes = await pool.query(`
+    `,
+      params
+    );
+    const ultimosTicketsRes = await pool.query(
+      `
       SELECT pa.id, pa.total_cuenta::float AS total, pa.metodo_pago AS metodo, COALESCE(EXTRACT(EPOCH FROM (co.fecha_cierre - co.fecha_apertura))/60, 0)::int AS "duracionMinutos",
              m.numero AS "mesaNombre", TO_CHAR(pa.fecha, 'DD/MM HH24:MI') AS hora
       FROM pagos pa JOIN comandas co ON pa.comanda_id = co.id JOIN mesas m ON co.mesa_id = m.id
       WHERE DATE(pa.fecha) ${fechaInicio ? fechaFin ? "BETWEEN $1 AND $2" : ">= $1" : "= CURRENT_DATE"} ORDER BY pa.fecha DESC LIMIT 15
-    `, params);
-    res.json({ resumen: totalVentasRes.rows[0], pagosMetodo: metodoPagoRes.rows, categorias: ventasCatRes.rows, tickets: ultimosTicketsRes.rows });
+    `,
+      params
+    );
+    res.json({
+      resumen: totalVentasRes.rows[0],
+      pagosMetodo: metodoPagoRes.rows,
+      categorias: ventasCatRes.rows,
+      tickets: ultimosTicketsRes.rows
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 async function startServer() {
   try {
-    console.log("\u23F3 Inicializando esquema de base de datos PostgreSQL...");
+    console.log("\u23F3 Inicializando esquema de base de datos...");
     await initDB();
     try {
       await sincronizarCombosComoProductos();
@@ -122765,9 +123419,16 @@ async function startServer() {
     try {
       realizarSincronizacionFacturas().then((r2) => {
         if (r2.ok) {
-          console.log(`\u{1F4E1} [BACKEND] Sincronizaci\xF3n autom\xE1tica de facturas completada. ${r2.total} facturas procesadas.`);
+          console.log(
+            `\u{1F4E1} [BACKEND] Sincronizaci\xF3n autom\xE1tica de facturas completada.`
+            // `📡 [BACKEND] Sincronización automática de facturas completada. ${r.total} facturas procesadas.`,
+          );
         } else {
-          console.warn("\u26A0\uFE0F [BACKEND] Sincronizaci\xF3n de facturas autom\xE1tica parcial/fallida:", r2.error);
+          console.warn(
+            "\u26A0\uFE0F [BACKEND] Sincronizaci\xF3n de facturas autom\xE1tica parcial/fallida:",
+            // '⚠️ [BACKEND] Sincronización de facturas automática parcial/fallida:',
+            r2.error
+          );
         }
       });
     } catch (syncFactErr) {
@@ -122793,11 +123454,16 @@ async function startServer() {
   }
 }
 async function apagarServidorGraciosamente(signal) {
-  console.log(`\u{1F50C} [BACKEND] Se\xF1al de terminaci\xF3n recibida (${signal}). Sincronizando \xFAltimo conteo de facturas locales...`);
+  console.log(
+    `\u{1F50C} [BACKEND] Se\xF1al de terminaci\xF3n recibida (${signal}). Sincronizando \xFAltimo conteo de facturas locales...`
+  );
   try {
     await enviarConteoAGoogleSheets();
   } catch (err) {
-    console.warn("\u26A0\uFE0F [BACKEND] Error al realizar el reporte de apagado a Google Sheets:", err.message || err);
+    console.warn(
+      "\u26A0\uFE0F [BACKEND] Error al realizar el reporte de apagado de Sheets:",
+      err.message || err
+    );
   } finally {
     console.log("\u{1F4E6} [BACKEND] Liberando conexiones de base de datos...");
     try {

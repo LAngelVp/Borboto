@@ -11,6 +11,90 @@ let mainWindow;
 let licenseWindow;
 let expressServer;
 
+function escapeHtml(value = '') {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildTicketHtml({ content, title = 'Ticket', anchoPapel = '80mm' }) {
+  const width = anchoPapel === '58mm' ? 220 : 300;
+  return `<!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>${escapeHtml(title)}</title>
+      <style>
+        html, body { margin: 0; padding: 0; background: #fff; }
+        body { font-family: Consolas, 'Courier New', monospace; }
+        .ticket { width: ${width}px; margin: 0; padding: 8px 10px; color: #000; white-space: pre-wrap; font-size: 12px; line-height: 1.2; }
+      </style>
+    </head>
+    <body>
+      <pre class="ticket">${escapeHtml(content)}</pre>
+    </body>
+  </html>`;
+}
+
+async function getSystemPrintersFromElectron() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    throw new Error('La ventana principal no está disponible para consultar impresoras.');
+  }
+
+  const printers = await mainWindow.webContents.getPrintersAsync();
+  return printers.map((printer) => ({
+    name: printer.name,
+    displayName: printer.displayName || printer.name,
+    description: printer.description || printer.options?.printerInfo || '',
+    status: printer.status,
+    isDefault: Boolean(printer.isDefault),
+  }));
+}
+
+async function printTicketSilently({ printerName, content, title, anchoPapel }) {
+  const printWindow = new BrowserWindow({
+    show: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      sandbox: false,
+      contextIsolation: false,
+      nodeIntegration: false,
+    },
+  });
+
+  try {
+    const html = buildTicketHtml({ content, title, anchoPapel });
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    await new Promise((resolve, reject) => {
+      printWindow.webContents.print(
+        {
+          silent: true,
+          printBackground: true,
+          deviceName: printerName,
+        },
+        (success, failureReason) => {
+          if (!success) {
+            reject(new Error(failureReason || 'Electron no pudo enviar el trabajo de impresión.'));
+            return;
+          }
+
+          resolve(true);
+        },
+      );
+    });
+
+    return { ok: true };
+  } finally {
+    if (!printWindow.isDestroyed()) {
+      printWindow.close();
+    }
+  }
+}
+
 const isDev = process.env.NODE_ENV === 'development';
 const licenseFilePath = path.join(app.getPath('userData'), 'borboto_license.lic');
 const iconPath = path.join(__dirname, 'BORBOTOIcon.ico');
@@ -52,13 +136,18 @@ function setupAndStartPostgres() {
       const pwFile = path.join(basePath, 'pwfile.txt');
       fs.writeFileSync(pwFile, DB_PASS);
       const initdbPath = path.join(binPath, 'initdb.exe');
-      execSync(`"${initdbPath}" -D "${dataPath}" -U ${DB_USER} --pwfile="${pwFile}" -A md5 --encoding=UTF8`, { stdio: 'ignore' });
+      execSync(
+        `"${initdbPath}" -D "${dataPath}" -U ${DB_USER} --pwfile="${pwFile}" -A md5 --encoding=UTF8`,
+        { stdio: 'ignore' },
+      );
       if (fs.existsSync(pwFile)) fs.unlinkSync(pwFile);
     }
 
     const pidPath = path.join(dataPath, 'postmaster.pid');
     if (fs.existsSync(pidPath)) {
-      try { fs.unlinkSync(pidPath); } catch (e) {}
+      try {
+        fs.unlinkSync(pidPath);
+      } catch (e) {}
     }
 
     const pgCtlPath = path.join(binPath, 'pg_ctl.exe');
@@ -66,10 +155,14 @@ function setupAndStartPostgres() {
       execSync(`"${pgCtlPath}" -D "${dataPath}" stop -m fast`, { stdio: 'ignore' });
     } catch (e) {}
 
-    execSync(`"${pgCtlPath}" -D "${dataPath}" -l "${logPath}" -o "-p ${DB_PORT}" start`, { stdio: 'ignore' });
-    console.log(`✅ [PG] PostgreSQL iniciado exitosamente en puerto ${DB_PORT}`);
+    execSync(`"${pgCtlPath}" -D "${dataPath}" -l "${logPath}" -o "-p ${DB_PORT}" start`, {
+      stdio: 'ignore',
+    });
+    console.log(`✅ [PG] DB iniciado exitosamente`);
+    // console.log(`✅ [PG] PostgreSQL iniciado exitosamente en puerto ${DB_PORT}`);
   } catch (error) {
-    console.error('❌ [PG] Error al gestionar PostgreSQL:', error.message);
+    console.error('❌ [PG] Error al gestionar DB:', error.message);
+    // console.error('❌ [PG] Error al gestionar PostgreSQL:', error.message);
   }
 }
 
@@ -106,9 +199,10 @@ async function startBackendServer() {
     try {
       const serverPath = path.join(__dirname, 'server.js');
       const serverModule = require(serverPath);
-      expressServer = typeof serverModule.startServer === 'function'
-        ? await serverModule.startServer()
-        : (serverModule.server || serverModule);
+      expressServer =
+        typeof serverModule.startServer === 'function'
+          ? await serverModule.startServer()
+          : serverModule.server || serverModule;
     } catch (e) {
       console.error('❌ Error al arrancar server.js:', e);
       throw e;
@@ -138,20 +232,23 @@ function getPublicKeyPath() {
   const possiblePaths = [
     path.join(__dirname, 'licencia_publica.pem'),
     path.join(__dirname, 'tools', 'licencia_publica.pem'),
-    path.resolve(process.cwd(), 'licencia_publica.pem')
+    path.resolve(process.cwd(), 'licencia_publica.pem'),
   ];
-  if (process.resourcesPath) possiblePaths.unshift(path.join(process.resourcesPath, 'licencia_publica.pem'));
-  return possiblePaths.find(p => fs.existsSync(p)) || null;
+  if (process.resourcesPath)
+    possiblePaths.unshift(path.join(process.resourcesPath, 'licencia_publica.pem'));
+  return possiblePaths.find((p) => fs.existsSync(p)) || null;
 }
 
 function validarLicencia(keyString) {
   try {
     const keyPath = getPublicKeyPath();
-    if (!keyPath) return { valida: false, motivo: 'Falta el archivo de verificación (licencia_publica.pem)' };
+    if (!keyPath)
+      return { valida: false, motivo: 'Falta el archivo de verificación (licencia_publica.pem)' };
     if (!keyString) return { valida: false, motivo: 'Sin licencia registrada' };
 
     const [payloadBase64, firmaBase64] = keyString.trim().split('.');
-    if (!payloadBase64 || !firmaBase64) return { valida: false, motivo: 'Formato de licencia inválido' };
+    if (!payloadBase64 || !firmaBase64)
+      return { valida: false, motivo: 'Formato de licencia inválido' };
 
     const publicKey = fs.readFileSync(keyPath, 'utf8');
     const verifier = crypto.createVerify('SHA256');
@@ -162,12 +259,19 @@ function validarLicencia(keyString) {
     }
 
     const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-    if (payload.hardware_id && payload.hardware_id.trim().toUpperCase() !== getHardwareId().toUpperCase()) {
+    if (
+      payload.hardware_id &&
+      payload.hardware_id.trim().toUpperCase() !== getHardwareId().toUpperCase()
+    ) {
       return { valida: false, motivo: 'Esta licencia pertenece a otro equipo informático' };
     }
 
     if (new Date() > new Date(payload.vencimiento + 'T23:59:59')) {
-      return { valida: false, vencida: true, motivo: `La licencia expiró el ${payload.vencimiento}` };
+      return {
+        valida: false,
+        vencida: true,
+        motivo: `La licencia expiró el ${payload.vencimiento}`,
+      };
     }
 
     return { valida: true, payload };
@@ -197,12 +301,134 @@ ipcMain.handle('get-license-status', async () => {
       valida: true,
       cliente: payload.cliente,
       vencimiento: payload.vencimiento,
-      diasRestantes: diffDias
+      diasRestantes: diffDias,
     };
   } catch (error) {
     return { valida: false, motivo: 'Error al consultar estado de licencia' };
   }
 });
+
+ipcMain.handle('get-system-printers', async () => getSystemPrintersFromElectron());
+
+ipcMain.handle('print-ticket-silent', async (_event, payload) => {
+  const { printerName, content, title, anchoPapel } = payload || {};
+
+  if (!printerName || !content) {
+    throw new Error('Faltan datos para imprimir de forma silenciosa.');
+  }
+
+  return printTicketSilently({ printerName, content, title, anchoPapel });
+});
+
+function emitUiNotification(level, message) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app-notification', { level, message });
+  }
+}
+
+function formatConsoleArgs(args) {
+  return args
+    .map((value) => {
+      if (value instanceof Error) {
+        return value.message;
+      }
+
+      if (typeof value === 'string') {
+        return value;
+      }
+
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    })
+    .join(' ')
+    .trim();
+}
+
+function installMainConsoleBridge() {
+  if (global.__borbotoConsoleBridgeInstalled) {
+    return;
+  }
+
+  global.__borbotoConsoleBridgeInstalled = true;
+  const originalLog = console.log.bind(console);
+  const originalWarn = console.warn.bind(console);
+  const originalError = console.error.bind(console);
+  const recentMessages = new Map();
+
+  const shouldEmit = (level, message) => {
+    const key = `${level}:${message}`;
+    const now = Date.now();
+    const lastSeen = recentMessages.get(key) || 0;
+
+    if (!message || now - lastSeen < 2500) {
+      return false;
+    }
+
+    recentMessages.set(key, now);
+    return true;
+  };
+
+  const forward = (level, args) => {
+    const message = formatConsoleArgs(args).slice(0, 220);
+    if (!shouldEmit(level, message)) {
+      return;
+    }
+
+    emitUiNotification(level, message);
+  };
+
+  console.log = (...args) => {
+    originalLog(...args);
+    forward('info', args);
+  };
+
+  console.warn = (...args) => {
+    originalWarn(...args);
+    forward('warning', args);
+  };
+
+  console.error = (...args) => {
+    originalError(...args);
+    forward('error', args);
+  };
+}
+
+function installMainProcessErrorHandlers() {
+  process.on('uncaughtException', (error) => {
+    console.error('Excepción no controlada en proceso principal:', error);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('Promesa rechazada sin manejo en proceso principal:', reason);
+  });
+
+  app.on('render-process-gone', (_event, webContents, details) => {
+    console.error(
+      'El proceso de render se cerró inesperadamente:',
+      details?.reason || 'sin motivo',
+    );
+    if (webContents === mainWindow?.webContents) {
+      emitUiNotification(
+        'error',
+        `El proceso visual de la aplicación se cerró: ${details?.reason || 'desconocido'}.`,
+      );
+    }
+  });
+
+  app.on('child-process-gone', (_event, details) => {
+    console.warn(
+      'Un subproceso de Electron finalizó:',
+      details?.type || 'desconocido',
+      details?.reason || 'sin motivo',
+    );
+  });
+}
+
+installMainConsoleBridge();
+installMainProcessErrorHandlers();
 
 function solicitarLicencia(mensajeError = '') {
   const hardwareId = getHardwareId();
@@ -215,7 +441,7 @@ function solicitarLicencia(mensajeError = '') {
     alwaysOnTop: true,
     title: 'Borboto POS - Licencia Requerida',
     icon: iconPath,
-    webPreferences: { nodeIntegration: true, contextIsolation: false }
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
 
   licenseWindow.setMenuBarVisibility(false);
@@ -224,7 +450,7 @@ function solicitarLicencia(mensajeError = '') {
   licenseWindow.webContents.on('did-finish-load', () => {
     licenseWindow.webContents.send('init-license-view', {
       hardwareId: hardwareId,
-      error: mensajeError
+      error: mensajeError,
     });
   });
 }
@@ -258,8 +484,8 @@ function createMainWindow() {
     icon: iconPath,
     webPreferences: {
       contextIsolation: false,
-      nodeIntegration: true
-    }
+      nodeIntegration: true,
+    },
   });
   mainWindow.setMenuBarVisibility(false);
 
@@ -276,14 +502,15 @@ function createMainWindow() {
         path.join(__dirname, 'dist/borboto/browser/index.html'),
         path.join(__dirname, 'dist/browser/index.html'),
         path.join(__dirname, 'dist/borboto/index.html'),
-        path.join(__dirname, 'dist/index.html')
+        path.join(__dirname, 'dist/index.html'),
       ];
 
-      let targetIndex = possibleIndexPaths.find(p => fs.existsSync(p));
+      let targetIndex = possibleIndexPaths.find((p) => fs.existsSync(p));
       if (targetIndex) {
         mainWindow.loadFile(targetIndex);
       } else {
-        console.error('❌ No se encontró el index.html compilado.');
+        console.error('❌ No se encontró el indeXx compilado.');
+        // console.error('❌ No se encontró el index.html compilado.');
       }
     }
   };
@@ -292,7 +519,8 @@ function createMainWindow() {
 
   // 💡 2. REDIRECCIÓN EN CASO DE ERROR DE RECARGA (EVITA PANTALLA EN BLANCO)
   mainWindow.webContents.on('did-fail-load', () => {
-    console.warn('⚠️ Carga fallida detectada. Redirigiendo a la raíz index.html...');
+    console.warn('⚠️ Carga fallida detectada. Redirigiendo a la raíz index...');
+    // console.warn('⚠️ Carga fallida detectada. Redirigiendo a la raíz index.html...');
     loadApp();
   });
 
@@ -322,7 +550,8 @@ async function iniciarSistemaCompleto() {
     await startBackendServer();
     createMainWindow();
   } catch (err) {
-    dialog.showErrorBox('Error de Inicio', err.message);
+    console.error('Error de inicio de la aplicación:', err.message);
+    emitUiNotification('error', `Error de inicio: ${err.message}`);
     if (expressServer && typeof expressServer.close === 'function') expressServer.close();
     stopPostgres();
     app.quit();
@@ -330,7 +559,9 @@ async function iniciarSistemaCompleto() {
 }
 
 app.whenReady().then(async () => {
-  let claveGuardada = fs.existsSync(licenseFilePath) ? fs.readFileSync(licenseFilePath, 'utf8').trim() : '';
+  let claveGuardada = fs.existsSync(licenseFilePath)
+    ? fs.readFileSync(licenseFilePath, 'utf8').trim()
+    : '';
   const estadoLicencia = validarLicencia(claveGuardada);
 
   if (estadoLicencia.valida) {

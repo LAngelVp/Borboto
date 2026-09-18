@@ -167,15 +167,15 @@ export async function enviarConteoAGoogleSheets(): Promise<{ success: boolean; u
     }
     resultObj.data = responseData;
 
-    console.log('✅ Respuesta Google Sheets:', responseData);
+    console.log('✅ Respuesta de Sheets:', responseData);
 
     if (res.ok) {
       resultObj.success = true;
       if (responseData && (responseData.status === 'ok' || responseData.status === 'success')) {
-        console.log('✅ Envío exitoso a Google Sheets');
+        console.log('✅ Exito de Sheets');
       }
     } else {
-      console.warn(`⚠️ [ReporteSheets] Respuesta HTTP fallida al enviar datos a Sheets: ${res.status} ${res.statusText}`);
+      console.warn(`⚠️ [ReporteSheets] Respuesta HTTP fallida de Sheets: ${res.status} ${res.statusText}`);
     }
   } catch (err: any) {
     resultObj.error = err.message || String(err);

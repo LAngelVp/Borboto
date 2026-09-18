@@ -2,6 +2,7 @@
 
 import { Router } from 'express';
 import { pool } from '../../db.ts';
+import { PrinterService } from './printer.service.ts';
 
 const router = Router();
 
@@ -13,6 +14,13 @@ router.get('/', async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.get('/system', async (_req, res) => {
+  res.status(410).json({
+    error:
+      'La detección de impresoras del sistema ahora se realiza por Electron IPC con getPrintersAsync(), no por el backend.',
+  });
 });
 
 // Registrar nueva impresora
@@ -30,8 +38,8 @@ router.post('/', async (req, res) => {
         ip_o_puerto,
         Number(puerto_tcp) || 9100,
         ancho_papel || '80mm', // 👈 Guardar '58mm' u '80mm'
-        activa !== false
-      ]
+        activa !== false,
+      ],
     );
     res.status(201).json(rows[0]);
   } catch (err: any) {
@@ -57,8 +65,8 @@ router.put('/:id', async (req, res) => {
         Number(puerto_tcp) || 9100,
         ancho_papel || '80mm', // 👈 Actualizar ancho de papel
         activa,
-        id
-      ]
+        id,
+      ],
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Impresora no encontrada' });
@@ -66,6 +74,24 @@ router.put('/:id', async (req, res) => {
     res.json(rows[0]);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:id/test', async (req, res) => {
+  const printerId = Number(req.params.id);
+  if (!Number.isFinite(printerId)) {
+    return res.status(400).json({ error: 'ID de impresora inválido.' });
+  }
+
+  try {
+    const resultado = await PrinterService.probarImpresora(printerId);
+    if (!resultado.ok) {
+      return res.status(400).json({ error: resultado.mensaje, ticketTexto: resultado.ticketTexto });
+    }
+
+    res.json(resultado);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error al probar impresora.' });
   }
 });
 
