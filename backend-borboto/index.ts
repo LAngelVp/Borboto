@@ -35,6 +35,21 @@ function obtenerInstanciaFacturapi(apiKey: string) {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+function resolveFrontendDistPath() {
+  const possiblePaths = [
+    path.join(process.cwd(), 'dist', 'borboto', 'browser'),
+    path.join(process.cwd(), 'dist', 'browser'),
+    path.join(process.cwd(), 'dist', 'borboto'),
+    path.join(process.cwd(), 'dist'),
+  ];
+
+  return (
+    possiblePaths.find((candidate) => fs.existsSync(path.join(candidate, 'index.html'))) || null
+  );
+}
+
+const frontendDistPath = resolveFrontendDistPath();
+
 // Configuración Multer y Sockets
 const uploadsDir = path.join(process.cwd(), 'uploads', 'productos');
 if (!fs.existsSync(uploadsDir)) {
@@ -81,6 +96,10 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/impresoras', printerRoutes);
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+if (frontendDistPath) {
+  app.use(express.static(frontendDistPath));
+}
 
 // ─── 1. ENDPOINTS DE SUBIDA DE IMÁGENES (CON JIMP NATIVO JS) ──────────────────
 app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req: any, res: any) => {
@@ -337,14 +356,12 @@ app.post('/api/mostrador/crear', async (req, res) => {
 
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
-    res
-      .status(201)
-      .json({
-        ok: true,
-        mesaId: Number(mesaRes.rows[0].id),
-        comandaId: comandaRes.rows[0].id,
-        numero: numeroOrden,
-      });
+    res.status(201).json({
+      ok: true,
+      mesaId: Number(mesaRes.rows[0].id),
+      comandaId: comandaRes.rows[0].id,
+      numero: numeroOrden,
+    });
   } catch (err: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -513,14 +530,12 @@ app.post('/api/envios/crear', async (req, res) => {
 
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
-    res
-      .status(201)
-      .json({
-        ok: true,
-        mesaId: Number(mesaRes.rows[0].id),
-        comandaId: comandaRes.rows[0].id,
-        numero: numeroOrden,
-      });
+    res.status(201).json({
+      ok: true,
+      mesaId: Number(mesaRes.rows[0].id),
+      comandaId: comandaRes.rows[0].id,
+      numero: numeroOrden,
+    });
   } catch (err: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -944,7 +959,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
         );
         errorFacturapiMsg =
           'No hay una API Key de Factura activa configurada en el sistema (Ajustes -> Facturación).';
-          // 'No hay una API Key de Facturapi activa configurada en el sistema (Ajustes -> Facturación).';
+        // 'No hay una API Key de Facturapi activa configurada en el sistema (Ajustes -> Facturación).';
       }
     }
 
@@ -1664,9 +1679,19 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
     const ultimosTicketsRes = await pool.query(
       `
-      SELECT pa.id, pa.total_cuenta::float AS total, pa.metodo_pago AS metodo, COALESCE(EXTRACT(EPOCH FROM (co.fecha_cierre - co.fecha_apertura))/60, 0)::int AS "duracionMinutos",
-             m.numero AS "mesaNombre", TO_CHAR(pa.fecha, 'DD/MM HH24:MI') AS hora
-      FROM pagos pa JOIN comandas co ON pa.comanda_id = co.id JOIN mesas m ON co.mesa_id = m.id
+      SELECT pa.id AS folio,
+             TO_CHAR(pa.fecha, 'DD/MM HH24:MI') AS fecha,
+             COALESCE(cl.nombre, 'Cliente General') AS cliente,
+             pa.total_cuenta::float AS total,
+             pa.metodo_pago AS metodo,
+             u.nombre AS usuario,
+             co.estado AS estatus,
+             m.numero AS mesa
+      FROM pagos pa
+      JOIN comandas co ON pa.comanda_id = co.id
+      JOIN mesas m ON co.mesa_id = m.id
+      JOIN usuarios u ON pa.usuario_id = u.id
+      LEFT JOIN clientes cl ON co.cliente_id = cl.id
       WHERE DATE(pa.fecha) ${fechaInicio ? (fechaFin ? 'BETWEEN $1 AND $2' : '>= $1') : '= CURRENT_DATE'} ORDER BY pa.fecha DESC LIMIT 15
     `,
       params,
@@ -1682,6 +1707,98 @@ app.get('/api/dashboard/stats', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/dashboard/tickets', async (req, res) => {
+  const { fechaInicio, fechaFin, folio, cliente } = req.query;
+  try {
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (fechaInicio && fechaFin) {
+      params.push(fechaInicio, fechaFin);
+      conditions.push(`DATE(pa.fecha) BETWEEN $${params.length - 1} AND $${params.length}`);
+    } else if (fechaInicio) {
+      params.push(fechaInicio);
+      conditions.push(`DATE(pa.fecha) >= $${params.length}`);
+    } else {
+      conditions.push('DATE(pa.fecha) = CURRENT_DATE');
+    }
+
+    if (folio) {
+      params.push(Number(folio));
+      conditions.push(`pa.id = $${params.length}`);
+    }
+
+    if (cliente) {
+      params.push(`%${String(cliente).trim()}%`);
+      conditions.push(`COALESCE(cl.nombre, '') ILIKE $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        pa.id AS folio,
+        TO_CHAR(pa.fecha, 'DD/MM/YYYY HH24:MI') AS fecha,
+        COALESCE(cl.nombre, 'Cliente General') AS cliente,
+        pa.total_cuenta::float AS total,
+        pa.metodo_pago AS metodo,
+        u.nombre AS usuario,
+        co.estado AS estatus,
+        m.numero AS mesa
+      FROM pagos pa
+      JOIN comandas co ON pa.comanda_id = co.id
+      JOIN mesas m ON co.mesa_id = m.id
+      JOIN usuarios u ON pa.usuario_id = u.id
+      LEFT JOIN clientes cl ON co.cliente_id = cl.id
+      ${whereClause}
+      ORDER BY pa.fecha DESC
+      LIMIT 100
+      `,
+      params,
+    );
+
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/dashboard/tickets/:pagoId/reprint', async (req, res) => {
+  const pagoId = Number(req.params.pagoId);
+  if (!Number.isFinite(pagoId)) {
+    return res.status(400).json({ error: 'ID de ticket inválido.' });
+  }
+
+  try {
+    let ticketTextoCobro: string | null = null;
+    let impresionesPendientes: any[] = [];
+
+    const resCobroPrinter = await PrinterService.imprimirTicketCobro(pagoId);
+    if (resCobroPrinter) {
+      if (typeof resCobroPrinter === 'string') {
+        ticketTextoCobro = resCobroPrinter;
+      } else if (typeof resCobroPrinter === 'object' && (resCobroPrinter as any).ticketTexto) {
+        ticketTextoCobro = (resCobroPrinter as any).ticketTexto;
+      }
+
+      if (typeof resCobroPrinter === 'object' && (resCobroPrinter as any).impresionesPendientes) {
+        impresionesPendientes = (resCobroPrinter as any).impresionesPendientes;
+      }
+    }
+
+    res.json({ ok: true, ticketId: pagoId, ticketTexto: ticketTextoCobro, impresionesPendientes });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error al reimprimir ticket.' });
+  }
+});
+
+if (frontendDistPath) {
+  app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
+}
 
 // ─── FUNCION CONTROLADA DE ARRANQUE EXPORTADA (BLOQUEANTE) ─────────────────
 export async function startServer() {
@@ -1720,7 +1837,7 @@ export async function startServer() {
     // 3. Levantar listener de servidor Express y Socket.io
     return new Promise((resolve, reject) => {
       const serverInstance = server.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 [BACKEND] API REST & Sockets listos en http://127.0.0.1:${PORT}`);
+        console.log(`🚀 [BACKEND] API REST & Sockets listos en red local por puerto ${PORT}`);
         // Envío asíncrono y tolerante a fallos del conteo de facturas locales a la nube sobre el arranque de la API
         enviarConteoAGoogleSheets().catch(() => {});
         resolve(serverInstance);

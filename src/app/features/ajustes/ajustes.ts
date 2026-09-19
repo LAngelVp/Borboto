@@ -27,6 +27,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { CajaService } from '../../core/services/caja-service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PrinterService, Impresora, WindowsPrinterInfo } from '../../core/services/printer.service';
+import { RuntimeConfigService } from '../../core/services/runtime-config.service';
 import * as XLSX from 'xlsx';
 
 declare var window: any;
@@ -58,9 +59,12 @@ export class AjustesComponent implements OnInit {
   private readonly notifications = inject(NotificationService);
   private readonly http = inject(HttpClient);
   private readonly printerService = inject(PrinterService);
+  private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly zone = inject(NgZone); // 👈 Forzar actualización fuera del evento IPC
 
-  private readonly API_URL = 'http://127.0.0.1:3000';
+  private get API_URL() {
+    return this.runtimeConfig.apiBaseUrl.replace(/\/api$/, '');
+  }
 
   readonly categorias = signal<CategoriaAdmin[]>([]);
   readonly productos = signal<ProductoAdmin[]>([]);
@@ -457,7 +461,7 @@ export class AjustesComponent implements OnInit {
 
   private importarProductosLote(productos: any[]) {
     this.http
-      .post<{ agregados: number }>('http://127.0.0.1:3000/api/productos/importar-lote', {
+      .post<{ agregados: number }>(`${this.API_URL}/api/productos/importar-lote`, {
         productos,
       })
       .subscribe({

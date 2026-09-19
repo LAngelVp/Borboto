@@ -10,6 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { RoleAccessService } from '../../core/services/role-access.service';
 
 @Component({
   selector: 'app-login',
@@ -31,6 +32,7 @@ export class LoginComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly notifications = inject(NotificationService);
+  private readonly roleAccess = inject(RoleAccessService);
 
   readonly hasUsers = signal<boolean | null>(null);
   readonly registerMode = signal<boolean>(false);
@@ -45,7 +47,14 @@ export class LoginComponent implements OnInit {
   ngOnInit() {
     // 🔹 Si ya tiene sesión activa en localStorage, redirigir directo al sistema
     if (this.authService.estaAutenticado()) {
-      this.router.navigate(['/mesas']);
+      const usuario = this.authService.usuarioActivo();
+      if (!this.roleAccess.canUseCurrentDevice(usuario?.rol)) {
+        this.notifications.warning('Este perfil solo puede operar desde la estación principal.');
+        this.authService.cerrarSesion();
+        return;
+      }
+
+      this.router.navigate([this.roleAccess.getDefaultRouteForRole(usuario?.rol)]);
       return;
     }
 
@@ -75,8 +84,14 @@ export class LoginComponent implements OnInit {
 
     this.authService.loginConPin(p).subscribe({
       next: (user) => {
+        if (!this.roleAccess.canUseCurrentDevice(user.rol)) {
+          this.notifications.warning('Este perfil solo puede operar desde la estación principal.');
+          this.authService.cerrarSesion();
+          return;
+        }
+
         this.notifications.success(`Hola, ${user.nombre}. Acceso correcto en el POS.`);
-        this.router.navigate(['/mesas']);
+        this.router.navigate([this.roleAccess.getDefaultRouteForRole(user.rol)]);
       },
       error: (err) => {
         this.notifications.error(err.error?.error || 'PIN incorrecto. Intente de nuevo.');
@@ -95,8 +110,16 @@ export class LoginComponent implements OnInit {
 
     this.authService.registrarPrimerAdmin(nom, p).subscribe({
       next: (user) => {
+        if (!this.roleAccess.canUseCurrentDevice(user.rol)) {
+          this.notifications.warning(
+            'El alta de administrador debe realizarse desde la estación principal.',
+          );
+          this.authService.cerrarSesion();
+          return;
+        }
+
         this.notifications.success(`Administrador "${user.nombre}" registrado. Bienvenido.`, 4000);
-        this.router.navigate(['/mesas']);
+        this.router.navigate([this.roleAccess.getDefaultRouteForRole(user.rol)]);
       },
       error: () => {
         this.notifications.error('Error al intentar registrar el primer administrador.');

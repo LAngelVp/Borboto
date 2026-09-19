@@ -15,6 +15,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from '../../../core/services/auth.service';
+import { RoleAccessService } from '../../../core/services/role-access.service';
 import { ThemeService } from '../../../core/services/theme.service'; // Adjust path
 import { CambiarTurnoDialogComponent } from '../cambiar-turno-dialog/cambiar-turno-dialog';
 
@@ -29,14 +30,15 @@ import { CambiarTurnoDialogComponent } from '../cambiar-turno-dialog/cambiar-tur
     MatIconModule,
     MatMenuModule,
     MatDividerModule,
-    MatDialogModule
+    MatDialogModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './navbar-component.html',
-  styleUrl: './navbar-component.scss'
+  styleUrl: './navbar-component.scss',
 })
 export class NavbarComponent {
   protected readonly authService = inject(AuthService);
+  protected readonly roleAccess = inject(RoleAccessService);
   protected readonly themeService = inject(ThemeService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
@@ -44,7 +46,7 @@ export class NavbarComponent {
   cambiarTurno() {
     this.dialog.open(CambiarTurnoDialogComponent, {
       width: '320px',
-      disableClose: false
+      disableClose: false,
     });
   }
 

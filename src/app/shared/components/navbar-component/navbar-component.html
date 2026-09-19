@@ -24,41 +24,10 @@
 
   <!-- Selector de Módulo utilizando RouterLink y Atributos de Material -->
   <nav class="nav-links">
-    <!-- Botón Mesas -->
-    <a mat-button
-       routerLink="/mesas"
-       routerLinkActive="active"
-       class="nav-btn">
-      <mat-icon>grid_view</mat-icon>
-      <span>Mesas</span>
-    </a>
-
-    <!-- Botón Cocina / KDS -->
-    <a mat-button
-       routerLink="/cocina"
-       routerLinkActive="active"
-       class="nav-btn">
-      <mat-icon>soup_kitchen</mat-icon>
-      <span>Cocina</span>
-    </a>
-
-    <!-- Botón Caja -->
-    <a mat-button
-       routerLink="/caja"
-       routerLinkActive="active"
-       class="nav-btn">
-      <mat-icon>point_of_sale</mat-icon>
-      <span>Caja</span>
-    </a>
-
-    <!-- Botón Ventas (Dashboard) -->
-    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-      <a mat-button
-         routerLink="/dashboard"
-         routerLinkActive="active"
-         class="nav-btn">
-        <mat-icon>trending_up</mat-icon>
-        <span>Ventas</span>
+    @for (item of roleAccess.visibleNavItems(); track item.route) {
+      <a mat-button [routerLink]="item.route" routerLinkActive="active" class="nav-btn">
+        <mat-icon>{{ item.icon }}</mat-icon>
+        <span>{{ item.label }}</span>
       </a>
     }
   </nav>
@@ -70,7 +39,8 @@
     mat-icon-button
     class="theme-toggle-btn"
     (click)="themeService.toggleTema()"
-    [title]="themeService.esOscuro() ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'">
+    [title]="themeService.esOscuro() ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'"
+  >
     <mat-icon>{{ themeService.esOscuro() ? 'light_mode' : 'dark_mode' }}</mat-icon>
   </button>
 
@@ -94,7 +64,7 @@
         <span>Modo {{ themeService.esOscuro() ? 'Claro' : 'Oscuro' }}</span>
       </button>
 
-      @if (authService.usuarioActivo()?.rol === 'ADMIN') {
+      @if (roleAccess.canAccessRoute('/ajustes', authService.usuarioActivo()?.rol)) {
         <button mat-menu-item routerLink="/ajustes">
           <mat-icon>settings</mat-icon>
           <span>Ajustes POS</span>

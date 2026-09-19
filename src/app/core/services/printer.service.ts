@@ -3,6 +3,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { RuntimeConfigService } from './runtime-config.service';
 
 declare const window: {
   require?: (moduleName: string) => any;
@@ -54,7 +55,11 @@ interface ElectronPrintPayload {
 })
 export class PrinterService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'http://127.0.0.1:3000/api/impresoras';
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+
+  private get API_URL() {
+    return `${this.runtimeConfig.apiBaseUrl}/impresoras`;
+  }
 
   getImpresoras(): Observable<Impresora[]> {
     return this.http.get<Impresora[]>(this.API_URL);

@@ -2,6 +2,7 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
+import { RuntimeConfigService } from './runtime-config.service';
 
 export interface Usuario {
   id: number;
@@ -10,13 +11,17 @@ export interface Usuario {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
-  private readonly apiUrl = 'http://127.0.0.1:3000/api';
+  private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly LS_KEY = 'borboto_pos_usuario';
+
+  private get apiUrl() {
+    return this.runtimeConfig.apiBaseUrl;
+  }
 
   // 🔹 Inicializa leyendo directamente de localStorage para no perder la sesión con F5
   readonly usuarioActivo = signal<Usuario | null>(this.obtenerUsuarioGuardado());
@@ -24,7 +29,7 @@ export class AuthService {
 
   // Comprobar si hay algún usuario registrado en la base de datos
   getHasUsers(): Observable<boolean> {
-    return new Observable<boolean>(observer => {
+    return new Observable<boolean>((observer) => {
       this.http.get<any[]>(`${this.apiUrl}/usuarios`).subscribe({
         next: (users) => {
           observer.next(users && users.length > 0);
@@ -33,26 +38,28 @@ export class AuthService {
         error: () => {
           observer.next(false);
           observer.complete();
-        }
+        },
       });
     });
   }
 
   // Registrar el primer administrador del POS
   registrarPrimerAdmin(nombre: string, pin: string): Observable<Usuario> {
-    return this.http.post<Usuario>(`${this.apiUrl}/auth/register-first-admin`, { nombre, pin }).pipe(
-      tap(usuario => {
-        this.guardarSesion(usuario);
-      })
-    );
+    return this.http
+      .post<Usuario>(`${this.apiUrl}/auth/register-first-admin`, { nombre, pin })
+      .pipe(
+        tap((usuario) => {
+          this.guardarSesion(usuario);
+        }),
+      );
   }
 
   // Intentar cambiar turno / validar con PIN
   loginConPin(pin: string): Observable<Usuario> {
     return this.http.post<Usuario>(`${this.apiUrl}/auth/login`, { pin }).pipe(
-      tap(usuario => {
+      tap((usuario) => {
         this.guardarSesion(usuario);
-      })
+      }),
     );
   }
 

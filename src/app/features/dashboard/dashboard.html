@@ -22,12 +22,12 @@
       @if (filtroRango === 'PERSONALIZADO') {
         <mat-form-field appearance="outline" class="filter-field date-picker">
           <mat-label>Desde</mat-label>
-          <input matInput type="date" [(ngModel)]="fechaInicio" (change)="cargarEstadisticas()">
+          <input matInput type="date" [(ngModel)]="fechaInicio" (change)="cargarEstadisticas()" />
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field date-picker">
           <mat-label>Hasta</mat-label>
-          <input matInput type="date" [(ngModel)]="fechaFin" (change)="cargarEstadisticas()">
+          <input matInput type="date" [(ngModel)]="fechaFin" (change)="cargarEstadisticas()" />
         </mat-form-field>
       }
 
@@ -55,7 +55,7 @@
             </div>
             <div class="kpi-text">
               <span class="kpi-label">Ingresos de Hoy</span>
-              <h2 class="kpi-value">${{ d.resumen.totalVentas | number:'1.2-2' }}</h2>
+              <h2 class="kpi-value">${{ d.resumen.totalVentas | number: '1.2-2' }}</h2>
             </div>
           </mat-card-header>
         </mat-card>
@@ -81,7 +81,7 @@
             </div>
             <div class="kpi-text">
               <span class="kpi-label">Ticket Promedio</span>
-              <h2 class="kpi-value">${{ d.resumen.ticketPromedio | number:'1.2-2' }}</h2>
+              <h2 class="kpi-value">${{ d.resumen.ticketPromedio | number: '1.2-2' }}</h2>
             </div>
           </mat-card-header>
         </mat-card>
@@ -106,17 +106,22 @@
                   <div class="payment-method-row">
                     <div class="method-header">
                       <div class="method-title">
-                        <mat-icon [style.color]="getMetodoColor(m.metodo)">{{ getMetodoIcon(m.metodo) }}</mat-icon>
+                        <mat-icon [style.color]="getMetodoColor(m.metodo)">{{
+                          getMetodoIcon(m.metodo)
+                        }}</mat-icon>
                         <span class="method-name">{{ m.metodo }}</span>
                       </div>
-                      <span class="method-amount">${{ m.total | number:'1.2-2' }} ({{ m.cantidad }} trans.)</span>
+                      <span class="method-amount"
+                        >${{ m.total | number: '1.2-2' }} ({{ m.cantidad }} trans.)</span
+                      >
                     </div>
                     <!-- Barra de progreso simulando porcentaje -->
                     <div class="progress-bar-container">
-                      <div class="progress-bar"
-                           [style.background-color]="getMetodoColor(m.metodo)"
-                           [style.width.%]="(m.total / d.resumen.totalVentas) * 100">
-                      </div>
+                      <div
+                        class="progress-bar"
+                        [style.background-color]="getMetodoColor(m.metodo)"
+                        [style.width.%]="(m.total / d.resumen.totalVentas) * 100"
+                      ></div>
                     </div>
                   </div>
                 }
@@ -142,9 +147,12 @@
                   <div class="category-row">
                     <span class="cat-name">{{ cat.categoria }}</span>
                     <div class="cat-bar-wrapper">
-                      <div class="cat-bar" [style.width.%]="(cat.total / d.resumen.totalVentas) * 100"></div>
+                      <div
+                        class="cat-bar"
+                        [style.width.%]="(cat.total / d.resumen.totalVentas) * 100"
+                      ></div>
                     </div>
-                    <span class="cat-total">${{ cat.total | number:'1.2-2' }}</span>
+                    <span class="cat-total">${{ cat.total | number: '1.2-2' }}</span>
                   </div>
                 }
               </div>
@@ -153,20 +161,39 @@
         </mat-card>
       </div>
 
-      <!-- Tabla de Tickets recientes -->
+      <!-- Tabla única de Tickets / Reimpresión -->
       <mat-card class="tickets-table-card">
         <mat-card-header class="table-header">
-          <mat-icon>history</mat-icon>
+          <mat-icon>print</mat-icon>
           <div>
-            <mat-card-title>Últimas Traspasos y Cobros del Día</mat-card-title>
-            <mat-card-subtitle>Detalle cronológico de los últimos 10 tickets emitidos</mat-card-subtitle>
+            <mat-card-title>Tickets y Reimpresión</mat-card-title>
+            <mat-card-subtitle
+              >Consulta ventas por fecha, folio o cliente y reimprime usando el flujo
+              real.</mat-card-subtitle
+            >
           </div>
         </mat-card-header>
         <mat-card-content class="table-body">
-          @if (d.tickets.length === 0) {
+          <div class="dashboard-filters" style="margin-bottom: 16px">
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Folio</mat-label>
+              <input matInput [(ngModel)]="filtroFolio" placeholder="Ej. 125" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-field" style="width: 220px">
+              <mat-label>Cliente</mat-label>
+              <input matInput [(ngModel)]="filtroCliente" placeholder="Nombre del cliente" />
+            </mat-form-field>
+
+            <button mat-stroked-button (click)="cargarTickets()">
+              <mat-icon>search</mat-icon> Buscar Tickets
+            </button>
+          </div>
+
+          @if (tickets().length === 0) {
             <div class="empty-detail-state padding-large">
               <mat-icon>receipt</mat-icon>
-              <p>Esperando la primera venta del día para poblar el reporte táctico.</p>
+              <p>No se encontraron tickets con los filtros actuales.</p>
             </div>
           } @else {
             <div class="table-responsive">
@@ -174,31 +201,44 @@
                 <thead>
                   <tr>
                     <th>Folio</th>
-                    <th>Hora</th>
-                    <th>Ubicación / Destino</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
                     <th>Método</th>
-                    <th>Permanencia</th>
-                    <th class="align-right">Puntuación Total</th>
+                    <th>Usuario</th>
+                    <th>Estatus</th>
+                    <th class="align-right">Total</th>
+                    <th>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (t of d.tickets; track t.id) {
+                  @for (t of tickets(); track t.folio) {
                     <tr>
-                      <td class="folio">#{{ t.id }}</td>
-                      <td class="hora">{{ t.hora }} hrs</td>
-                      <td class="mesa">
-                        <span class="mesa-pill" [class.delivery]="t.mesaNombre.startsWith('Envío')">
-                          <mat-icon class="pill-icon">{{ t.mesaNombre.startsWith('Envío') ? 'local_shipping' : 'table_restaurant' }}</mat-icon>
-                          {{ t.mesaNombre }}
-                        </span>
-                      </td>
+                      <td class="folio">#{{ t.folio }}</td>
+                      <td class="hora">{{ t.fecha }}</td>
+                      <td>{{ t.cliente }}</td>
                       <td class="metodo-badge-col">
-                        <span class="metodo-badge" [style.background-color]="getMetodoColor(t.metodo) + '15'" [style.color]="getMetodoColor(t.metodo)">
+                        <span
+                          class="metodo-badge"
+                          [style.background-color]="getMetodoColor(t.metodo) + '15'"
+                          [style.color]="getMetodoColor(t.metodo)"
+                        >
                           {{ t.metodo }}
                         </span>
                       </td>
-                      <td class="duracion">{{ t.duracionMinutos }} min</td>
-                      <td class="total align-right">${{ t.total | number:'1.2-2' }}</td>
+                      <td class="duracion">{{ t.usuario }}</td>
+                      <td>{{ t.estatus }}</td>
+                      <td class="total align-right">${{ t.total | number: '1.2-2' }}</td>
+                      <td>
+                        <button
+                          mat-stroked-button
+                          color="primary"
+                          (click)="reimprimirTicket(t)"
+                          [disabled]="reimprimiendo() === t.folio"
+                        >
+                          <mat-icon>print</mat-icon>
+                          {{ reimprimiendo() === t.folio ? 'Imprimiendo...' : 'Reimprimir Ticket' }}
+                        </button>
+                      </td>
                     </tr>
                   }
                 </tbody>

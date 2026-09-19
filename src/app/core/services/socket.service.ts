@@ -1,15 +1,17 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
+import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class SocketService {
   private socket: Socket;
+  private readonly runtimeConfig = inject(RuntimeConfigService);
 
   constructor() {
-    this.socket = io('http://127.0.0.1:3000');
+    this.socket = io(this.runtimeConfig.socketUrl);
   }
 
   onEvent(eventName: string): Observable<any> {

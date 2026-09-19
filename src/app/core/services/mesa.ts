@@ -2,13 +2,18 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Mesa, EstadoMesa } from '../models/mesa';
 import { Zona } from '../models/zona';
+import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class MesaService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://127.0.0.1:3000/api';
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+
+  private get apiUrl() {
+    return this.runtimeConfig.apiBaseUrl;
+  }
 
   // Signals de estado
   readonly mesas = signal<Mesa[]>([]);
@@ -34,22 +39,27 @@ export class MesaService {
     const hoy = new Date();
 
     if (fechaFiltro === 'HOY') {
-      return fechaMesa.getDate() === hoy.getDate() &&
-             fechaMesa.getMonth() === hoy.getMonth() &&
-             fechaMesa.getFullYear() === hoy.getFullYear();
+      return (
+        fechaMesa.getDate() === hoy.getDate() &&
+        fechaMesa.getMonth() === hoy.getMonth() &&
+        fechaMesa.getFullYear() === hoy.getFullYear()
+      );
     }
 
     if (fechaFiltro === 'AYER') {
       const ayer = new Date();
       ayer.setDate(hoy.getDate() - 1);
-      return fechaMesa.getDate() === ayer.getDate() &&
-             fechaMesa.getMonth() === ayer.getMonth() &&
-             fechaMesa.getFullYear() === ayer.getFullYear();
+      return (
+        fechaMesa.getDate() === ayer.getDate() &&
+        fechaMesa.getMonth() === ayer.getMonth() &&
+        fechaMesa.getFullYear() === ayer.getFullYear()
+      );
     }
 
     if (fechaFiltro === 'ESTE_MES') {
-      return fechaMesa.getMonth() === hoy.getMonth() &&
-             fechaMesa.getFullYear() === hoy.getFullYear();
+      return (
+        fechaMesa.getMonth() === hoy.getMonth() && fechaMesa.getFullYear() === hoy.getFullYear()
+      );
     }
 
     return true;
@@ -60,7 +70,7 @@ export class MesaService {
     const estado = this.filtroEnvioEstado();
     const fechaFiltro = this.filtroEnvioFecha();
 
-    return this.mesas().filter(mesa => {
+    return this.mesas().filter((mesa) => {
       const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
       if (zonaUpper !== 'DOMICILIO') return false;
 
@@ -80,7 +90,7 @@ export class MesaService {
     const estado = this.filtroMostradorEstado();
     const fechaFiltro = this.filtroMostradorFecha();
 
-    return this.mesas().filter(mesa => {
+    return this.mesas().filter((mesa) => {
       const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
       if (zonaUpper !== 'MOSTRADOR') return false;
 
@@ -96,40 +106,42 @@ export class MesaService {
   });
 
   // 🔹 Cómputo dinámico de mesas de salón filtradas
-    readonly mesasFiltradas = computed(() => {
-      const todasMesas = this.mesas();
-      const estadoFiltro = (this.filtroEstado() || 'TODOS').toUpperCase().trim();
-      const filtroZonaRaw = (this.filtroZona() || 'TODAS').toString().trim();
+  readonly mesasFiltradas = computed(() => {
+    const todasMesas = this.mesas();
+    const estadoFiltro = (this.filtroEstado() || 'TODOS').toUpperCase().trim();
+    const filtroZonaRaw = (this.filtroZona() || 'TODAS').toString().trim();
 
-      let zonaFiltroNombre = filtroZonaRaw.toUpperCase();
-      if (filtroZonaRaw !== 'TODAS' && !isNaN(Number(filtroZonaRaw))) {
-        const zonaEncontrada = this.zonas().find(z => z.id === Number(filtroZonaRaw));
-        if (zonaEncontrada) {
-          zonaFiltroNombre = zonaEncontrada.nombre.toUpperCase().trim();
-        }
+    let zonaFiltroNombre = filtroZonaRaw.toUpperCase();
+    if (filtroZonaRaw !== 'TODAS' && !isNaN(Number(filtroZonaRaw))) {
+      const zonaEncontrada = this.zonas().find((z) => z.id === Number(filtroZonaRaw));
+      if (zonaEncontrada) {
+        zonaFiltroNombre = zonaEncontrada.nombre.toUpperCase().trim();
+      }
+    }
+
+    return todasMesas.filter((mesa) => {
+      const zonaNombreMesa = (mesa.zona || '').toString().toUpperCase().trim();
+
+      // Descartar SOLO si la zona es explícitamente de envíos a domicilio
+      if (zonaNombreMesa === 'DOMICILIO' || zonaNombreMesa === 'DELIVERY') {
+        return false;
       }
 
-      return todasMesas.filter(mesa => {
-        const zonaNombreMesa = (mesa.zona || '').toString().toUpperCase().trim();
-
-        // Descartar SOLO si la zona es explícitamente de envíos a domicilio
-        if (zonaNombreMesa === 'DOMICILIO' || zonaNombreMesa === 'DELIVERY') {
-          return false;
-        }
-
-        const estadoMesa = (mesa.estado || 'DISPONIBLE').toString().toUpperCase().trim() === 'LIBRE'
+      const estadoMesa =
+        (mesa.estado || 'DISPONIBLE').toString().toUpperCase().trim() === 'LIBRE'
           ? 'DISPONIBLE'
           : (mesa.estado || 'DISPONIBLE').toString().toUpperCase().trim();
 
-        const cumpleEstado = estadoFiltro === 'TODOS' || estadoMesa === estadoFiltro;
+      const cumpleEstado = estadoFiltro === 'TODOS' || estadoMesa === estadoFiltro;
 
-        const cumpleZona = zonaFiltroNombre === 'TODAS' ||
-                          zonaNombreMesa === zonaFiltroNombre ||
-                          ((mesa as any).zonaId && String((mesa as any).zonaId) === filtroZonaRaw);
+      const cumpleZona =
+        zonaFiltroNombre === 'TODAS' ||
+        zonaNombreMesa === zonaFiltroNombre ||
+        ((mesa as any).zonaId && String((mesa as any).zonaId) === filtroZonaRaw);
 
-        return cumpleEstado && cumpleZona;
-      });
+      return cumpleEstado && cumpleZona;
     });
+  });
 
   constructor() {
     this.cargarMesas();
@@ -167,7 +179,7 @@ export class MesaService {
         console.log('📡 Mesas cargadas');
         this.mesas.set(data || []);
       },
-      error: (err) => console.error('❌ Error cargando mesas:', err)
+      error: (err) => console.error('❌ Error cargando mesas:', err),
     });
   }
 
@@ -177,31 +189,34 @@ export class MesaService {
         console.log('📡 Zonas cargadas:', data);
         this.zonas.set(data || []);
       },
-      error: (err) => console.error('❌ Error cargando zonas:', err)
+      error: (err) => console.error('❌ Error cargando zonas:', err),
     });
   }
 
   abrirMesa(mesaId: number, comensales: number, usuarioId?: number) {
-    return this.http.post<{ ok: boolean; comandaId: number }>(`${this.apiUrl}/mesas/${mesaId}/abrir`, {
-      comensales,
-      usuarioId: usuarioId || 1
-    });
+    return this.http.post<{ ok: boolean; comandaId: number }>(
+      `${this.apiUrl}/mesas/${mesaId}/abrir`,
+      {
+        comensales,
+        usuarioId: usuarioId || 1,
+      },
+    );
   }
 
   liberarMesa(mesaId: number) {
-    this.mesas.update(lista =>
-      lista.map(mesa => {
+    this.mesas.update((lista) =>
+      lista.map((mesa) => {
         if (mesa.id === mesaId) {
           return {
             ...mesa,
             estado: 'LIBRE' as EstadoMesa,
             total: 0,
             comensales: 0,
-            minutosAbierta: 0
+            minutosAbierta: 0,
           };
         }
         return mesa;
-      })
+      }),
     );
     this.cargarMesas();
   }
@@ -217,21 +232,21 @@ export class MesaService {
   crearEnvio(usuarioId?: number, clienteId?: number) {
     return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
       `${this.apiUrl}/envios/crear`,
-      { usuarioId, clienteId }
+      { usuarioId, clienteId },
     );
   }
 
   crearPedidoMostrador(usuarioId?: number, clienteId?: number) {
     return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
       `${this.apiUrl}/mostrador/crear`,
-      { usuarioId, clienteId }
+      { usuarioId, clienteId },
     );
   }
 
   cancelarComanda(comandaId: number, usuarioId: number, notas: string) {
     return this.http.post<{ ok: boolean; mensaje: string }>(
       `${this.apiUrl}/comandas/${comandaId}/cancelar`,
-      { usuarioId, notas }
+      { usuarioId, notas },
     );
   }
 }

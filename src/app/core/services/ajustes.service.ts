@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { RuntimeConfigService } from './runtime-config.service';
 
 export interface CategoriaAdmin {
   id?: number;
@@ -99,11 +100,15 @@ export interface PruebaConexionPayload {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AjustesService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://127.0.0.1:3000/api';
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+
+  private get apiUrl() {
+    return this.runtimeConfig.apiBaseUrl;
+  }
 
   // Categorías
   getCategorias(): Observable<CategoriaAdmin[]> {
@@ -230,11 +235,21 @@ export class AjustesService {
     return this.http.get<FacturacionConfig>(`${this.apiUrl}/ajustes/facturacion`);
   }
 
-  guardarConfiguracionFacturacion(formData: FormData): Observable<{ ok: boolean; mensaje: string }> {
-    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/ajustes/facturacion`, formData);
+  guardarConfiguracionFacturacion(
+    formData: FormData,
+  ): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(
+      `${this.apiUrl}/ajustes/facturacion`,
+      formData,
+    );
   }
 
-  probarConexionFacturapi(payload: PruebaConexionPayload): Observable<{ ok: boolean; mensaje: string }> {
-    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/ajustes/facturacion/test`, payload);
+  probarConexionFacturapi(
+    payload: PruebaConexionPayload,
+  ): Observable<{ ok: boolean; mensaje: string }> {
+    return this.http.post<{ ok: boolean; mensaje: string }>(
+      `${this.apiUrl}/ajustes/facturacion/test`,
+      payload,
+    );
   }
 }

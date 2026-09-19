@@ -2,13 +2,18 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ItemComanda } from '../models/producto';
 import { MetodoPago } from '../models/pago';
+import { RuntimeConfigService } from './runtime-config.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class CajaService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://127.0.0.1:3000/api';
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+
+  private get apiUrl() {
+    return this.runtimeConfig.apiBaseUrl;
+  }
 
   readonly mesaId = signal<number>(0);
   readonly comandaId = signal<number>(0);
@@ -102,37 +107,39 @@ export class CajaService {
     this.solicitaFactura.set(false);
     this.agruparConsumo.set(false);
 
-    this.http.get<{
-      comandaId: number;
-      mesaNumero: string;
-      total: number;
-      clienteId?: number | null;
-      clienteNombre?: string;
-      clientePuntos?: number;
-      clienteEsFrecuente?: boolean;
-      clienteVisitas?: number;
-    }>(`${this.apiUrl}/caja/mesa/${mesaId}`).subscribe({
-      next: (res) => {
-        this.comandaId.set(res.comandaId);
-        this.numeroMesa.set(String(res.mesaNumero));
-        this.totalCuentaOriginal.set(Number(res.total));
-        this.totalCuenta.set(Number(res.total));
-        this.montoRecibido.set(Number(res.total));
+    this.http
+      .get<{
+        comandaId: number;
+        mesaNumero: string;
+        total: number;
+        clienteId?: number | null;
+        clienteNombre?: string;
+        clientePuntos?: number;
+        clienteEsFrecuente?: boolean;
+        clienteVisitas?: number;
+      }>(`${this.apiUrl}/caja/mesa/${mesaId}`)
+      .subscribe({
+        next: (res) => {
+          this.comandaId.set(res.comandaId);
+          this.numeroMesa.set(String(res.mesaNumero));
+          this.totalCuentaOriginal.set(Number(res.total));
+          this.totalCuenta.set(Number(res.total));
+          this.montoRecibido.set(Number(res.total));
 
-        if (res.clienteId) {
-          this.clienteId.set(res.clienteId);
-          this.clienteNombre.set(res.clienteNombre || '');
-          this.clientePuntos.set(res.clientePuntos || 0);
-          this.clienteEsFrecuente.set(!!res.clienteEsFrecuente);
-          this.clienteVisitas.set(res.clienteVisitas || 0);
-        }
-      },
-      error: (err) => console.error('Error al obtener cuenta de caja:', err)
-    });
+          if (res.clienteId) {
+            this.clienteId.set(res.clienteId);
+            this.clienteNombre.set(res.clienteNombre || '');
+            this.clientePuntos.set(res.clientePuntos || 0);
+            this.clienteEsFrecuente.set(!!res.clienteEsFrecuente);
+            this.clienteVisitas.set(res.clienteVisitas || 0);
+          }
+        },
+        error: (err) => console.error('Error al obtener cuenta de caja:', err),
+      });
 
     this.http.get<{ items: ItemComanda[] }>(`${this.apiUrl}/comandas/activa/${mesaId}`).subscribe({
       next: (res) => this.items.set(res.items || []),
-      error: (err) => console.error('Error al obtener ítems:', err)
+      error: (err) => console.error('Error al obtener ítems:', err),
     });
   }
 
@@ -151,10 +158,13 @@ export class CajaService {
       promocionId: this.promocionIdAplicada(),
       puntosCanjeados: this.puntosCanjeados(),
       solicitaFactura: this.solicitaFactura(),
-      agruparConsumo: this.agruparConsumo()
+      agruparConsumo: this.agruparConsumo(),
     };
 
-    return this.http.post<{ ok: boolean; ticketId: number; autofactura?: any }>(`${this.apiUrl}/caja/cobrar`, payload);
+    return this.http.post<{ ok: boolean; ticketId: number; autofactura?: any }>(
+      `${this.apiUrl}/caja/cobrar`,
+      payload,
+    );
   }
 
   vincularClienteAComanda(comandaId: number, clienteId: number | null) {
