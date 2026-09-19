@@ -8,12 +8,14 @@ import { exec } from 'child_process';
 import { print } from 'pdf-to-printer';
 
 import {
+  type DatosEmpresaTicket,
   generarTemplateProduccion,
   generarTemplateCobro,
   type DatosComandaProduccion,
   type DatosTicketCobro,
   type ItemComandaImpresion,
   type AnchoPapel,
+  type TipoCorte,
 } from './templates/ticket-templates.ts';
 
 interface ImpresoraConfigurada {
@@ -25,6 +27,8 @@ interface ImpresoraConfigurada {
   puerto_tcp: number;
   activa: boolean;
   ancho_papel?: AnchoPapel;
+  es_termica?: boolean;
+  corte_tipo?: TipoCorte;
 }
 
 export interface WindowsPrinterInfo {
@@ -45,6 +49,15 @@ export interface ElectronPendingPrintJob {
   contenido: string;
   titulo: string;
   anchoPapel?: AnchoPapel;
+  esTermica?: boolean;
+  corteTipo?: TipoCorte;
+}
+
+interface UsbRawPrintPayload {
+  printerName: string;
+  contenido: string;
+  anchoPapel?: AnchoPapel;
+  corteTipo?: TipoCorte;
 }
 
 export class PrinterService {
@@ -89,6 +102,32 @@ export class PrinterService {
       contenido,
       titulo,
       anchoPapel: impresora.ancho_papel || '80mm',
+      esTermica: impresora.es_termica === true,
+      corteTipo: impresora.corte_tipo || 'NINGUNO',
+    };
+  }
+
+  private static async obtenerDatosEmpresaTicket(): Promise<DatosEmpresaTicket> {
+    const negocioRes = await pool.query(
+      'SELECT nombre, rfc, telefono, direccion, email, mensaje_recibo FROM datos_negocio WHERE id = 1 LIMIT 1',
+    );
+    const facturacionRes = await pool.query(
+      'SELECT razon_social, rfc_emisor, regimen_fiscal, codigo_postal FROM configuracion_facturacion WHERE id = 1 LIMIT 1',
+    );
+
+    const negocio = negocioRes.rows[0] || {};
+    const facturacion = facturacionRes.rows[0] || {};
+
+    return {
+      nombre: negocio.nombre || facturacion.razon_social || 'BORBOTO POS',
+      razonSocial: facturacion.razon_social || undefined,
+      rfc: negocio.rfc || facturacion.rfc_emisor || undefined,
+      direccion: negocio.direccion || undefined,
+      telefono: negocio.telefono || undefined,
+      email: negocio.email || undefined,
+      regimenFiscal: facturacion.regimen_fiscal || undefined,
+      codigoPostal: facturacion.codigo_postal || undefined,
+      mensajeRecibo: negocio.mensaje_recibo || undefined,
     };
   }
 
@@ -192,22 +231,29 @@ export class PrinterService {
   private static construirBufferTermico(
     contenido: string,
     anchoPapel: AnchoPapel = '80mm',
+    corteTipo: TipoCorte = 'NINGUNO',
   ): Buffer {
     const initialize = Buffer.from([0x1b, 0x40]);
     const lineSpacing = Buffer.from([0x1b, 0x33, 0x00]);
     const text = Buffer.from(contenido.replace(/\r?\n/g, '\r\n'), 'latin1');
-    const feed = Buffer.from(anchoPapel === '58mm' ? [0x0a, 0x0a, 0x0a] : [0x0a, 0x0a, 0x0a, 0x0a]);
-    const cut = Buffer.from([0x1d, 0x56, 0x00]);
-    return Buffer.concat([initialize, lineSpacing, text, feed, cut]);
+    const feed = Buffer.from(anchoPapel === '58mm' ? [0x0a, 0x0a] : [0x0a, 0x0a, 0x0a]);
+    const cut =
+      corteTipo === 'TOTAL'
+        ? Buffer.from([0x1d, 0x56, 0x00])
+        : corteTipo === 'PARCIAL'
+          ? Buffer.from([0x1d, 0x56, 0x01])
+          : Buffer.alloc(0);
+    return Buffer.concat([initialize, lineSpacing, Buffer.from([0x0a]), text, feed, cut]);
   }
 
   private static async imprimirUsbWindowsRaw(
     nombreCola: string,
     contenido: string,
     anchoPapel: AnchoPapel = '80mm',
+    corteTipo: TipoCorte = 'NINGUNO',
   ): Promise<void> {
     const rawPath = path.join(process.cwd(), `temp_ticket_${Date.now()}.bin`);
-    fs.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel));
+    fs.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel, corteTipo));
 
     try {
       const escapedPath = this.escapePowerShell(rawPath);
@@ -314,10 +360,16 @@ public static class RawPrinterHelper {
         client.setTimeout(3000);
 
         client.connect(puerto, impresora.ip_o_puerto, () => {
-          console.log(
-            `🚀 Enviando comanda TCP/IP a ${impresora.nombre} (${impresora.ip_o_puerto}:${puerto})`,
-          );
-          client.write(contenido, 'utf8', () => {
+          const bufferSalida =
+            impresora.es_termica === true
+              ? this.construirBufferTermico(
+                  contenido,
+                  impresora.ancho_papel || '80mm',
+                  impresora.corte_tipo || 'NINGUNO',
+                )
+              : Buffer.from(contenido, 'utf8');
+
+          client.write(bufferSalida, () => {
             client.end();
             resolve(null);
           });
@@ -347,15 +399,12 @@ public static class RawPrinterHelper {
           );
         }
 
-        console.log(
-          `🖨️ Despachando ticket USB a cola Windows: "${resuelta.name}" (driver: ${resuelta.driverName || 'N/D'}, puerto: ${resuelta.portName || 'N/D'})`,
-        );
-
         if (process.platform === 'win32') {
           await this.imprimirUsbWindowsRaw(
             resuelta.name,
             contenido,
             impresora.ancho_papel || '80mm',
+            impresora.corte_tipo || 'NINGUNO',
           );
         } else {
           const tempPath = path.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
@@ -405,12 +454,18 @@ public static class RawPrinterHelper {
   }
 
   static async generarTicketPrueba(impresora: ImpresoraConfigurada): Promise<string> {
+    const datosEmpresa = await this.obtenerDatosEmpresaTicket();
     const separador =
       impresora.ancho_papel === '58mm'
         ? '------------------------------'
         : '------------------------------------------';
     return [
-      'BORBOTO POS',
+      '',
+      datosEmpresa.nombre || 'BORBOTO POS',
+      datosEmpresa.razonSocial || '',
+      datosEmpresa.rfc ? `RFC: ${datosEmpresa.rfc}` : '',
+      datosEmpresa.telefono || '',
+      datosEmpresa.email || '',
       'PRUEBA DE IMPRESION',
       separador,
       `Impresora: ${impresora.nombre}`,
@@ -424,8 +479,10 @@ public static class RawPrinterHelper {
       'abcdefghijklmnopqrstuvwxyz',
       separador,
       'Si ves este ticket, la ruta de impresion funciona.',
-      '',
-    ].join('\n');
+      datosEmpresa.mensajeRecibo || '',
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
 
   static async probarImpresora(
@@ -458,10 +515,25 @@ public static class RawPrinterHelper {
     return { ok: true, mensaje: `Prueba de impresión enviada a "${impresora.nombre}".` };
   }
 
+  static async imprimirUsbRaw(
+    payload: UsbRawPrintPayload,
+  ): Promise<{ ok: boolean; mensaje?: string }> {
+    if (process.platform !== 'win32') {
+      return { ok: false, mensaje: 'La impresión RAW USB solo está disponible en Windows.' };
+    }
+
+    await this.imprimirUsbWindowsRaw(
+      payload.printerName,
+      payload.contenido,
+      payload.anchoPapel || '80mm',
+      payload.corteTipo || 'NINGUNO',
+    );
+
+    return { ok: true };
+  }
+
   // ─── 1. PROCESAR IMPRESIÓN DE COMANDAS DE PRODUCCIÓN (COCINA Y BARRA) ───────
-  static async imprimirComandaProduccion(
-    comandaId: number,
-  ): Promise<{
+  static async imprimirComandaProduccion(comandaId: number): Promise<{
     ok: boolean;
     procesados: number;
     ticketTexto?: string;
@@ -684,6 +756,8 @@ public static class RawPrinterHelper {
         notas: row.notas,
       }));
 
+      const datosEmpresa = await this.obtenerDatosEmpresaTicket();
+
       const datosCobro: DatosTicketCobro = {
         folioComanda: infoPago.folio_comanda,
         pagoId: infoPago.pago_id,
@@ -699,6 +773,7 @@ public static class RawPrinterHelper {
         items,
         codigoAutofactura: infoPago.codigo_ticket || undefined,
         urlAutofactura: infoPago.url_autofactura || undefined,
+        datosEmpresa,
       };
 
       let ticketSimuladoGenerado: string | null = null;

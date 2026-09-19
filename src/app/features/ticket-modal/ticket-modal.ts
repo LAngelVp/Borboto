@@ -80,13 +80,14 @@ export class TicketModal {
     }
 
     try {
-      await this.printerService.printTicketSilently({
+      const payload = {
         tipo: 'USB',
         printerName: this.data.printerName,
         contenido: this.data.contenidoTicket,
         titulo: this.data.titulo || 'Ticket',
         anchoPapel: this.data.anchoPapel || '80mm',
-      });
+      } as const;
+      await this.printerService.printTicketSilently(payload);
 
       this.notifications.success('Ticket enviado a la impresora.');
     } catch (err: any) {

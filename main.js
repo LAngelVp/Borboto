@@ -1,5 +1,5 @@
 // main.js - Orquestador Principal de Electron para Borboto POS
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -373,7 +373,8 @@ function installMainConsoleBridge() {
 
   const forward = (level, args) => {
     const message = formatConsoleArgs(args).slice(0, 220);
-    if (!shouldEmit(level, message)) {
+    const isDebug = message.includes('[PRINT]') || message.includes('[DEBUG]');
+    if (!shouldEmit(level, message) || isDebug || level === 'info') {
       return;
     }
 

@@ -74,17 +74,23 @@ export class App {
 
     console.log = (...args: unknown[]) => {
       originalLog(...args);
-      this.forwardConsoleMessage('info', args);
+      if (this.shouldNotifyConsoleMessage('info', args)) {
+        this.forwardConsoleMessage('info', args);
+      }
     };
 
     console.warn = (...args: unknown[]) => {
       originalWarn(...args);
-      this.forwardConsoleMessage('warning', args);
+      if (this.shouldNotifyConsoleMessage('warning', args)) {
+        this.forwardConsoleMessage('warning', args);
+      }
     };
 
     console.error = (...args: unknown[]) => {
       originalError(...args);
-      this.forwardConsoleMessage('error', args);
+      if (this.shouldNotifyConsoleMessage('error', args)) {
+        this.forwardConsoleMessage('error', args);
+      }
     };
   }
 
@@ -121,6 +127,23 @@ export class App {
       default:
         this.notifications.info(message);
     }
+  }
+
+  private shouldNotifyConsoleMessage(
+    level: 'info' | 'warning' | 'error',
+    args: unknown[],
+  ): boolean {
+    const message = this.formatConsoleArgs(args);
+    if (!message) {
+      return false;
+    }
+
+    const isDebug = message.includes('[PRINT]') || message.includes('[DEBUG]');
+    if (isDebug) {
+      return false;
+    }
+
+    return level !== 'info';
   }
 
   private formatConsoleArgs(args: unknown[]): string {

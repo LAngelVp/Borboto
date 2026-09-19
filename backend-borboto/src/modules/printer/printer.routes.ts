@@ -25,11 +25,21 @@ router.get('/system', async (_req, res) => {
 
 // Registrar nueva impresora
 router.post('/', async (req, res) => {
-  const { nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa } = req.body;
+  const {
+    nombre,
+    destino,
+    tipo,
+    ip_o_puerto,
+    puerto_tcp,
+    ancho_papel,
+    es_termica,
+    corte_tipo,
+    activa,
+  } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO impresoras (nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO impresoras (nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, es_termica, corte_tipo, activa)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         nombre,
@@ -37,7 +47,9 @@ router.post('/', async (req, res) => {
         tipo || 'RED',
         ip_o_puerto,
         Number(puerto_tcp) || 9100,
-        ancho_papel || '80mm', // 👈 Guardar '58mm' u '80mm'
+        ancho_papel || '80mm',
+        es_termica === true,
+        es_termica === true ? corte_tipo || 'NINGUNO' : 'NINGUNO',
         activa !== false,
       ],
     );
@@ -50,12 +62,22 @@ router.post('/', async (req, res) => {
 // Editar impresora existente
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa } = req.body;
+  const {
+    nombre,
+    destino,
+    tipo,
+    ip_o_puerto,
+    puerto_tcp,
+    ancho_papel,
+    es_termica,
+    corte_tipo,
+    activa,
+  } = req.body;
   try {
     const { rows } = await pool.query(
       `UPDATE impresoras
-       SET nombre = $1, destino = $2, tipo = $3, ip_o_puerto = $4, puerto_tcp = $5, ancho_papel = $6, activa = $7
-       WHERE id = $8
+       SET nombre = $1, destino = $2, tipo = $3, ip_o_puerto = $4, puerto_tcp = $5, ancho_papel = $6, es_termica = $7, corte_tipo = $8, activa = $9
+       WHERE id = $10
        RETURNING *`,
       [
         nombre,
@@ -63,7 +85,9 @@ router.put('/:id', async (req, res) => {
         tipo,
         ip_o_puerto,
         Number(puerto_tcp) || 9100,
-        ancho_papel || '80mm', // 👈 Actualizar ancho de papel
+        ancho_papel || '80mm',
+        es_termica === true,
+        es_termica === true ? corte_tipo || 'NINGUNO' : 'NINGUNO',
         activa,
         id,
       ],
@@ -92,6 +116,26 @@ router.post('/:id/test', async (req, res) => {
     res.json(resultado);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Error al probar impresora.' });
+  }
+});
+
+router.post('/usb/raw-print', async (req, res) => {
+  const { printerName, contenido, anchoPapel, corteTipo } = req.body || {};
+
+  if (!printerName || !contenido) {
+    return res.status(400).json({ error: 'Faltan datos para impresión RAW USB.' });
+  }
+
+  try {
+    const resultado = await PrinterService.imprimirUsbRaw({
+      printerName,
+      contenido,
+      anchoPapel,
+      corteTipo,
+    });
+    res.json(resultado);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error al imprimir por RAW USB.' });
   }
 });
 

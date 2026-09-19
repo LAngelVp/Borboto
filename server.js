@@ -120657,7 +120657,9 @@ async function sincronizarCombosComoProductos() {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const catRes = await client.query(`SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1`);
+    const catRes = await client.query(
+      `SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1`
+    );
     let categoriaId;
     if (catRes.rows.length === 0) {
       const newCatRes = await client.query(`
@@ -120674,26 +120676,38 @@ async function sincronizarCombosComoProductos() {
     const promoIdsEncontrados = [];
     for (const promo of promos) {
       promoIdsEncontrados.push(promo.id);
-      const prodRes = await client.query(`SELECT id FROM productos WHERE promocion_id = $1 LIMIT 1`, [promo.id]);
+      const prodRes = await client.query(
+        `SELECT id FROM productos WHERE promocion_id = $1 LIMIT 1`,
+        [promo.id]
+      );
       if (prodRes.rows.length > 0) {
-        await client.query(`
+        await client.query(
+          `
           UPDATE productos
           SET nombre = $1, precio = $2, disponible = $3, categoria_id = $4
           WHERE id = $5
-        `, [promo.nombre, promo.valor, promo.activo !== false, categoriaId, prodRes.rows[0].id]);
+        `,
+          [promo.nombre, promo.valor, promo.activo !== false, categoriaId, prodRes.rows[0].id]
+        );
       } else {
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO productos (categoria_id, nombre, precio, disponible, promocion_id)
           VALUES ($1, $2, $3, $4, $5)
-        `, [categoriaId, promo.nombre, promo.valor, promo.activo !== false, promo.id]);
+        `,
+          [categoriaId, promo.nombre, promo.valor, promo.activo !== false, promo.id]
+        );
       }
     }
     if (promoIdsEncontrados.length > 0) {
-      await client.query(`
+      await client.query(
+        `
         UPDATE productos
         SET disponible = FALSE
         WHERE promocion_id IS NOT NULL AND NOT (promocion_id = ANY($1))
-      `, [promoIdsEncontrados]);
+      `,
+        [promoIdsEncontrados]
+      );
     } else {
       await client.query(`
         UPDATE productos
@@ -120719,10 +120733,9 @@ async function initDB() {
     database: "postgres"
   });
   try {
-    const res = await maintenancePool.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1`,
-      [dbTargetName]
-    );
+    const res = await maintenancePool.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [
+      dbTargetName
+    ]);
     if (res.rowCount === 0) {
       console.log(`\u{1F6E0}\uFE0F La base de datos '${dbTargetName}' no existe. Cre\xE1ndola...`);
       await maintenancePool.query(`CREATE DATABASE "${dbTargetName}"`);
@@ -120761,10 +120774,9 @@ async function initDB() {
         await targetPool.query("BEGIN");
         try {
           await targetPool.query(sqlContent);
-          await targetPool.query(
-            "INSERT INTO schema_migrations (version) VALUES ($1)",
-            ["000_init.sql"]
-          );
+          await targetPool.query("INSERT INTO schema_migrations (version) VALUES ($1)", [
+            "000_init.sql"
+          ]);
           await targetPool.query("COMMIT");
           console.log("\u2705 Estructura inicial creada exitosamente en borboto_pos.");
         } catch (migrationError) {
@@ -120785,17 +120797,27 @@ async function initDB() {
       ALTER TABLE facturas ADD COLUMN IF NOT EXISTS estado VARCHAR(20) DEFAULT 'active';
       ALTER TABLE facturas ALTER COLUMN ticket_id DROP NOT NULL;
     `);
+    await targetPool.query(`
+      ALTER TABLE impresoras ADD COLUMN IF NOT EXISTS es_termica BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE impresoras ADD COLUMN IF NOT EXISTS corte_tipo VARCHAR(20) NOT NULL DEFAULT 'NINGUNO';
+    `);
     try {
       await targetPool.query(`
         ALTER TABLE facturas DROP CONSTRAINT IF EXISTS facturas_ticket_id_fkey;
         ALTER TABLE facturas ADD CONSTRAINT facturas_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES tickets_autofactura(id) ON DELETE SET NULL;
       `);
     } catch (fkErr) {
-      console.warn('\u26A0\uFE0F No se pudo migrar la restricci\xF3n FK de "facturas_ticket_id_fkey":', fkErr.message);
+      console.warn(
+        '\u26A0\uFE0F No se pudo migrar la restricci\xF3n FK de "facturas_ticket_id_fkey":',
+        fkErr.message
+      );
     }
     console.log('\u2705 Migraciones incrementales de "facturas" completadas.');
   } catch (sqlErr) {
-    console.error("\u274C Error durante el proceso de migraciones de la base de datos:", sqlErr.message);
+    console.error(
+      "\u274C Error durante el proceso de migraciones de la base de datos:",
+      sqlErr.message
+    );
     throw sqlErr;
   } finally {
     await targetPool.end();
@@ -121201,6 +121223,16 @@ function centrarTexto(text, width) {
   const leftPadding = Math.floor((width - text.length) / 2);
   return " ".repeat(leftPadding) + text;
 }
+function agregarLineaSiExiste(lineas, valor, width) {
+  if (valor && valor.trim()) {
+    lineas.push(centrarTexto(valor.trim(), width));
+  }
+}
+function agregarRemateFinal(lineas) {
+  lineas.push("---------");
+  lineas.push("-------");
+  lineas.push("-------");
+}
 function generarTemplateProduccion(datos, area, anchoPapel = "80mm") {
   const maxW = anchoPapel === "58mm" ? 30 : 42;
   const separador = "-".repeat(maxW);
@@ -121227,26 +121259,50 @@ function generarTemplateProduccion(datos, area, anchoPapel = "80mm") {
 `;
     }
   });
-  ticket += separador + "\n\n\n";
+  ticket += separador + "\n";
+  ticket += "---------\n";
+  ticket += "-------\n";
+  ticket += "-------\n";
   return ticket;
 }
 function generarTemplateCobro(datos, anchoPapel = "80mm") {
   const maxW = anchoPapel === "58mm" ? 30 : 42;
   const separador = "=".repeat(maxW);
   const separadorSuave = "-".repeat(maxW);
-  let ticket = "";
-  ticket += centrarTexto("BORBOTO POS", maxW) + "\n";
-  ticket += centrarTexto("TICKET DE COBRO", maxW) + "\n";
-  ticket += separador + "\n";
-  ticket += padLine(`TICKET #: ${datos.pagoId}`, `MESA: ${datos.mesa}`, maxW) + "\n";
-  ticket += padLine(`FECHA: ${datos.fecha}`, "", maxW).trim() + "\n";
-  ticket += padLine(`ATENDIO: ${datos.atendidoPor}`, "", maxW).trim() + "\n";
-  if (datos.clienteNombre) {
-    ticket += padLine(`CLIENTE: ${datos.clienteNombre}`, "", maxW).trim() + "\n";
+  const lineas = [""];
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.nombre || "BORBOTO POS", maxW);
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.razonSocial, maxW);
+  agregarLineaSiExiste(
+    lineas,
+    datos.datosEmpresa?.rfc ? `RFC: ${datos.datosEmpresa.rfc}` : void 0,
+    maxW
+  );
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.direccion, maxW);
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.telefono, maxW);
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.email, maxW);
+  if (datos.datosEmpresa?.regimenFiscal || datos.datosEmpresa?.codigoPostal) {
+    lineas.push(
+      centrarTexto(
+        [
+          datos.datosEmpresa?.regimenFiscal ? `Reg. ${datos.datosEmpresa.regimenFiscal}` : "",
+          datos.datosEmpresa?.codigoPostal ? `CP ${datos.datosEmpresa.codigoPostal}` : ""
+        ].filter(Boolean).join(" | "),
+        maxW
+      )
+    );
   }
-  ticket += separadorSuave + "\n";
-  ticket += padLine("CANT DESCRIPCION", "TOTAL", maxW) + "\n";
-  ticket += separadorSuave + "\n";
+  lineas.push(separador);
+  lineas.push(centrarTexto("TICKET DE COBRO", maxW));
+  lineas.push(separadorSuave);
+  lineas.push(padLine(`TICKET: ${datos.pagoId}`, `MESA: ${datos.mesa}`, maxW));
+  lineas.push(padLine(`FECHA: ${datos.fecha}`, "", maxW).trim());
+  lineas.push(padLine(`ATENDIO: ${datos.atendidoPor}`, "", maxW).trim());
+  if (datos.clienteNombre) {
+    lineas.push(padLine(`CLIENTE: ${datos.clienteNombre}`, "", maxW).trim());
+  }
+  lineas.push(separadorSuave);
+  lineas.push(padLine("CANT DESCRIPCION", "TOTAL", maxW));
+  lineas.push(separadorSuave);
   datos.items.forEach((item) => {
     const cantStr = `${item.cantidad}x `;
     const subtotalStr = `$${(item.subtotal || 0).toFixed(2)}`;
@@ -121255,22 +121311,30 @@ function generarTemplateCobro(datos, anchoPapel = "80mm") {
     if (desc.length > maxDescW) {
       desc = desc.substring(0, maxDescW);
     }
-    ticket += padLine(`${cantStr}${desc}`, subtotalStr, maxW) + "\n";
+    lineas.push(padLine(`${cantStr}${desc}`, subtotalStr, maxW));
+    if (item.notas) {
+      lineas.push(`  * ${item.notas.substring(0, maxW - 4)}`);
+    }
   });
-  ticket += separadorSuave + "\n";
-  ticket += padLine("TOTAL:", `$${datos.totalCuenta.toFixed(2)}`, maxW) + "\n";
-  ticket += padLine("PAGO (" + datos.metodoPago + "):", `$${datos.montoRecibido.toFixed(2)}`, maxW) + "\n";
-  ticket += padLine("CAMBIO:", `$${datos.cambio.toFixed(2)}`, maxW) + "\n";
+  lineas.push(separadorSuave);
+  lineas.push(padLine("TOTAL:", `$${datos.totalCuenta.toFixed(2)}`, maxW));
+  lineas.push(padLine(`PAGO (${datos.metodoPago}):`, `$${datos.montoRecibido.toFixed(2)}`, maxW));
+  lineas.push(padLine("CAMBIO:", `$${datos.cambio.toFixed(2)}`, maxW));
   if (datos.codigoAutofactura && datos.urlAutofactura) {
-    ticket += separadorSuave + "\n";
-    ticket += centrarTexto("*** AUTOFACTURACION ***", maxW) + "\n";
-    ticket += centrarTexto(`CODIGO: ${datos.codigoAutofactura}`, maxW) + "\n";
-    ticket += centrarTexto("INGRESA A LA URL PARA FACTURAR:", maxW) + "\n";
-    ticket += centrarTexto(datos.urlAutofactura, maxW) + "\n";
+    lineas.push(separadorSuave);
+    lineas.push(centrarTexto("*** AUTOFACTURACION ***", maxW));
+    lineas.push(centrarTexto(`CODIGO: ${datos.codigoAutofactura}`, maxW));
+    lineas.push(centrarTexto("INGRESA A LA URL PARA FACTURAR:", maxW));
+    lineas.push(centrarTexto(datos.urlAutofactura, maxW));
   }
-  ticket += separador + "\n";
-  ticket += centrarTexto("\xA1GRACIAS POR SU PREFERENCIA!", maxW) + "\n\n\n";
-  return ticket;
+  if (datos.datosEmpresa?.mensajeRecibo) {
+    lineas.push(separadorSuave);
+    lineas.push(centrarTexto(datos.datosEmpresa.mensajeRecibo, maxW));
+  }
+  lineas.push(separador);
+  lineas.push(centrarTexto("\xA1GRACIAS POR SU PREFERENCIA!", maxW));
+  agregarRemateFinal(lineas);
+  return lineas.join("\n") + "\n";
 }
 
 // backend-borboto/src/modules/printer/printer.service.ts
@@ -121306,7 +121370,30 @@ var PrinterService = class {
       printerName: impresora.ip_o_puerto,
       contenido,
       titulo,
-      anchoPapel: impresora.ancho_papel || "80mm"
+      anchoPapel: impresora.ancho_papel || "80mm",
+      esTermica: impresora.es_termica === true,
+      corteTipo: impresora.corte_tipo || "NINGUNO"
+    };
+  }
+  static async obtenerDatosEmpresaTicket() {
+    const negocioRes = await pool.query(
+      "SELECT nombre, rfc, telefono, direccion, email, mensaje_recibo FROM datos_negocio WHERE id = 1 LIMIT 1"
+    );
+    const facturacionRes = await pool.query(
+      "SELECT razon_social, rfc_emisor, regimen_fiscal, codigo_postal FROM configuracion_facturacion WHERE id = 1 LIMIT 1"
+    );
+    const negocio = negocioRes.rows[0] || {};
+    const facturacion = facturacionRes.rows[0] || {};
+    return {
+      nombre: negocio.nombre || facturacion.razon_social || "BORBOTO POS",
+      razonSocial: facturacion.razon_social || void 0,
+      rfc: negocio.rfc || facturacion.rfc_emisor || void 0,
+      direccion: negocio.direccion || void 0,
+      telefono: negocio.telefono || void 0,
+      email: negocio.email || void 0,
+      regimenFiscal: facturacion.regimen_fiscal || void 0,
+      codigoPostal: facturacion.codigo_postal || void 0,
+      mensajeRecibo: negocio.mensaje_recibo || void 0
     };
   }
   static inferirTipoCola(printer) {
@@ -121372,17 +121459,17 @@ var PrinterService = class {
       )
     ) || null;
   }
-  static construirBufferTermico(contenido, anchoPapel = "80mm") {
+  static construirBufferTermico(contenido, anchoPapel = "80mm", corteTipo = "NINGUNO") {
     const initialize = Buffer.from([27, 64]);
     const lineSpacing = Buffer.from([27, 51, 0]);
     const text = Buffer.from(contenido.replace(/\r?\n/g, "\r\n"), "latin1");
-    const feed = Buffer.from(anchoPapel === "58mm" ? [10, 10, 10] : [10, 10, 10, 10]);
-    const cut = Buffer.from([29, 86, 0]);
-    return Buffer.concat([initialize, lineSpacing, text, feed, cut]);
+    const feed = Buffer.from(anchoPapel === "58mm" ? [10, 10] : [10, 10, 10]);
+    const cut = corteTipo === "TOTAL" ? Buffer.from([29, 86, 0]) : corteTipo === "PARCIAL" ? Buffer.from([29, 86, 1]) : Buffer.alloc(0);
+    return Buffer.concat([initialize, lineSpacing, Buffer.from([10]), text, feed, cut]);
   }
-  static async imprimirUsbWindowsRaw(nombreCola, contenido, anchoPapel = "80mm") {
+  static async imprimirUsbWindowsRaw(nombreCola, contenido, anchoPapel = "80mm", corteTipo = "NINGUNO") {
     const rawPath = import_path4.default.join(process.cwd(), `temp_ticket_${Date.now()}.bin`);
-    import_fs6.default.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel));
+    import_fs6.default.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel, corteTipo));
     try {
       const escapedPath = this.escapePowerShell(rawPath);
       const escapedPrinter = this.escapePowerShell(nombreCola);
@@ -121473,10 +121560,12 @@ public static class RawPrinterHelper {
         const puerto = impresora.puerto_tcp || 9100;
         client.setTimeout(3e3);
         client.connect(puerto, impresora.ip_o_puerto, () => {
-          console.log(
-            `\u{1F680} Enviando comanda TCP/IP a ${impresora.nombre} (${impresora.ip_o_puerto}:${puerto})`
-          );
-          client.write(contenido, "utf8", () => {
+          const bufferSalida = impresora.es_termica === true ? this.construirBufferTermico(
+            contenido,
+            impresora.ancho_papel || "80mm",
+            impresora.corte_tipo || "NINGUNO"
+          ) : Buffer.from(contenido, "utf8");
+          client.write(bufferSalida, () => {
             client.end();
             resolve(null);
           });
@@ -121501,14 +121590,12 @@ public static class RawPrinterHelper {
             `No se encontr\xF3 en Windows la cola configurada para "${impresora.nombre}" usando "${impresora.ip_o_puerto}".`
           );
         }
-        console.log(
-          `\u{1F5A8}\uFE0F Despachando ticket USB a cola Windows: "${resuelta.name}" (driver: ${resuelta.driverName || "N/D"}, puerto: ${resuelta.portName || "N/D"})`
-        );
         if (process.platform === "win32") {
           await this.imprimirUsbWindowsRaw(
             resuelta.name,
             contenido,
-            impresora.ancho_papel || "80mm"
+            impresora.ancho_papel || "80mm",
+            impresora.corte_tipo || "NINGUNO"
           );
         } else {
           const tempPath = import_path4.default.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
@@ -121551,9 +121638,15 @@ public static class RawPrinterHelper {
     return rows[0] || null;
   }
   static async generarTicketPrueba(impresora) {
+    const datosEmpresa = await this.obtenerDatosEmpresaTicket();
     const separador = impresora.ancho_papel === "58mm" ? "------------------------------" : "------------------------------------------";
     return [
-      "BORBOTO POS",
+      "",
+      datosEmpresa.nombre || "BORBOTO POS",
+      datosEmpresa.razonSocial || "",
+      datosEmpresa.rfc ? `RFC: ${datosEmpresa.rfc}` : "",
+      datosEmpresa.telefono || "",
+      datosEmpresa.email || "",
       "PRUEBA DE IMPRESION",
       separador,
       `Impresora: ${impresora.nombre}`,
@@ -121567,8 +121660,8 @@ public static class RawPrinterHelper {
       "abcdefghijklmnopqrstuvwxyz",
       separador,
       "Si ves este ticket, la ruta de impresion funciona.",
-      ""
-    ].join("\n");
+      datosEmpresa.mensajeRecibo || ""
+    ].filter(Boolean).join("\n");
   }
   static async probarImpresora(id) {
     const impresora = await this.obtenerImpresoraPorId(id);
@@ -121591,6 +121684,18 @@ public static class RawPrinterHelper {
       };
     }
     return { ok: true, mensaje: `Prueba de impresi\xF3n enviada a "${impresora.nombre}".` };
+  }
+  static async imprimirUsbRaw(payload) {
+    if (process.platform !== "win32") {
+      return { ok: false, mensaje: "La impresi\xF3n RAW USB solo est\xE1 disponible en Windows." };
+    }
+    await this.imprimirUsbWindowsRaw(
+      payload.printerName,
+      payload.contenido,
+      payload.anchoPapel || "80mm",
+      payload.corteTipo || "NINGUNO"
+    );
+    return { ok: true };
   }
   // ─── 1. PROCESAR IMPRESIÓN DE COMANDAS DE PRODUCCIÓN (COCINA Y BARRA) ───────
   static async imprimirComandaProduccion(comandaId) {
@@ -121777,6 +121882,7 @@ public static class RawPrinterHelper {
         subtotal: parseFloat(row.subtotal),
         notas: row.notas
       }));
+      const datosEmpresa = await this.obtenerDatosEmpresaTicket();
       const datosCobro = {
         folioComanda: infoPago.folio_comanda,
         pagoId: infoPago.pago_id,
@@ -121791,7 +121897,8 @@ public static class RawPrinterHelper {
         cambio: parseFloat(infoPago.cambio),
         items,
         codigoAutofactura: infoPago.codigo_ticket || void 0,
-        urlAutofactura: infoPago.url_autofactura || void 0
+        urlAutofactura: infoPago.url_autofactura || void 0,
+        datosEmpresa
       };
       let ticketSimuladoGenerado = null;
       const impresionesPendientes = [];
@@ -121844,11 +121951,21 @@ router.get("/system", async (_req, res) => {
   });
 });
 router.post("/", async (req, res) => {
-  const { nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa } = req.body;
+  const {
+    nombre,
+    destino,
+    tipo,
+    ip_o_puerto,
+    puerto_tcp,
+    ancho_papel,
+    es_termica,
+    corte_tipo,
+    activa
+  } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO impresoras (nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO impresoras (nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, es_termica, corte_tipo, activa)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         nombre,
@@ -121857,7 +121974,8 @@ router.post("/", async (req, res) => {
         ip_o_puerto,
         Number(puerto_tcp) || 9100,
         ancho_papel || "80mm",
-        // 👈 Guardar '58mm' u '80mm'
+        es_termica === true,
+        es_termica === true ? corte_tipo || "NINGUNO" : "NINGUNO",
         activa !== false
       ]
     );
@@ -121868,12 +121986,22 @@ router.post("/", async (req, res) => {
 });
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, activa } = req.body;
+  const {
+    nombre,
+    destino,
+    tipo,
+    ip_o_puerto,
+    puerto_tcp,
+    ancho_papel,
+    es_termica,
+    corte_tipo,
+    activa
+  } = req.body;
   try {
     const { rows } = await pool.query(
       `UPDATE impresoras
-       SET nombre = $1, destino = $2, tipo = $3, ip_o_puerto = $4, puerto_tcp = $5, ancho_papel = $6, activa = $7
-       WHERE id = $8
+       SET nombre = $1, destino = $2, tipo = $3, ip_o_puerto = $4, puerto_tcp = $5, ancho_papel = $6, es_termica = $7, corte_tipo = $8, activa = $9
+       WHERE id = $10
        RETURNING *`,
       [
         nombre,
@@ -121882,7 +122010,8 @@ router.put("/:id", async (req, res) => {
         ip_o_puerto,
         Number(puerto_tcp) || 9100,
         ancho_papel || "80mm",
-        // 👈 Actualizar ancho de papel
+        es_termica === true,
+        es_termica === true ? corte_tipo || "NINGUNO" : "NINGUNO",
         activa,
         id
       ]
@@ -121908,6 +122037,23 @@ router.post("/:id/test", async (req, res) => {
     res.json(resultado);
   } catch (err) {
     res.status(500).json({ error: err.message || "Error al probar impresora." });
+  }
+});
+router.post("/usb/raw-print", async (req, res) => {
+  const { printerName, contenido, anchoPapel, corteTipo } = req.body || {};
+  if (!printerName || !contenido) {
+    return res.status(400).json({ error: "Faltan datos para impresi\xF3n RAW USB." });
+  }
+  try {
+    const resultado = await PrinterService.imprimirUsbRaw({
+      printerName,
+      contenido,
+      anchoPapel,
+      corteTipo
+    });
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Error al imprimir por RAW USB." });
   }
 });
 router.delete("/:id", async (req, res) => {

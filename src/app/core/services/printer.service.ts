@@ -16,6 +16,8 @@ export interface Impresora {
   ip_o_puerto: string;
   puerto_tcp?: number;
   ancho_papel?: '58mm' | '80mm';
+  es_termica?: boolean;
+  corte_tipo?: 'NINGUNO' | 'PARCIAL' | 'TOTAL';
   activa: boolean;
 }
 
@@ -33,6 +35,18 @@ export interface ElectronPendingPrintJob {
   contenido: string;
   titulo: string;
   anchoPapel?: '58mm' | '80mm';
+  esTermica?: boolean;
+  corteTipo?: 'NINGUNO' | 'PARCIAL' | 'TOTAL';
+}
+
+interface ElectronPrintPayload {
+  printerName: string;
+  content: string;
+  title: string;
+  anchoPapel?: '58mm' | '80mm';
+  tipo?: 'USB';
+  ticketData?: unknown;
+  empresaData?: unknown;
 }
 
 @Injectable({
@@ -71,13 +85,46 @@ export class PrinterService {
     return this.http.post<{ ok: boolean; mensaje: string }>(`${this.API_URL}/${id}/test`, {});
   }
 
+  imprimirUsbRaw(job: ElectronPendingPrintJob): Observable<{ ok: boolean; mensaje?: string }> {
+    return this.http.post<{ ok: boolean; mensaje?: string }>(`${this.API_URL}/usb/raw-print`, {
+      printerName: job.printerName,
+      contenido: job.contenido,
+      anchoPapel: job.anchoPapel,
+      corteTipo: job.corteTipo,
+    });
+  }
+
   async printTicketSilently(job: ElectronPendingPrintJob): Promise<void> {
     const ipcRenderer = this.getIpcRenderer();
     if (!ipcRenderer) {
       throw new Error('La impresión silenciosa solo está disponible dentro de Electron.');
     }
 
-    await ipcRenderer.invoke('print-ticket-silent', job);
+    if (job.esTermica === true && job.corteTipo && job.corteTipo !== 'NINGUNO') {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.imprimirUsbRaw(job).subscribe({
+            next: () => resolve(),
+            error: (err) => reject(err),
+          });
+        });
+        return;
+      } catch {
+        // Fallback a Electron print cuando RAW no esté disponible o falle.
+      }
+    }
+
+    const payload: ElectronPrintPayload = {
+      tipo: job.tipo,
+      printerName: job.printerName,
+      content: job.contenido,
+      title: job.titulo,
+      anchoPapel: job.anchoPapel,
+      ticketData: job,
+      empresaData: undefined,
+    };
+
+    await ipcRenderer.invoke('print-ticket-silent', payload);
   }
 
   private getIpcRenderer(): any | null {

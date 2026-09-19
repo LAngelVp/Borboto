@@ -208,6 +208,8 @@ CREATE TABLE impresoras (
     ip_o_puerto VARCHAR(100) NOT NULL,
     puerto_tcp INT DEFAULT 9100,
     ancho_papel VARCHAR(10) NOT NULL DEFAULT '80mm',
+    es_termica BOOLEAN NOT NULL DEFAULT FALSE,
+    corte_tipo VARCHAR(20) NOT NULL DEFAULT 'NINGUNO',
     activa BOOLEAN DEFAULT TRUE,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

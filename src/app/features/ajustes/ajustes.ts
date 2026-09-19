@@ -92,6 +92,8 @@ export class AjustesComponent implements OnInit {
     ip_o_puerto: '192.168.1.100',
     puerto_tcp: 9100,
     ancho_papel: '80mm',
+    es_termica: false,
+    corte_tipo: 'NINGUNO',
     activa: true,
   };
 
@@ -957,6 +959,8 @@ export class AjustesComponent implements OnInit {
           tipo: 'SIMULACION',
           ip_o_puerto: '192.168.1.100',
           puerto_tcp: 9100,
+          es_termica: false,
+          corte_tipo: 'NINGUNO',
           activa: true,
         };
         this.cargarImpresoras();
@@ -1030,7 +1034,7 @@ export class AjustesComponent implements OnInit {
 
   private async probarImpresoraUsb(impresora: Impresora) {
     try {
-      await this.printerService.printTicketSilently({
+      const payload = {
         tipo: 'USB',
         printerName: impresora.ip_o_puerto,
         contenido: [
@@ -1046,7 +1050,10 @@ export class AjustesComponent implements OnInit {
         ].join('\n'),
         titulo: 'Prueba de Impresion USB',
         anchoPapel: impresora.ancho_papel || '80mm',
-      });
+        esTermica: impresora.es_termica === true,
+        corteTipo: impresora.corte_tipo || 'NINGUNO',
+      } as const;
+      await this.printerService.printTicketSilently(payload);
 
       this.notifications.success(`Prueba de impresión enviada a "${impresora.nombre}".`, 4000);
     } catch (err: any) {

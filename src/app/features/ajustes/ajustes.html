@@ -1861,6 +1861,24 @@
                 </mat-select>
               </mat-form-field>
 
+              <div class="checkbox-container">
+                <label class="custom-checkbox">
+                  <input type="checkbox" [(ngModel)]="impEdit.es_termica" name="editImpTermica" />
+                  <span>Impresora térmica / ESC-POS</span>
+                </label>
+              </div>
+
+              @if (impEdit.es_termica) {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Tipo de Corte</mat-label>
+                  <mat-select [(ngModel)]="impEdit.corte_tipo" name="editImpCorte">
+                    <mat-option value="NINGUNO">Sin corte automático</mat-option>
+                    <mat-option value="PARCIAL">Corte parcial</mat-option>
+                    <mat-option value="TOTAL">Corte total</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              }
+
               @if (impEdit.tipo === 'RED') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Dirección IP de Red</mat-label>
@@ -1968,6 +1986,28 @@
                 </mat-select>
               </mat-form-field>
 
+              <div class="checkbox-container">
+                <label class="custom-checkbox">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="nuevaImpresora.es_termica"
+                    name="impTermica"
+                  />
+                  <span>Impresora térmica / ESC-POS</span>
+                </label>
+              </div>
+
+              @if (nuevaImpresora.es_termica) {
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Tipo de Corte</mat-label>
+                  <mat-select [(ngModel)]="nuevaImpresora.corte_tipo" name="impCorte">
+                    <mat-option value="NINGUNO">Sin corte automático</mat-option>
+                    <mat-option value="PARCIAL">Corte parcial</mat-option>
+                    <mat-option value="TOTAL">Corte total</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              }
+
               @if (nuevaImpresora.tipo === 'RED') {
                 <mat-form-field appearance="outline" class="w-full">
                   <mat-label>Dirección IP de Red</mat-label>
@@ -2060,6 +2100,12 @@
                       ({{ imp.ip_o_puerto }})
                     }
                     | <strong>Papel:</strong> {{ imp.ancho_papel || '80mm' }}
+                    @if (imp.es_termica) {
+                      | <strong>Térmica:</strong> Sí
+                    }
+                    @if (imp.corte_tipo && imp.corte_tipo !== 'NINGUNO') {
+                      | <strong>Corte:</strong> {{ imp.corte_tipo }}
+                    }
                   </p>
                   @if (!imp.activa) {
                     <div style="margin-top: 6px">

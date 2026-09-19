@@ -43,7 +43,7 @@ function getDatabaseDirectory(): string {
     path.resolve(__dirname, 'Database'),
     path.resolve(process.cwd(), 'Database'),
     path.resolve(process.cwd(), 'backend-borboto', 'Database'),
-    path.resolve(__dirname, '..', 'Database')
+    path.resolve(__dirname, '..', 'Database'),
   ];
 
   if ((process as any).resourcesPath) {
@@ -67,7 +67,9 @@ export async function sincronizarCombosComoProductos() {
   try {
     await client.query('BEGIN');
 
-    const catRes = await client.query(`SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1`);
+    const catRes = await client.query(
+      `SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1`,
+    );
     let categoriaId;
     if (catRes.rows.length === 0) {
       const newCatRes = await client.query(`
@@ -87,28 +89,40 @@ export async function sincronizarCombosComoProductos() {
     for (const promo of promos) {
       promoIdsEncontrados.push(promo.id);
 
-      const prodRes = await client.query(`SELECT id FROM productos WHERE promocion_id = $1 LIMIT 1`, [promo.id]);
+      const prodRes = await client.query(
+        `SELECT id FROM productos WHERE promocion_id = $1 LIMIT 1`,
+        [promo.id],
+      );
 
       if (prodRes.rows.length > 0) {
-        await client.query(`
+        await client.query(
+          `
           UPDATE productos
           SET nombre = $1, precio = $2, disponible = $3, categoria_id = $4
           WHERE id = $5
-        `, [promo.nombre, promo.valor, promo.activo !== false, categoriaId, prodRes.rows[0].id]);
+        `,
+          [promo.nombre, promo.valor, promo.activo !== false, categoriaId, prodRes.rows[0].id],
+        );
       } else {
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO productos (categoria_id, nombre, precio, disponible, promocion_id)
           VALUES ($1, $2, $3, $4, $5)
-        `, [categoriaId, promo.nombre, promo.valor, promo.activo !== false, promo.id]);
+        `,
+          [categoriaId, promo.nombre, promo.valor, promo.activo !== false, promo.id],
+        );
       }
     }
 
     if (promoIdsEncontrados.length > 0) {
-      await client.query(`
+      await client.query(
+        `
         UPDATE productos
         SET disponible = FALSE
         WHERE promocion_id IS NOT NULL AND NOT (promocion_id = ANY($1))
-      `, [promoIdsEncontrados]);
+      `,
+        [promoIdsEncontrados],
+      );
     } else {
       await client.query(`
         UPDATE productos
@@ -135,14 +149,13 @@ export async function initDB(): Promise<void> {
     host: dbHost,
     password: dbPassword,
     port: dbPort,
-    database: 'postgres'
+    database: 'postgres',
   });
 
   try {
-    const res = await maintenancePool.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1`,
-      [dbTargetName]
-    );
+    const res = await maintenancePool.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [
+      dbTargetName,
+    ]);
 
     if (res.rowCount === 0) {
       console.log(`🛠️ La base de datos '${dbTargetName}' no existe. Creándola...`);
@@ -178,7 +191,7 @@ export async function initDB(): Promise<void> {
 
     const checkInit = await targetPool.query(
       'SELECT id FROM schema_migrations WHERE version = $1',
-      ['000_init.sql']
+      ['000_init.sql'],
     );
 
     if (checkInit.rows.length === 0) {
@@ -189,10 +202,9 @@ export async function initDB(): Promise<void> {
         await targetPool.query('BEGIN');
         try {
           await targetPool.query(sqlContent);
-          await targetPool.query(
-            'INSERT INTO schema_migrations (version) VALUES ($1)',
-            ['000_init.sql']
-          );
+          await targetPool.query('INSERT INTO schema_migrations (version) VALUES ($1)', [
+            '000_init.sql',
+          ]);
           await targetPool.query('COMMIT');
           console.log('✅ Estructura inicial creada exitosamente en borboto_pos.');
           // console.log('✅ Estructura inicial (000_init.sql) creada exitosamente en borboto_pos.');
@@ -219,17 +231,28 @@ export async function initDB(): Promise<void> {
       ALTER TABLE facturas ALTER COLUMN ticket_id DROP NOT NULL;
     `);
 
+    await targetPool.query(`
+      ALTER TABLE impresoras ADD COLUMN IF NOT EXISTS es_termica BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE impresoras ADD COLUMN IF NOT EXISTS corte_tipo VARCHAR(20) NOT NULL DEFAULT 'NINGUNO';
+    `);
+
     try {
       await targetPool.query(`
         ALTER TABLE facturas DROP CONSTRAINT IF EXISTS facturas_ticket_id_fkey;
         ALTER TABLE facturas ADD CONSTRAINT facturas_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES tickets_autofactura(id) ON DELETE SET NULL;
       `);
     } catch (fkErr: any) {
-      console.warn('⚠️ No se pudo migrar la restricción FK de "facturas_ticket_id_fkey":', fkErr.message);
+      console.warn(
+        '⚠️ No se pudo migrar la restricción FK de "facturas_ticket_id_fkey":',
+        fkErr.message,
+      );
     }
     console.log('✅ Migraciones incrementales de "facturas" completadas.');
   } catch (sqlErr: any) {
-    console.error('❌ Error durante el proceso de migraciones de la base de datos:', sqlErr.message);
+    console.error(
+      '❌ Error durante el proceso de migraciones de la base de datos:',
+      sqlErr.message,
+    );
     throw sqlErr;
   } finally {
     await targetPool.end();

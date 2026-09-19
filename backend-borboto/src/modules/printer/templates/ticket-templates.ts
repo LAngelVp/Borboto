@@ -1,6 +1,19 @@
 // src/modules/printer/templates/ticket-templates.ts
 
 export type AnchoPapel = '58mm' | '80mm';
+export type TipoCorte = 'NINGUNO' | 'PARCIAL' | 'TOTAL';
+
+export interface DatosEmpresaTicket {
+  nombre?: string;
+  razonSocial?: string;
+  rfc?: string;
+  direccion?: string;
+  telefono?: string;
+  email?: string;
+  regimenFiscal?: string;
+  codigoPostal?: string;
+  mensajeRecibo?: string;
+}
 
 export interface DatosComandaProduccion {
   folioComanda: number;
@@ -26,6 +39,7 @@ export interface DatosTicketCobro {
   items: ItemComandaImpresion[];
   codigoAutofactura?: string;
   urlAutofactura?: string;
+  datosEmpresa?: DatosEmpresaTicket;
 }
 
 export interface ItemComandaImpresion {
@@ -51,11 +65,23 @@ function centrarTexto(text: string, width: number): string {
   return ' '.repeat(leftPadding) + text;
 }
 
+function agregarLineaSiExiste(lineas: string[], valor: string | undefined, width: number): void {
+  if (valor && valor.trim()) {
+    lineas.push(centrarTexto(valor.trim(), width));
+  }
+}
+
+function agregarRemateFinal(lineas: string[]): void {
+  lineas.push('---------');
+  lineas.push('-------');
+  lineas.push('-------');
+}
+
 // ─── 1. TEMPLATE DE PRODUCCIÓN (COCINA / BARRA) ───────────────────────────
 export function generarTemplateProduccion(
   datos: DatosComandaProduccion,
   area: 'COCINA' | 'BARRA',
-  anchoPapel: AnchoPapel = '80mm'
+  anchoPapel: AnchoPapel = '80mm',
 ): string {
   const maxW = anchoPapel === '58mm' ? 30 : 42;
   const separador = '-'.repeat(maxW);
@@ -70,7 +96,7 @@ export function generarTemplateProduccion(
   ticket += padLine('CANT PRODUCTO', '', maxW) + '\n';
   ticket += separador + '\n';
 
-  datos.items.forEach(item => {
+  datos.items.forEach((item) => {
     const cantStr = `${item.cantidad}x `;
     const maxNombreW = maxW - cantStr.length;
     let nombre = item.nombre;
@@ -85,36 +111,64 @@ export function generarTemplateProduccion(
     }
   });
 
-  ticket += separador + '\n\n\n';
+  ticket += separador + '\n';
+  ticket += '---------\n';
+  ticket += '-------\n';
+  ticket += '-------\n';
   return ticket;
 }
 
 // ─── 2. TEMPLATE DE COBRO (CAJA / MOSTRADOR) ──────────────────────────────
 export function generarTemplateCobro(
   datos: DatosTicketCobro,
-  anchoPapel: AnchoPapel = '80mm'
+  anchoPapel: AnchoPapel = '80mm',
 ): string {
   const maxW = anchoPapel === '58mm' ? 30 : 42;
   const separador = '='.repeat(maxW);
   const separadorSuave = '-'.repeat(maxW);
 
-  let ticket = '';
-  ticket += centrarTexto('BORBOTO POS', maxW) + '\n';
-  ticket += centrarTexto('TICKET DE COBRO', maxW) + '\n';
-  ticket += separador + '\n';
-  ticket += padLine(`TICKET #: ${datos.pagoId}`, `MESA: ${datos.mesa}`, maxW) + '\n';
-  ticket += padLine(`FECHA: ${datos.fecha}`, '', maxW).trim() + '\n';
-  ticket += padLine(`ATENDIO: ${datos.atendidoPor}`, '', maxW).trim() + '\n';
+  const lineas: string[] = [''];
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.nombre || 'BORBOTO POS', maxW);
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.razonSocial, maxW);
+  agregarLineaSiExiste(
+    lineas,
+    datos.datosEmpresa?.rfc ? `RFC: ${datos.datosEmpresa.rfc}` : undefined,
+    maxW,
+  );
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.direccion, maxW);
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.telefono, maxW);
+  agregarLineaSiExiste(lineas, datos.datosEmpresa?.email, maxW);
 
-  if (datos.clienteNombre) {
-    ticket += padLine(`CLIENTE: ${datos.clienteNombre}`, '', maxW).trim() + '\n';
+  if (datos.datosEmpresa?.regimenFiscal || datos.datosEmpresa?.codigoPostal) {
+    lineas.push(
+      centrarTexto(
+        [
+          datos.datosEmpresa?.regimenFiscal ? `Reg. ${datos.datosEmpresa.regimenFiscal}` : '',
+          datos.datosEmpresa?.codigoPostal ? `CP ${datos.datosEmpresa.codigoPostal}` : '',
+        ]
+          .filter(Boolean)
+          .join(' | '),
+        maxW,
+      ),
+    );
   }
 
-  ticket += separadorSuave + '\n';
-  ticket += padLine('CANT DESCRIPCION', 'TOTAL', maxW) + '\n';
-  ticket += separadorSuave + '\n';
+  lineas.push(separador);
+  lineas.push(centrarTexto('TICKET DE COBRO', maxW));
+  lineas.push(separadorSuave);
+  lineas.push(padLine(`TICKET: ${datos.pagoId}`, `MESA: ${datos.mesa}`, maxW));
+  lineas.push(padLine(`FECHA: ${datos.fecha}`, '', maxW).trim());
+  lineas.push(padLine(`ATENDIO: ${datos.atendidoPor}`, '', maxW).trim());
 
-  datos.items.forEach(item => {
+  if (datos.clienteNombre) {
+    lineas.push(padLine(`CLIENTE: ${datos.clienteNombre}`, '', maxW).trim());
+  }
+
+  lineas.push(separadorSuave);
+  lineas.push(padLine('CANT DESCRIPCION', 'TOTAL', maxW));
+  lineas.push(separadorSuave);
+
+  datos.items.forEach((item) => {
     const cantStr = `${item.cantidad}x `;
     const subtotalStr = `$${(item.subtotal || 0).toFixed(2)}`;
     const maxDescW = maxW - cantStr.length - subtotalStr.length - 1;
@@ -124,24 +178,33 @@ export function generarTemplateCobro(
       desc = desc.substring(0, maxDescW);
     }
 
-    ticket += padLine(`${cantStr}${desc}`, subtotalStr, maxW) + '\n';
+    lineas.push(padLine(`${cantStr}${desc}`, subtotalStr, maxW));
+    if (item.notas) {
+      lineas.push(`  * ${item.notas.substring(0, maxW - 4)}`);
+    }
   });
 
-  ticket += separadorSuave + '\n';
-  ticket += padLine('TOTAL:', `$${datos.totalCuenta.toFixed(2)}`, maxW) + '\n';
-  ticket += padLine('PAGO (' + datos.metodoPago + '):', `$${datos.montoRecibido.toFixed(2)}`, maxW) + '\n';
-  ticket += padLine('CAMBIO:', `$${datos.cambio.toFixed(2)}`, maxW) + '\n';
+  lineas.push(separadorSuave);
+  lineas.push(padLine('TOTAL:', `$${datos.totalCuenta.toFixed(2)}`, maxW));
+  lineas.push(padLine(`PAGO (${datos.metodoPago}):`, `$${datos.montoRecibido.toFixed(2)}`, maxW));
+  lineas.push(padLine('CAMBIO:', `$${datos.cambio.toFixed(2)}`, maxW));
 
   if (datos.codigoAutofactura && datos.urlAutofactura) {
-    ticket += separadorSuave + '\n';
-    ticket += centrarTexto('*** AUTOFACTURACION ***', maxW) + '\n';
-    ticket += centrarTexto(`CODIGO: ${datos.codigoAutofactura}`, maxW) + '\n';
-    ticket += centrarTexto('INGRESA A LA URL PARA FACTURAR:', maxW) + '\n';
-    ticket += centrarTexto(datos.urlAutofactura, maxW) + '\n';
+    lineas.push(separadorSuave);
+    lineas.push(centrarTexto('*** AUTOFACTURACION ***', maxW));
+    lineas.push(centrarTexto(`CODIGO: ${datos.codigoAutofactura}`, maxW));
+    lineas.push(centrarTexto('INGRESA A LA URL PARA FACTURAR:', maxW));
+    lineas.push(centrarTexto(datos.urlAutofactura, maxW));
   }
 
-  ticket += separador + '\n';
-  ticket += centrarTexto('¡GRACIAS POR SU PREFERENCIA!', maxW) + '\n\n\n';
+  if (datos.datosEmpresa?.mensajeRecibo) {
+    lineas.push(separadorSuave);
+    lineas.push(centrarTexto(datos.datosEmpresa.mensajeRecibo, maxW));
+  }
 
-  return ticket;
+  lineas.push(separador);
+  lineas.push(centrarTexto('¡GRACIAS POR SU PREFERENCIA!', maxW));
+  agregarRemateFinal(lineas);
+
+  return lineas.join('\n') + '\n';
 }
