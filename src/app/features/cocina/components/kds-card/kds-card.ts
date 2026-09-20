@@ -11,21 +11,30 @@ import { TicketCocina } from '../../../../core/models/cocina';
   imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kds-card.html',
-  styleUrl: './kds-card.scss'
+  styleUrl: './kds-card.scss',
 })
 export class KdsCardComponent {
   readonly ticket = input.required<TicketCocina>();
   readonly ticketListo = output<void>();
 
+  getOrigenLabel(): string {
+    const actualTicket = this.ticket();
+    if (actualTicket.tipoOrigen === 'MESA' && actualTicket.mesaNumero) {
+      return `Mesa ${actualTicket.mesaNumero}`;
+    }
+
+    return actualTicket.folioOrigen || actualTicket.mesaNumero || 'Sin origen';
+  }
+
   todosCompletados(): boolean {
     const list = this.ticket()?.items || [];
-    return list.length > 0 && list.every(item => item.completado);
+    return list.length > 0 && list.every((item) => item.completado);
   }
 
   // Semáforo de urgencia según los minutos transcurridos
   getUrgenciaClass(minutos: number): string {
     if (minutos >= 20) return 'urgente-critico'; // Rojo
-    if (minutos >= 12) return 'urgente-medio';   // Amarillo
-    return 'urgente-normal';                     // Verde
+    if (minutos >= 12) return 'urgente-medio'; // Amarillo
+    return 'urgente-normal'; // Verde
   }
 }

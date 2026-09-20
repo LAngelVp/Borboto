@@ -2,7 +2,7 @@
   <!-- Encabezado de la Comanda -->
   <mat-card-header class="kds-header">
     <div class="header-left">
-      <span class="mesa-badge">Mesa {{ ticket().mesaNumero }}</span>
+      <span class="mesa-badge">{{ getOrigenLabel() }}</span>
       <span class="mesero-nombre">{{ ticket().mesero }}</span>
     </div>
     <div class="header-right">
@@ -21,9 +21,7 @@
             <span class="nombre">{{ item.nombre }}</span>
           </div>
           @if (item.notas) {
-            <div class="nota-tag">
-              <mat-icon>priority_high</mat-icon> {{ item.notas }}
-            </div>
+            <div class="nota-tag"><mat-icon>priority_high</mat-icon> {{ item.notas }}</div>
           }
         </div>
       }
@@ -37,7 +35,8 @@
       color="accent"
       class="btn-listo"
       (click)="ticketListo.emit()"
-      [disabled]="todosCompletados()">
+      [disabled]="todosCompletados()"
+    >
       <mat-icon>check_circle</mat-icon>
       {{ todosCompletados() ? 'DESPACHADO' : '¡DESPACHAR!' }}
     </button>

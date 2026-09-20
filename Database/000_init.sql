@@ -145,9 +145,11 @@ CREATE TABLE productos (
 
 CREATE TABLE comandas (
     id SERIAL PRIMARY KEY,
-    mesa_id INT NOT NULL REFERENCES mesas(id) ON DELETE RESTRICT,
+    mesa_id INT REFERENCES mesas(id) ON DELETE RESTRICT,
     usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
     cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL,
+    tipo_origen VARCHAR(20) NOT NULL DEFAULT 'MESA',
+    folio_origen VARCHAR(50) NOT NULL,
     estado estado_comanda_enum DEFAULT 'ABIERTA',
     total NUMERIC(10, 2) DEFAULT 0.00,
     fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -262,6 +264,8 @@ CREATE TABLE facturas (
 -- 6. ÍNDICES DE ALTO RENDIMIENTO
 CREATE INDEX idx_mesas_estado ON mesas(estado);
 CREATE INDEX idx_comandas_mesa ON comandas(mesa_id) WHERE estado = 'ABIERTA';
+CREATE INDEX idx_comandas_origen_estado ON comandas(tipo_origen, estado, fecha_apertura DESC);
+CREATE INDEX idx_comandas_folio_origen ON comandas(folio_origen);
 CREATE INDEX idx_comanda_items_kds ON comanda_items(completado) WHERE completado = FALSE;
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);
 CREATE INDEX idx_tickets_codigo ON tickets_autofactura(codigo_ticket);

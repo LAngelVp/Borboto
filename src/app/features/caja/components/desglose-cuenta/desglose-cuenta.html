@@ -2,7 +2,7 @@
   <mat-card-header class="ticket-header">
     <mat-icon>receipt</mat-icon>
     <div>
-      <mat-card-title>Cuenta Mesa {{ cajaService.mesaNumero() }}</mat-card-title>
+      <mat-card-title>{{ encabezadoCuenta() }}</mat-card-title>
       <mat-card-subtitle>Detalle de consumo</mat-card-subtitle>
     </div>
   </mat-card-header>
@@ -14,7 +14,7 @@
         <div class="item-row">
           <span class="cant">{{ item.cantidad }}x</span>
           <span class="nombre">{{ item.producto.nombre }}</span>
-          <span class="precio">${{ item.subtotal | number:'1.2-2' }}</span>
+          <span class="precio">${{ item.subtotal | number: '1.2-2' }}</span>
         </div>
       }
     </div>
@@ -27,7 +27,13 @@
           <div class="cliente-lealtad-box">
             <mat-icon class="stars-icon">stars</mat-icon>
 
-            <button mat-icon-button color="warn" class="btn-quitar-cliente" (click)="quitarCliente()" title="Quitar o cambiar cliente">
+            <button
+              mat-icon-button
+              color="warn"
+              class="btn-quitar-cliente"
+              (click)="quitarCliente()"
+              title="Quitar o cambiar cliente"
+            >
               <mat-icon>person_remove</mat-icon>
             </button>
 
@@ -37,15 +43,26 @@
                 <span class="badge-vip">VIP Frecuente</span>
               }
             </h4>
-            <p class="cliente-nombre"><strong>{{ cajaService.clienteNombre() }}</strong></p>
+            <p class="cliente-nombre">
+              <strong>{{ cajaService.clienteNombre() }}</strong>
+            </p>
 
             <div class="cliente-stats">
-              <span>Visitas: <strong>{{ cajaService.clienteVisitas() }}</strong></span>
-              <span>Puntos: <strong class="pts-val">{{ cajaService.clientePuntos() }} pts</strong></span>
+              <span
+                >Visitas: <strong>{{ cajaService.clienteVisitas() }}</strong></span
+              >
+              <span
+                >Puntos:
+                <strong class="pts-val">{{ cajaService.clientePuntos() }} pts</strong></span
+              >
             </div>
 
             <!-- Opciones de Canje de Puntos -->
-            @if (cajaService.clientePuntos() > 0 && !cajaService.promocionIdAplicada() && !cajaService.puntosCanjeados()) {
+            @if (
+              cajaService.clientePuntos() > 0 &&
+              !cajaService.promocionIdAplicada() &&
+              !cajaService.puntosCanjeados()
+            ) {
               <div class="puntos-canje-container">
                 <!-- 1. Entrada manual de puntos y botón aplicar -->
                 <div class="puntos-input-row">
@@ -58,23 +75,22 @@
                       [max]="cajaService.clientePuntos()"
                       [value]="puntosAUsarInput()"
                       (input)="puntosAUsarInput.set($any($event.target).valueAsNumber)"
-                      placeholder="Ej. 20">
+                      placeholder="Ej. 20"
+                    />
                   </mat-form-field>
 
                   <button
                     mat-flat-button
                     class="btn-aplicar-puntos"
                     (click)="canjearPuntosPersonalizado()"
-                    [disabled]="!puntosAUsarInput() || puntosAUsarInput()! <= 0">
+                    [disabled]="!puntosAUsarInput() || puntosAUsarInput()! <= 0"
+                  >
                     <mat-icon>check_circle</mat-icon> Aplicar
                   </button>
                 </div>
 
                 <!-- 2. Botón Rápido para Usar Todo / Máximo Permitido -->
-                <button
-                  mat-button
-                  class="btn-usar-todo-pts"
-                  (click)="canjearPuntos()">
+                <button mat-button class="btn-usar-todo-pts" (click)="canjearPuntos()">
                   <mat-icon>bolt</mat-icon>
                   @if (cajaService.clientePuntos() >= cajaService.totalCuentaOriginal()) {
                     Usar Máximo Requerido ({{ Math.ceil(cajaService.totalCuentaOriginal()) }} pts)
@@ -87,8 +103,17 @@
 
             @if (cajaService.puntosCanjeados() > 0) {
               <div class="puntos-aplicados-badge">
-                <span>Puntos aplicados: {{ cajaService.puntosCanjeados() }} (-${{ cajaService.descuentoAplicado() | number:'1.2-2' }})</span>
-                <button mat-icon-button color="warn" class="btn-cancel-pts" (click)="quitarDescuento()">
+                <span
+                  >Puntos aplicados: {{ cajaService.puntosCanjeados() }} (-${{
+                    cajaService.descuentoAplicado() | number: '1.2-2'
+                  }})</span
+                >
+                <button
+                  mat-icon-button
+                  color="warn"
+                  class="btn-cancel-pts"
+                  (click)="quitarDescuento()"
+                >
                   <mat-icon>cancel</mat-icon>
                 </button>
               </div>
@@ -97,12 +122,17 @@
         } @else {
           <!-- Asistencia para Asociar Cliente -->
           <div class="cliente-vincular-box">
-            <span class="vincular-title"><mat-icon>person_add</mat-icon> ¿Asociar Cliente Frecuente?</span>
+            <span class="vincular-title"
+              ><mat-icon>person_add</mat-icon> ¿Asociar Cliente Frecuente?</span
+            >
 
             <div class="vincular-actions">
               <mat-form-field appearance="outline" class="cliente-select-form">
                 <mat-label>Selecciona un cliente</mat-label>
-                <mat-select (selectionChange)="onVincularCliente($event.value)" (openedChange)="alAbrirSelect($event)">
+                <mat-select
+                  (selectionChange)="onVincularCliente($event.value)"
+                  (openedChange)="alAbrirSelect($event)"
+                >
                   <div class="search-select-box" (click)="$event.stopPropagation()">
                     <mat-icon class="search-icon">search</mat-icon>
                     <input
@@ -111,9 +141,14 @@
                       [value]="busquedaCliente()"
                       (input)="busquedaCliente.set($any($event.target).value)"
                       (keydown)="$event.stopPropagation()"
-                      class="search-select-input">
+                      class="search-select-input"
+                    />
                     @if (busquedaCliente()) {
-                      <button mat-icon-button class="btn-clear-search" (click)="busquedaCliente.set('')">
+                      <button
+                        mat-icon-button
+                        class="btn-clear-search"
+                        (click)="busquedaCliente.set('')"
+                      >
                         <mat-icon>close</mat-icon>
                       </button>
                     }
@@ -121,24 +156,34 @@
 
                   @for (c of clientesFiltrados(); track c.id) {
                     <mat-option [value]="c.id">
-                      {{ c.nombre }} @if(c.telefono) { ({{ c.telefono }}) }
+                      {{ c.nombre }}
+                      @if (c.telefono) {
+                        ({{ c.telefono }})
+                      }
                     </mat-option>
                   } @empty {
-                    <mat-option disabled class="no-results-option">
-                      Sin coincidencias
-                    </mat-option>
+                    <mat-option disabled class="no-results-option"> Sin coincidencias </mat-option>
                   }
                 </mat-select>
               </mat-form-field>
 
-              <button mat-icon-button color="primary" class="btn-add-cliente" (click)="registrarRapido()" title="Registrar Cliente Nuevo">
+              <button
+                mat-icon-button
+                color="primary"
+                class="btn-add-cliente"
+                (click)="registrarRapido()"
+                title="Registrar Cliente Nuevo"
+              >
                 <mat-icon>add_circle</mat-icon>
               </button>
             </div>
           </div>
         }
 
-        @if (cajaService.promocionIdAplicada() || (cajaService.puntosCanjeados() > 0 && !cajaService.clienteId())) {
+        @if (
+          cajaService.promocionIdAplicada() ||
+          (cajaService.puntosCanjeados() > 0 && !cajaService.clienteId())
+        ) {
           <div class="cupon-aplicado-box">
             <span class="cupon-text">
               <mat-icon class="promo-icon">local_offer</mat-icon>
@@ -157,14 +202,16 @@
                 [value]="codigoPromo()"
                 (input)="codigoPromo.set($any($event.target).value)"
                 placeholder="Ej. APERTURA10"
-                style="text-transform: uppercase;">
+                style="text-transform: uppercase"
+              />
 
               <button
                 mat-flat-button
                 matSuffix
                 class="btn-aplicar-cupon-suffix"
                 (click)="aplicarCodigo()"
-                [disabled]="!codigoPromo()">
+                [disabled]="!codigoPromo()"
+              >
                 <mat-icon>confirmation_number</mat-icon> Aplicar
               </button>
             </mat-form-field>
@@ -177,7 +224,11 @@
     <div class="split-section">
       <span class="split-label">Dividir entre:</span>
       <div class="split-controls">
-        <button mat-icon-button (click)="decrementarPartes()" [disabled]="cajaService.numeroPartes() <= 1">
+        <button
+          mat-icon-button
+          (click)="decrementarPartes()"
+          [disabled]="cajaService.numeroPartes() <= 1"
+        >
           <mat-icon>remove</mat-icon>
         </button>
         <span class="partes-num">{{ cajaService.numeroPartes() }} pers.</span>
@@ -192,23 +243,23 @@
       @if (cajaService.descuentoAplicado() > 0) {
         <div class="total-row subtotal">
           <span>Subtotal:</span>
-          <span>${{ cajaService.totalCuentaOriginal() | number:'1.2-2' }}</span>
+          <span>${{ cajaService.totalCuentaOriginal() | number: '1.2-2' }}</span>
         </div>
         <div class="total-row descuento">
           <span>Descuento:</span>
-          <span>-${{ cajaService.descuentoAplicado() | number:'1.2-2' }}</span>
+          <span>-${{ cajaService.descuentoAplicado() | number: '1.2-2' }}</span>
         </div>
       }
 
       <div class="total-row">
         <span>Total Mesa:</span>
-        <span class="monto-total">${{ cajaService.totalCuenta() | number:'1.2-2' }}</span>
+        <span class="monto-total">${{ cajaService.totalCuenta() | number: '1.2-2' }}</span>
       </div>
 
       @if (cajaService.numeroPartes() > 1) {
         <div class="total-row highlight">
           <span>Cobro por persona:</span>
-          <span class="monto-persona">${{ cajaService.totalPorPersona() | number:'1.2-2' }}</span>
+          <span class="monto-persona">${{ cajaService.totalPorPersona() | number: '1.2-2' }}</span>
         </div>
       }
     </div>

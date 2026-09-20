@@ -35,6 +35,7 @@ export interface CategoriaSale {
 
 export interface TicketSale {
   folio: number;
+  comandaId: number;
   fecha: string;
   cliente: string;
   total: number;
@@ -42,6 +43,9 @@ export interface TicketSale {
   usuario: string;
   estatus: string;
   mesa: string;
+  mesaId: number | null;
+  tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+  folioOrigen: string;
 }
 
 export interface DashboardData {
@@ -199,6 +203,14 @@ export class DashboardComponent implements OnInit {
         this.notifications.error(err.error?.error || 'Error al reimprimir ticket.');
       },
     });
+  }
+
+  getOrigenLabel(ticket: TicketSale): string {
+    if (ticket.tipoOrigen === 'MESA' && ticket.mesa) {
+      return `Mesa ${ticket.mesa}`;
+    }
+
+    return ticket.folioOrigen || ticket.mesa || 'Sin origen';
   }
 
   private async procesarImpresionesPendientes(impresionesPendientes: ElectronPendingPrintJob[]) {

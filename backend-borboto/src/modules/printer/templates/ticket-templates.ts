@@ -17,7 +17,9 @@ export interface DatosEmpresaTicket {
 
 export interface DatosComandaProduccion {
   folioComanda: number;
-  mesa: string;
+  mesa?: string;
+  tipoOrigen?: string;
+  folioOrigen?: string;
   zona: string;
   atendidoPor: string;
   fecha: string;
@@ -27,7 +29,9 @@ export interface DatosComandaProduccion {
 export interface DatosTicketCobro {
   folioComanda: number;
   pagoId: number;
-  mesa: string;
+  mesa?: string;
+  tipoOrigen?: string;
+  folioOrigen?: string;
   zona: string;
   clienteNombre?: string;
   atendidoPor: string;
@@ -51,6 +55,20 @@ export interface ItemComandaImpresion {
 }
 
 const MARGEN_INFERIOR_LINEAS = 4;
+
+function obtenerEtiquetaOrigen(
+  mesa: string | undefined,
+  folioOrigen: string | undefined,
+): { label: string; value: string } {
+  if (mesa && mesa.trim()) {
+    return { label: 'MESA', value: mesa.trim() };
+  }
+
+  return {
+    label: 'ORIGEN',
+    value: (folioOrigen || 'SIN ORIGEN').trim(),
+  };
+}
 
 // ─── HELPER DE FORMATEO DINÁMICO SEGÚN ANCHO ──────────────────────────────
 function padLine(left: string, right: string, width: number): string {
@@ -88,11 +106,13 @@ export function generarTemplateProduccion(
 ): string {
   const maxW = anchoPapel === '58mm' ? 30 : 42;
   const separador = '-'.repeat(maxW);
+  const origen = obtenerEtiquetaOrigen(datos.mesa, datos.folioOrigen);
 
   let ticket = '';
   ticket += centrarTexto(`*** COMANDA ${area} ***`, maxW) + '\n';
   ticket += separador + '\n';
-  ticket += padLine(`FOLIO: #${datos.folioComanda}`, `MESA: ${datos.mesa}`, maxW) + '\n';
+  ticket +=
+    padLine(`FOLIO: #${datos.folioComanda}`, `${origen.label}: ${origen.value}`, maxW) + '\n';
   ticket += padLine(`ZONA: ${datos.zona}`, `MESERO: ${datos.atendidoPor}`, maxW) + '\n';
   ticket += padLine(`FECHA: ${datos.fecha}`, '', maxW).trim() + '\n';
   ticket += separador + '\n';
@@ -127,6 +147,7 @@ export function generarTemplateCobro(
   const maxW = anchoPapel === '58mm' ? 30 : 42;
   const separador = '='.repeat(maxW);
   const separadorSuave = '-'.repeat(maxW);
+  const origen = obtenerEtiquetaOrigen(datos.mesa, datos.folioOrigen);
 
   const lineas: string[] = [''];
   agregarLineaSiExiste(lineas, datos.datosEmpresa?.nombre || 'BORBOTO POS', maxW);
@@ -157,7 +178,7 @@ export function generarTemplateCobro(
   lineas.push(separador);
   lineas.push(centrarTexto('TICKET DE COBRO', maxW));
   lineas.push(separadorSuave);
-  lineas.push(padLine(`TICKET: ${datos.pagoId}`, `MESA: ${datos.mesa}`, maxW));
+  lineas.push(padLine(`TICKET: ${datos.pagoId}`, `${origen.label}: ${origen.value}`, maxW));
   lineas.push(padLine(`FECHA: ${datos.fecha}`, '', maxW).trim());
   lineas.push(padLine(`ATENDIO: ${datos.atendidoPor}`, '', maxW).trim());
 

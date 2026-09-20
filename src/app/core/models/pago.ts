@@ -4,6 +4,8 @@ export interface TransaccionPago {
   id?: number;
   mesaId: number;
   mesaNumero: string;
+  tipoOrigen?: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+  folioOrigen?: string;
   totalCuenta: number;
   montoRecibido: number;
   cambio: number;

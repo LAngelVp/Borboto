@@ -239,9 +239,7 @@ export class PrinterService {
     // Refuerzo físico para térmicas: después de las líneas en blanco del template,
     // este feed adicional fuerza expulsión visible de papel aun sin corte automático.
     const feed = Buffer.from(
-      anchoPapel === '58mm'
-        ? [0x0a, 0x0a, 0x0a, 0x0a, 0x0a]
-        : [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+      anchoPapel === '58mm' ? [0x0a, 0x0a, 0x0a, 0x0a, 0x0a] : [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
     );
     const cut =
       corteTipo === 'TOTAL'
@@ -555,12 +553,14 @@ public static class RawPrinterHelper {
         SELECT
           c.id AS folio_comanda,
           m.numero AS mesa,
-          z.nombre AS zona,
+          c.tipo_origen AS tipo_origen,
+          c.folio_origen AS folio_origen,
+          COALESCE(z.nombre, c.tipo_origen, 'Sin Zona') AS zona,
           u.nombre AS atendido_por,
           TO_CHAR(NOW(), 'DD/MM/YYYY HH24:MI') AS fecha
         FROM comandas c
-        JOIN mesas m ON c.mesa_id = m.id
-        JOIN zonas z ON m.zona_id = z.id
+        LEFT JOIN mesas m ON c.mesa_id = m.id
+        LEFT JOIN zonas z ON m.zona_id = z.id
         JOIN usuarios u ON c.usuario_id = u.id
         WHERE c.id = $1
       `,
@@ -622,6 +622,8 @@ public static class RawPrinterHelper {
         const datosCocina: DatosComandaProduccion = {
           folioComanda: infoComanda.folio_comanda,
           mesa: infoComanda.mesa,
+          tipoOrigen: infoComanda.tipo_origen,
+          folioOrigen: infoComanda.folio_origen,
           zona: infoComanda.zona,
           atendidoPor: infoComanda.atendido_por,
           fecha: infoComanda.fecha,
@@ -649,6 +651,8 @@ public static class RawPrinterHelper {
         const datosBarra: DatosComandaProduccion = {
           folioComanda: infoComanda.folio_comanda,
           mesa: infoComanda.mesa,
+          tipoOrigen: infoComanda.tipo_origen,
+          folioOrigen: infoComanda.folio_origen,
           zona: infoComanda.zona,
           atendidoPor: infoComanda.atendido_por,
           fecha: infoComanda.fecha,
@@ -711,7 +715,9 @@ public static class RawPrinterHelper {
           p.id AS pago_id,
           c.id AS folio_comanda,
           m.numero AS mesa,
-          z.nombre AS zona,
+          c.tipo_origen AS tipo_origen,
+          c.folio_origen AS folio_origen,
+          COALESCE(z.nombre, c.tipo_origen, 'Sin Zona') AS zona,
           cl.nombre AS cliente_nombre,
           u.nombre AS atendido_por,
           TO_CHAR(p.fecha, 'DD/MM/YYYY HH24:MI') AS fecha,
@@ -723,8 +729,8 @@ public static class RawPrinterHelper {
           ta.url_autofactura
         FROM pagos p
         JOIN comandas c ON p.comanda_id = c.id
-        JOIN mesas m ON c.mesa_id = m.id
-        JOIN zonas z ON m.zona_id = z.id
+        LEFT JOIN mesas m ON c.mesa_id = m.id
+        LEFT JOIN zonas z ON m.zona_id = z.id
         JOIN usuarios u ON p.usuario_id = u.id
         LEFT JOIN clientes cl ON c.cliente_id = cl.id
         LEFT JOIN tickets_autofactura ta ON ta.pago_id = p.id
@@ -768,6 +774,8 @@ public static class RawPrinterHelper {
         folioComanda: infoPago.folio_comanda,
         pagoId: infoPago.pago_id,
         mesa: infoPago.mesa,
+        tipoOrigen: infoPago.tipo_origen,
+        folioOrigen: infoPago.folio_origen,
         zona: infoPago.zona,
         clienteNombre: infoPago.cliente_nombre,
         atendidoPor: infoPago.atendido_por,

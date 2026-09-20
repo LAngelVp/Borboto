@@ -35,14 +35,29 @@ export class DesgloseMesaDialogComponent implements OnInit {
   cargando = signal<boolean>(true);
 
   ngOnInit() {
+    const onSuccess = (res: { comandaId: number; total: number; items: ItemComanda[] }) => {
+      this.items.set(res.items || []);
+      this.total.set(res.total || 0);
+      this.comandaId.set(res.comandaId || 0);
+      this.cargando.set(false);
+    };
+
+    const onError = () => this.cargando.set(false);
+
+    const comandaId = this.data.mesa.comandaId;
+    if (comandaId) {
+      this.comandaService.obtenerDesgloseComanda(comandaId).subscribe({
+        next: onSuccess,
+        error: onError,
+      });
+      return;
+    }
+
     this.comandaService.obtenerDesgloseMesa(this.data.mesa.id).subscribe({
       next: (res) => {
-        this.items.set(res.items || []);
-        this.total.set(res.total || 0);
-        this.comandaId.set(res.comandaId || 0);
-        this.cargando.set(false);
+        onSuccess(res);
       },
-      error: () => this.cargando.set(false),
+      error: onError,
     });
   }
 

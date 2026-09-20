@@ -11,7 +11,10 @@ export interface ItemTicketCocina {
 export interface TicketCocina {
   id: number;
   comandaId: number;
+  mesaId?: number;
   mesaNumero: string;
+  tipoOrigen?: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+  folioOrigen?: string;
   mesero: string;
   minutosTranscurridos: number;
   estado: EstadoTicketCocina;

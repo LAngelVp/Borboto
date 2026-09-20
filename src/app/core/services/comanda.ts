@@ -23,6 +23,9 @@ export class ComandaService {
   readonly itemsComanda = signal<ItemComanda[]>([]);
 
   readonly comandaIdActiva = signal<number>(0);
+  readonly mesaIdActual = signal<number | null>(null);
+  readonly tipoOrigenActual = signal<'MESA' | 'MOSTRADOR' | 'ENVIO' | null>(null);
+  readonly folioOrigenActual = signal<string>('');
   readonly categoriaSeleccionada = signal<string>('TODOS');
 
   // Total de los nuevos ítems
@@ -97,11 +100,20 @@ export class ComandaService {
     this.itemsComanda.set([]);
 
     this.http
-      .get<{ comandaId: number; items: any[] }>(`${this.apiUrl}/comandas/activa/${mesaId}`)
+      .get<{
+        comandaId: number;
+        mesaId: number;
+        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO' | null;
+        folioOrigen: string | null;
+        items: any[];
+      }>(`${this.apiUrl}/comandas/activa/${mesaId}`)
       .subscribe({
         next: (res) => {
           if (res && res.comandaId > 0) {
             this.comandaIdActiva.set(res.comandaId);
+            this.mesaIdActual.set(res.mesaId || mesaId);
+            this.tipoOrigenActual.set(res.tipoOrigen);
+            this.folioOrigenActual.set(res.folioOrigen || '');
 
             const itemsCargados: ItemComanda[] = (res.items || []).map((i) => ({
               producto: {
@@ -120,11 +132,60 @@ export class ComandaService {
             this.itemsGuardados.set(itemsCargados);
           } else {
             this.comandaIdActiva.set(0);
+            this.mesaIdActual.set(null);
+            this.tipoOrigenActual.set(null);
+            this.folioOrigenActual.set('');
             this.itemsGuardados.set([]);
           }
         },
         error: () => {
           this.comandaIdActiva.set(0);
+          this.mesaIdActual.set(null);
+          this.tipoOrigenActual.set(null);
+          this.folioOrigenActual.set('');
+          this.itemsGuardados.set([]);
+        },
+      });
+  }
+
+  cargarComandaPorId(comandaId: number) {
+    this.itemsComanda.set([]);
+
+    this.http
+      .get<{
+        comandaId: number;
+        mesaId: number | null;
+        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+        folioOrigen: string;
+        items: any[];
+      }>(`${this.apiUrl}/comandas/${comandaId}`)
+      .subscribe({
+        next: (res) => {
+          this.comandaIdActiva.set(res.comandaId || 0);
+          this.mesaIdActual.set(res.mesaId || null);
+          this.tipoOrigenActual.set(res.tipoOrigen || null);
+          this.folioOrigenActual.set(res.folioOrigen || '');
+
+          const itemsCargados: ItemComanda[] = (res.items || []).map((i) => ({
+            producto: {
+              id: i.producto.id,
+              nombre: i.producto.nombre,
+              precio: Number(i.producto.precio),
+              categoria: i.producto.categoria,
+              imagen_url: i.producto.imagen_url,
+            },
+            cantidad: i.cantidad,
+            subtotal: Number(i.subtotal),
+            notas: i.notas,
+          }));
+
+          this.itemsGuardados.set(itemsCargados);
+        },
+        error: () => {
+          this.comandaIdActiva.set(0);
+          this.mesaIdActual.set(null);
+          this.tipoOrigenActual.set(null);
+          this.folioOrigenActual.set('');
           this.itemsGuardados.set([]);
         },
       });
@@ -167,10 +228,10 @@ export class ComandaService {
   }
 
   // Envía ÚNICAMENTE las adiciones recientes guardadas en itemsComanda()
-  enviarComandaACocina(comandaId: number, mesaId: number, usuarioId?: number) {
+  enviarComandaACocina(comandaId: number, mesaId?: number | null, usuarioId?: number) {
     const payload = {
       comandaId: comandaId || this.comandaIdActiva(),
-      mesaId,
+      mesaId: mesaId ?? this.mesaIdActual(),
       usuarioId: usuarioId || 1,
       items: this.itemsComanda().map((item) => ({
         productoId: item.producto.id,
@@ -187,11 +248,30 @@ export class ComandaService {
     this.itemsGuardados.set([]);
     this.itemsComanda.set([]);
     this.comandaIdActiva.set(0);
+    this.mesaIdActual.set(null);
+    this.tipoOrigenActual.set(null);
+    this.folioOrigenActual.set('');
+  }
+
+  obtenerDesgloseComanda(comandaId: number) {
+    return this.http.get<{
+      comandaId: number;
+      mesaId: number | null;
+      total: number;
+      tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+      folioOrigen: string;
+      items: ItemComanda[];
+    }>(`${this.apiUrl}/comandas/${comandaId}`);
   }
 
   obtenerDesgloseMesa(mesaId: number) {
-    return this.http.get<{ comandaId: number; total: number; items: ItemComanda[] }>(
-      `${this.apiUrl}/comandas/activa/${mesaId}`,
-    );
+    return this.http.get<{
+      comandaId: number;
+      mesaId: number;
+      total: number;
+      tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO' | null;
+      folioOrigen: string | null;
+      items: ItemComanda[];
+    }>(`${this.apiUrl}/comandas/activa/${mesaId}`);
   }
 }

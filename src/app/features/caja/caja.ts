@@ -49,7 +49,10 @@ export class Caja implements OnInit {
   ngOnInit() {
     this.route.queryParams.subscribe((params) => {
       const mesaId = Number(params['mesaId']);
-      if (mesaId) {
+      const comandaId = Number(params['comandaId']);
+      if (comandaId) {
+        this.cajaService.cargarCuentaComanda(comandaId);
+      } else if (mesaId) {
         this.cajaService.cargarCuentaMesa(mesaId);
       } else {
         this.cajaService.limpiarSeleccion();
@@ -75,7 +78,9 @@ export class Caja implements OnInit {
     this.cajaService.cobrarYCerrarMesa(usuarioId).subscribe({
       next: (res: any) => {
         void this.procesarImpresionesPendientes(res?.impresionesPendientes || []);
-        let msj = '¡Pago procesado y mesa liberada con éxito!';
+        let msj = res?.mesaId
+          ? '¡Pago procesado y mesa liberada con éxito!'
+          : '¡Pago procesado con éxito!';
 
         if (res?.autofactura?.codigo) {
           msj += ` Ticket autofactura: ${res.autofactura.codigo}`;

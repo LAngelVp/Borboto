@@ -2,7 +2,7 @@
   <div class="status-header">
     <mat-icon class="check-icon">check_circle</mat-icon>
     <h2>¡Cobro Exitoso!</h2>
-    <span class="sub-mesa">Mesa {{ data.transaccion.mesaNumero }} cerrada correctamente</span>
+    <span class="sub-mesa">{{ getOrigenLabel() }} cerrado correctamente</span>
   </div>
 
   <div class="receipt-paper">
@@ -19,7 +19,7 @@
       }
       <div class="receipt-space"></div>
       <p class="receipt-meta">Ticket #{{ data.transaccion.id || '0001' }}</p>
-      <p class="receipt-meta">{{ data.transaccion.fecha | date:'dd/MM/yyyy HH:mm' }}</p>
+      <p class="receipt-meta">{{ data.transaccion.fecha | date: 'dd/MM/yyyy HH:mm' }}</p>
     </div>
 
     <div class="receipt-divider">--------------------------------</div>
@@ -31,17 +31,17 @@
 
     <div class="receipt-row">
       <span>Total Cobrado:</span>
-      <strong>${{ data.transaccion.totalCuenta | number:'1.2-2' }}</strong>
+      <strong>${{ data.transaccion.totalCuenta | number: '1.2-2' }}</strong>
     </div>
 
     @if (data.transaccion.metodoPago === 'EFECTIVO') {
       <div class="receipt-row">
         <span>Monto Recibido:</span>
-        <span>${{ data.transaccion.montoRecibido | number:'1.2-2' }}</span>
+        <span>${{ data.transaccion.montoRecibido | number: '1.2-2' }}</span>
       </div>
       <div class="receipt-row cambio">
         <span>Cambio Entregado:</span>
-        <strong>${{ data.transaccion.cambio | number:'1.2-2' }}</strong>
+        <strong>${{ data.transaccion.cambio | number: '1.2-2' }}</strong>
       </div>
     }
 

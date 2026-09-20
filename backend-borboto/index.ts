@@ -83,6 +83,132 @@ export function emitirCambioGlobal(evento: string, data?: any) {
   io.emit(evento, data);
 }
 
+type TipoOrigenComanda = 'MESA' | 'MOSTRADOR' | 'ENVIO';
+
+function resolverTipoOrigenPorZona(zona: string | null | undefined): TipoOrigenComanda {
+  const zonaNormalizada = (zona || '').trim().toUpperCase();
+  if (zonaNormalizada === 'MOSTRADOR') {
+    return 'MOSTRADOR';
+  }
+  if (zonaNormalizada === 'DOMICILIO') {
+    return 'ENVIO';
+  }
+  return 'MESA';
+}
+
+async function obtenerOrigenComandaPorMesa(
+  db: { query: (sql: string, params?: any[]) => Promise<any> },
+  mesaId: number | string,
+): Promise<{
+  mesaId: number;
+  numero: string;
+  zona: string;
+  tipoOrigen: TipoOrigenComanda;
+  folioOrigen: string;
+}> {
+  const { rows } = await db.query(
+    `
+      SELECT m.id AS "mesaId",
+             m.numero,
+             COALESCE(z.nombre, 'Sin Zona') AS zona
+      FROM mesas m
+      LEFT JOIN zonas z ON z.id = m.zona_id
+      WHERE m.id = $1
+      LIMIT 1
+    `,
+    [mesaId],
+  );
+
+  if (rows.length === 0) {
+    throw new Error('La mesa indicada no existe.');
+  }
+
+  const origen = rows[0];
+  return {
+    mesaId: Number(origen.mesaId),
+    numero: origen.numero,
+    zona: origen.zona,
+    tipoOrigen: resolverTipoOrigenPorZona(origen.zona),
+    folioOrigen: origen.numero,
+  };
+}
+
+async function obtenerComandaAbiertaPorMesa(
+  db: { query: (sql: string, params?: any[]) => Promise<any> },
+  mesaId: number | string,
+) {
+  const { rows } = await db.query(
+    `
+      SELECT c.id,
+             c.mesa_id AS "mesaId",
+             c.usuario_id AS "usuarioId",
+             c.cliente_id AS "clienteId",
+             c.total,
+             c.estado,
+             c.tipo_origen AS "tipoOrigen",
+             c.folio_origen AS "folioOrigen"
+      FROM comandas c
+      WHERE c.mesa_id = $1 AND c.estado = 'ABIERTA'
+      ORDER BY c.id DESC
+      LIMIT 1
+    `,
+    [mesaId],
+  );
+
+  return rows[0] || null;
+}
+
+async function obtenerComandaPorId(
+  db: { query: (sql: string, params?: any[]) => Promise<any> },
+  comandaId: number | string,
+) {
+  const { rows } = await db.query(
+    `
+      SELECT c.id AS "comandaId",
+             c.mesa_id AS "mesaId",
+             c.usuario_id AS "usuarioId",
+             c.cliente_id AS "clienteId",
+             c.estado,
+             c.total,
+             c.tipo_origen AS "tipoOrigen",
+             c.folio_origen AS "folioOrigen",
+             COALESCE(m.numero, c.folio_origen) AS "mesaNumero",
+             COALESCE(m.comensales, 0) AS comensales,
+             COALESCE(cli.nombre, null) AS "clienteNombre",
+             COALESCE(cli.direccion, null) AS "clienteDireccion",
+             COALESCE(cli.puntos_acumulados, 0) AS "clientePuntos",
+             COALESCE(cli.es_frecuente, false) AS "clienteEsFrecuente",
+             COALESCE(cli.visitas_count, 0) AS "clienteVisitas"
+      FROM comandas c
+      LEFT JOIN mesas m ON c.mesa_id = m.id
+      LEFT JOIN clientes cli ON c.cliente_id = cli.id
+      WHERE c.id = $1
+      LIMIT 1
+    `,
+    [comandaId],
+  );
+
+  return rows[0] || null;
+}
+
+async function generarFolioOrigen(
+  db: { query: (sql: string, params?: any[]) => Promise<any> },
+  tipoOrigen: Exclude<TipoOrigenComanda, 'MESA'>,
+) {
+  const prefijo = tipoOrigen === 'MOSTRADOR' ? 'M' : 'E';
+  const { rows } = await db.query(
+    `
+      SELECT COUNT(*)::integer + 1 AS consecutivo
+      FROM comandas
+      WHERE tipo_origen = $1
+        AND DATE(fecha_apertura) = CURRENT_DATE
+    `,
+    [tipoOrigen],
+  );
+
+  return `${prefijo}-${rows[0].consecutivo}`;
+}
+
 io.on('connection', (socket) => {
   console.log(`🔌 Cliente conectado por WebSockets`);
   // console.log(`🔌 Cliente conectado por WebSockets: ${socket.id}`);
@@ -129,26 +255,69 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req: any
 app.get('/api/mesas', async (_req, res) => {
   try {
     const query = `
-      SELECT m.id,
-             m.numero,
-             COALESCE(z.nombre, 'Sin Zona') AS zona,
-             m.capacidad,
-             COALESCE(m.estado, 'DISPONIBLE') AS estado,
-             COALESCE(m.comensales, 0) AS comensales,
-             COALESCE(m.minutos_abierta, 0) AS "minutosAbierta",
-             COALESCE(c.total, 0.00) AS total,
-             c.id AS "comandaId",
-             c.cliente_id AS "clienteId",
-             cli.nombre AS "clienteNombre",
-             cli.direccion AS "clienteDireccion",
-             u.nombre AS mesero,
-             m.creado_en AS "creadoEn"
-      FROM mesas m
-      LEFT JOIN zonas z ON m.zona_id = z.id
-      LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado = 'ABIERTA'
-      LEFT JOIN clientes cli ON c.cliente_id = cli.id
-      LEFT JOIN usuarios u ON c.usuario_id = u.id
-      ORDER BY m.id ASC;
+      WITH mesas_fisicas AS (
+        SELECT m.id,
+               m.id AS "mesaId",
+               m.numero,
+               COALESCE(z.nombre, 'Sin Zona') AS zona,
+               m.capacidad,
+               COALESCE(m.estado, 'DISPONIBLE') AS estado,
+               COALESCE(m.comensales, 0) AS comensales,
+               COALESCE(m.minutos_abierta, 0) AS "minutosAbierta",
+               COALESCE(c.total, 0.00) AS total,
+               c.id AS "comandaId",
+               c.tipo_origen AS "tipoOrigen",
+               c.folio_origen AS "folioOrigen",
+               c.cliente_id AS "clienteId",
+               cli.nombre AS "clienteNombre",
+               cli.direccion AS "clienteDireccion",
+               u.nombre AS mesero,
+               m.creado_en AS "creadoEn"
+        FROM mesas m
+        LEFT JOIN zonas z ON m.zona_id = z.id
+        LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado = 'ABIERTA'
+        LEFT JOIN clientes cli ON c.cliente_id = cli.id
+        LEFT JOIN usuarios u ON c.usuario_id = u.id
+      ),
+      pedidos_externos AS (
+        SELECT -c.id AS id,
+               NULL::INT AS "mesaId",
+               c.folio_origen AS numero,
+               CASE
+                 WHEN c.tipo_origen = 'MOSTRADOR' THEN 'Mostrador'
+                 WHEN c.tipo_origen = 'ENVIO' THEN 'Domicilio'
+                 ELSE 'Sin Zona'
+               END AS zona,
+               1 AS capacidad,
+               CASE
+                 WHEN EXISTS (
+                   SELECT 1 FROM comanda_items ci
+                   WHERE ci.comanda_id = c.id AND COALESCE(ci.completado, false) = false
+                 ) THEN 'EN COCINA'
+                 ELSE 'PENDIENTE'
+               END::estado_mesa_enum AS estado,
+               1 AS comensales,
+               GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.fecha_apertura)) / 60))::INT AS "minutosAbierta",
+               COALESCE(c.total, 0.00) AS total,
+               c.id AS "comandaId",
+               c.tipo_origen AS "tipoOrigen",
+               c.folio_origen AS "folioOrigen",
+               c.cliente_id AS "clienteId",
+               cli.nombre AS "clienteNombre",
+               cli.direccion AS "clienteDireccion",
+               u.nombre AS mesero,
+               c.fecha_apertura AS "creadoEn"
+        FROM comandas c
+        LEFT JOIN clientes cli ON c.cliente_id = cli.id
+        LEFT JOIN usuarios u ON c.usuario_id = u.id
+        WHERE c.estado = 'ABIERTA'
+          AND c.mesa_id IS NULL
+          AND c.tipo_origen IN ('MOSTRADOR', 'ENVIO')
+      )
+      SELECT * FROM mesas_fisicas
+      UNION ALL
+      SELECT * FROM pedidos_externos
+      ORDER BY id ASC;
     `;
     const { rows } = await pool.query(query);
     res.json(rows);
@@ -165,17 +334,26 @@ app.post('/api/mesas/:id/abrir', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const origenMesa = await obtenerOrigenComandaPorMesa(client, id);
     await client.query(
       `UPDATE mesas SET estado = 'PENDIENTE', comensales = $1, minutos_abierta = 1 WHERE id = $2`,
       [comensales || 1, id],
     );
     const comandaRes = await client.query(
-      `INSERT INTO comandas (mesa_id, usuario_id, estado, total) VALUES ($1, $2, 'ABIERTA', 0.00) RETURNING id`,
-      [id, usuarioId || 1],
+      `INSERT INTO comandas (mesa_id, usuario_id, estado, total, tipo_origen, folio_origen)
+       VALUES ($1, $2, 'ABIERTA', 0.00, $3, $4)
+       RETURNING id, mesa_id AS "mesaId", tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen"`,
+      [id, usuarioId || 1, origenMesa.tipoOrigen, origenMesa.folioOrigen],
     );
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
-    res.json({ ok: true, comandaId: comandaRes.rows[0].id });
+    res.json({
+      ok: true,
+      comandaId: comandaRes.rows[0].id,
+      mesaId: Number(id),
+      tipoOrigen: comandaRes.rows[0].tipoOrigen,
+      folioOrigen: comandaRes.rows[0].folioOrigen,
+    });
   } catch (err: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -204,15 +382,12 @@ app.post('/api/mesas/:origenId/mover', async (req, res) => {
       return res.status(404).json({ error: 'La mesa origen no existe.' });
     }
     const { estado: estadoOrigen, comensales, minutos_abierta } = mesaOrigenRes.rows[0];
-    const comandaRes = await client.query(
-      `SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
-      [origenId],
-    );
+    const comandaActual = await obtenerComandaAbiertaPorMesa(client, origenId);
 
-    if (comandaRes.rows.length > 0) {
+    if (comandaActual) {
       await client.query(`UPDATE comandas SET mesa_id = $1 WHERE id = $2`, [
         destinoId,
-        comandaRes.rows[0].id,
+        comandaActual.id,
       ]);
     }
 
@@ -252,6 +427,78 @@ app.post('/api/mesas/mover', async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Error al mover comanda de mesa' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/api/comandas/:comandaId/asignar-mesa', async (req, res) => {
+  const { comandaId } = req.params;
+  const { destinoId } = req.body;
+  if (!destinoId) {
+    return res.status(400).json({ error: 'Falta la mesa destino.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const comanda = await obtenerComandaPorId(client, comandaId);
+    if (!comanda) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'La comanda no existe.' });
+    }
+
+    if (comanda.estado !== 'ABIERTA') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Solo se pueden reasignar comandas abiertas.' });
+    }
+
+    const destinoMesa = await obtenerOrigenComandaPorMesa(client, destinoId);
+
+    const destinoComandaActiva = await obtenerComandaAbiertaPorMesa(client, destinoId);
+    if (destinoComandaActiva && Number(destinoComandaActiva.id) !== Number(comandaId)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'La mesa destino ya tiene una comanda activa.' });
+    }
+
+    await client.query(
+      `UPDATE comandas
+       SET mesa_id = $1
+       WHERE id = $2`,
+      [destinoMesa.mesaId, comandaId],
+    );
+
+    await client.query(
+      `UPDATE mesas
+       SET estado = 'PENDIENTE',
+           comensales = GREATEST(comensales, 1),
+           minutos_abierta = GREATEST(minutos_abierta, 1)
+       WHERE id = $1`,
+      [destinoMesa.mesaId],
+    );
+
+    if (comanda.mesaId) {
+      await client.query(
+        `UPDATE mesas
+         SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0
+         WHERE id = $1`,
+        [comanda.mesaId],
+      );
+    }
+
+    await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_mesas');
+    res.json({
+      ok: true,
+      comandaId: Number(comandaId),
+      mesaId: destinoMesa.mesaId,
+      tipoOrigen: comanda.tipoOrigen,
+      folioOrigen: comanda.folioOrigen,
+    });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
@@ -327,40 +574,24 @@ app.post('/api/mostrador/crear', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    let zonaRes = await client.query(
-      `SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'MOSTRADOR'`,
-    );
-    let zonaId: number;
-
-    if (zonaRes.rows.length === 0) {
-      const nuevaZona = await client.query(
-        `INSERT INTO zonas (nombre) VALUES ('Mostrador') RETURNING id`,
-      );
-      zonaId = nuevaZona.rows[0].id;
-    } else {
-      zonaId = zonaRes.rows[0].id;
-    }
-
-    const numRes = await client.query(`SELECT COALESCE(MAX(id), 0) + 1 AS num FROM mesas`);
-    const numeroOrden = `M-${numRes.rows[0].num}`;
-
-    const mesaRes = await client.query(
-      `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta) VALUES ($1, $2, 1, 'PENDIENTE', 1, 1) RETURNING id, numero`,
-      [numeroOrden, zonaId],
-    );
+    const numeroOrden = await generarFolioOrigen(client, 'MOSTRADOR');
 
     const comandaRes = await client.query(
-      `INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total) VALUES ($1, $2, $3, 'ABIERTA', 0.00) RETURNING id`,
-      [mesaRes.rows[0].id, usuarioId || 1, clienteId || null],
+      `INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total, tipo_origen, folio_origen)
+       VALUES (NULL, $1, $2, 'ABIERTA', 0.00, 'MOSTRADOR', $3)
+       RETURNING id, mesa_id AS "mesaId", tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen"`,
+      [usuarioId || 1, clienteId || null, numeroOrden],
     );
 
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
     res.status(201).json({
       ok: true,
-      mesaId: Number(mesaRes.rows[0].id),
+      mesaId: comandaRes.rows[0].mesaId,
       comandaId: comandaRes.rows[0].id,
       numero: numeroOrden,
+      tipoOrigen: comandaRes.rows[0].tipoOrigen,
+      folioOrigen: comandaRes.rows[0].folioOrigen,
     });
   } catch (err: any) {
     await client.query('ROLLBACK');
@@ -375,11 +606,25 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
   const { mesaId } = req.params;
   try {
     const comandaRes = await pool.query(
-      `SELECT id, total FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
+      `SELECT id,
+              mesa_id AS "mesaId",
+              total,
+              tipo_origen AS "tipoOrigen",
+              folio_origen AS "folioOrigen"
+       FROM comandas
+       WHERE mesa_id = $1 AND estado = 'ABIERTA'
+       ORDER BY id DESC LIMIT 1`,
       [mesaId],
     );
     if (comandaRes.rows.length === 0) {
-      return res.json({ comandaId: 0, total: 0, items: [] });
+      return res.json({
+        comandaId: 0,
+        mesaId: Number(mesaId),
+        total: 0,
+        tipoOrigen: null,
+        folioOrigen: null,
+        items: [],
+      });
     }
     const comandaId = comandaRes.rows[0].id;
     const itemsRes = await pool.query(
@@ -389,7 +634,42 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
        WHERE ci.comanda_id = $1 ORDER BY ci.id ASC`,
       [comandaId],
     );
-    res.json({ comandaId, total: comandaRes.rows[0].total, items: itemsRes.rows });
+    res.json({
+      comandaId,
+      mesaId: comandaRes.rows[0].mesaId,
+      total: comandaRes.rows[0].total,
+      tipoOrigen: comandaRes.rows[0].tipoOrigen,
+      folioOrigen: comandaRes.rows[0].folioOrigen,
+      items: itemsRes.rows,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/comandas/:comandaId', async (req, res) => {
+  const { comandaId } = req.params;
+  try {
+    const comanda = await obtenerComandaPorId(pool, comandaId);
+    if (!comanda) {
+      return res.status(404).json({ error: 'Comanda no encontrada.' });
+    }
+
+    const itemsRes = await pool.query(
+      `SELECT ci.id, ci.cantidad, ci.precio_unitario AS subtotal, ci.notas, ci.completado, ci.estado_kds,
+              json_build_object('id', p.id, 'nombre', p.nombre, 'precio', ci.precio_unitario, 'categoria', c.nombre) AS producto
+       FROM comanda_items ci
+       JOIN productos p ON ci.producto_id = p.id
+       JOIN categorias c ON p.categoria_id = c.id
+       WHERE ci.comanda_id = $1
+       ORDER BY ci.id ASC`,
+      [comandaId],
+    );
+
+    res.json({
+      ...comanda,
+      items: itemsRes.rows,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -499,42 +779,24 @@ app.post('/api/envios/crear', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    let zonaRes = await client.query(
-      `SELECT id FROM zonas WHERE UPPER(TRIM(nombre)) = 'DOMICILIO'`,
-    );
-    let zonaId: number;
-    if (zonaRes.rows.length === 0) {
-      const nuevaZona = await client.query(
-        `INSERT INTO zonas (nombre) VALUES ('Domicilio') RETURNING id`,
-      );
-      zonaId = nuevaZona.rows[0].id;
-    } else {
-      zonaId = zonaRes.rows[0].id;
-    }
-
-    const numRes = await client.query(
-      `SELECT COUNT(*)::integer + 1 AS proximo FROM mesas WHERE zona_id = $1 AND DATE(creado_en) = CURRENT_DATE`,
-      [zonaId],
-    );
-    const numeroOrden = `E-${numRes.rows[0].proximo}`;
-
-    const mesaRes = await client.query(
-      `INSERT INTO mesas (numero, zona_id, capacidad, estado, comensales, minutos_abierta) VALUES ($1, $2, 1, 'PENDIENTE', 1, 1) RETURNING id, numero`,
-      [numeroOrden, zonaId],
-    );
+    const numeroOrden = await generarFolioOrigen(client, 'ENVIO');
 
     const comandaRes = await client.query(
-      `INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total) VALUES ($1, $2, $3, 'ABIERTA', 0.00) RETURNING id`,
-      [mesaRes.rows[0].id, usuarioId || 1, clienteId || null],
+      `INSERT INTO comandas (mesa_id, usuario_id, cliente_id, estado, total, tipo_origen, folio_origen)
+       VALUES (NULL, $1, $2, 'ABIERTA', 0.00, 'ENVIO', $3)
+       RETURNING id, mesa_id AS "mesaId", tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen"`,
+      [usuarioId || 1, clienteId || null, numeroOrden],
     );
 
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
     res.status(201).json({
       ok: true,
-      mesaId: Number(mesaRes.rows[0].id),
+      mesaId: comandaRes.rows[0].mesaId,
       comandaId: comandaRes.rows[0].id,
       numero: numeroOrden,
+      tipoOrigen: comandaRes.rows[0].tipoOrigen,
+      folioOrigen: comandaRes.rows[0].folioOrigen,
     });
   } catch (err: any) {
     await client.query('ROLLBACK');
@@ -557,15 +819,24 @@ app.post('/api/mesas/:mesaId/servir', async (req, res) => {
 
 app.post('/api/comandas', async (req, res) => {
   const { comandaId, mesaId, items, usuarioId } = req.body;
-  if (!mesaId || !items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'Faltan parámetros: mesaId e items son requeridos.' });
+  if ((!comandaId && !mesaId) || !items || !Array.isArray(items) || items.length === 0) {
+    return res
+      .status(400)
+      .json({ error: 'Faltan parámetros: comandaId o mesaId e items son requeridos.' });
   }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     let idComandaActual = comandaId;
+    let origenMesa = null;
+    if (mesaId) {
+      origenMesa = await obtenerOrigenComandaPorMesa(client, mesaId);
+    }
 
     if (!idComandaActual || idComandaActual === 0) {
+      if (!mesaId) {
+        throw new Error('Se requiere mesaId para crear una comanda nueva desde una mesa física.');
+      }
       const comandaExistente = await client.query(
         `SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
         [mesaId],
@@ -574,8 +845,14 @@ app.post('/api/comandas', async (req, res) => {
         idComandaActual = comandaExistente.rows[0].id;
       } else {
         const nuevaComanda = await client.query(
-          `INSERT INTO comandas (mesa_id, usuario_id, estado, total) VALUES ($1, $2, 'ABIERTA', 0.00) RETURNING id`,
-          [mesaId, usuarioId || 1],
+          `INSERT INTO comandas (mesa_id, usuario_id, estado, total, tipo_origen, folio_origen)
+           VALUES ($1, $2, 'ABIERTA', 0.00, $3, $4) RETURNING id`,
+          [
+            mesaId,
+            usuarioId || 1,
+            origenMesa?.tipoOrigen || 'MESA',
+            origenMesa?.folioOrigen || String(mesaId),
+          ],
         );
         idComandaActual = nuevaComanda.rows[0].id;
       }
@@ -599,7 +876,9 @@ app.post('/api/comandas', async (req, res) => {
       totalAdicional,
       idComandaActual,
     ]);
-    await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [mesaId]);
+    if (mesaId) {
+      await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [mesaId]);
+    }
     await client.query('COMMIT');
 
     emitirCambioGlobal('actualizar_mesas');
@@ -656,10 +935,12 @@ app.post('/api/comandas/:comandaId/cancelar', async (req, res) => {
       `UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
       [comandaId],
     );
-    await client.query(
-      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
-      [mesa_id],
-    );
+    if (mesa_id) {
+      await client.query(
+        `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
+        [mesa_id],
+      );
+    }
     await client.query(
       `UPDATE comanda_items SET completado = TRUE, notas = COALESCE($1 || ' - ', '') || COALESCE(notas, '') WHERE comanda_id = $2`,
       [notas || 'CANCELADO POR USUARIO', comandaId],
@@ -668,7 +949,10 @@ app.post('/api/comandas/:comandaId/cancelar', async (req, res) => {
 
     emitirCambioGlobal('actualizar_mesas');
     emitirCambioGlobal('actualizar_cocina');
-    res.json({ ok: true, mensaje: 'Comanda cancelada y mesa liberada' });
+    res.json({
+      ok: true,
+      mensaje: mesa_id ? 'Comanda cancelada y mesa liberada' : 'Comanda cancelada correctamente',
+    });
   } catch (err: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -713,8 +997,12 @@ app.get('/api/cocina/tickets', async (_req, res) => {
   try {
     const queryComandas = `
       SELECT c.id, c.mesa_id AS "mesaId", m.numero AS "mesaNumero", COALESCE(u.nombre, 'Mesero') AS mesero,
-             COALESCE(m.minutos_abierta, 1) AS "minutosTranscurridos", 'PREPARANDO' AS estado
-      FROM comandas c JOIN mesas m ON c.mesa_id = m.id LEFT JOIN usuarios u ON c.usuario_id = u.id
+              c.id AS "comandaId",
+              c.tipo_origen AS "tipoOrigen",
+              c.folio_origen AS "folioOrigen",
+              COALESCE(m.numero, c.folio_origen) AS "mesaNumero",
+              COALESCE(m.minutos_abierta, 1) AS "minutosTranscurridos", 'PREPARANDO' AS estado
+            FROM comandas c LEFT JOIN mesas m ON c.mesa_id = m.id LEFT JOIN usuarios u ON c.usuario_id = u.id
       WHERE c.estado = 'ABIERTA' ORDER BY c.fecha_apertura ASC;
     `;
     const { rows: tickets } = await pool.query(queryComandas);
@@ -761,10 +1049,12 @@ app.post('/api/cocina/tickets/:comandaId/despachar', async (req, res) => {
       `UPDATE comanda_items SET completado = TRUE, estado_kds = 'LISTO' WHERE comanda_id = $1`,
       [comandaId],
     );
-    await client.query(
-      `UPDATE mesas SET estado = 'LISTO PARA SERVIR' WHERE id = (SELECT mesa_id FROM comandas WHERE id = $1)`,
-      [comandaId],
-    );
+    const comanda = await obtenerComandaPorId(client, comandaId);
+    if (comanda?.mesaId) {
+      await client.query(`UPDATE mesas SET estado = 'LISTO PARA SERVIR' WHERE id = $1`, [
+        comanda.mesaId,
+      ]);
+    }
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
     emitirCambioGlobal('actualizar_cocina');
@@ -783,14 +1073,29 @@ app.get('/api/caja/mesa/:mesaId', async (req, res) => {
   try {
     const query = `
       SELECT c.id AS "comandaId", m.id AS "mesaId", m.numero AS "mesaNumero", m.comensales, COALESCE(c.total, 0.00) AS total,
+              c.tipo_origen AS "tipoOrigen", c.folio_origen AS "folioOrigen",
              c.cliente_id AS "clienteId", cli.nombre AS "clienteNombre", COALESCE(cli.puntos_acumulados, 0) AS "clientePuntos",
              COALESCE(cli.es_frecuente, false) AS "clienteEsFrecuente", COALESCE(cli.visitas_count, 0) AS "clienteVisitas"
-      FROM comandas c JOIN mesas m ON c.mesa_id = m.id LEFT JOIN clientes cli ON c.cliente_id = cli.id
+            FROM comandas c LEFT JOIN mesas m ON c.mesa_id = m.id LEFT JOIN clientes cli ON c.cliente_id = cli.id
       WHERE m.id = $1 AND c.estado = 'ABIERTA' LIMIT 1;
     `;
     const { rows } = await pool.query(query, [mesaId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Mesa sin comanda activa' });
     res.json(rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/caja/comanda/:comandaId', async (req, res) => {
+  const { comandaId } = req.params;
+  try {
+    const comanda = await obtenerComandaPorId(pool, comandaId);
+    if (!comanda || comanda.estado !== 'ABIERTA') {
+      return res.status(404).json({ error: 'Comanda sin cuenta activa' });
+    }
+
+    res.json(comanda);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -963,10 +1268,12 @@ app.post('/api/caja/cobrar', async (req, res) => {
       }
     }
 
-    const comandaInfo = await client.query('SELECT cliente_id FROM comandas WHERE id = $1', [
-      comandaId,
-    ]);
+    const comandaInfo = await client.query(
+      'SELECT cliente_id, mesa_id, tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen" FROM comandas WHERE id = $1',
+      [comandaId],
+    );
     const clienteId = comandaInfo.rows[0]?.cliente_id;
+    const mesaIdReal = comandaInfo.rows[0]?.mesa_id || mesaId || null;
     if (clienteId) {
       const negocioInfo = await client.query(
         'SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1',
@@ -992,10 +1299,12 @@ app.post('/api/caja/cobrar', async (req, res) => {
       `UPDATE comandas SET estado = 'CERRADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
       [comandaId],
     );
-    await client.query(
-      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
-      [mesaId],
-    );
+    if (mesaIdReal) {
+      await client.query(
+        `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
+        [mesaIdReal],
+      );
+    }
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_mesas');
 
@@ -1020,6 +1329,10 @@ app.post('/api/caja/cobrar', async (req, res) => {
     res.json({
       ok: true,
       ticketId: pagoId,
+      comandaId: Number(comandaId),
+      mesaId: mesaIdReal,
+      tipoOrigen: comandaInfo.rows[0]?.tipoOrigen,
+      folioOrigen: comandaInfo.rows[0]?.folioOrigen,
       autofactura: datosAutofactura,
       ticketTexto: ticketTextoCobro,
       impresionesPendientes,
@@ -1042,7 +1355,7 @@ app.get('/api/caja/corte/actual/:usuarioId', async (req, res) => {
     );
     const lastCorteFecha = lastCorteRes.rows.length > 0 ? lastCorteRes.rows[0].fecha_cierre : null;
 
-    let pagosQuery = `SELECT p.id, p.total_cuenta AS total, p.metodo_pago AS metodo, p.fecha, m.numero AS mesa FROM pagos p JOIN comandas c ON p.comanda_id = c.id JOIN mesas m ON c.mesa_id = m.id WHERE p.usuario_id = $1`;
+    let pagosQuery = `SELECT p.id, p.total_cuenta AS total, p.metodo_pago AS metodo, p.fecha, c.id AS "comandaId", c.tipo_origen AS "tipoOrigen", c.folio_origen AS "folioOrigen", c.mesa_id AS "mesaId", COALESCE(m.numero, c.folio_origen) AS mesa FROM pagos p JOIN comandas c ON p.comanda_id = c.id LEFT JOIN mesas m ON c.mesa_id = m.id WHERE p.usuario_id = $1`;
     const queryParams: any[] = [usuarioId];
 
     if (lastCorteFecha) {
@@ -1683,16 +1996,20 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const ultimosTicketsRes = await pool.query(
       `
       SELECT pa.id AS folio,
+              co.id AS "comandaId",
              TO_CHAR(pa.fecha, 'DD/MM HH24:MI') AS fecha,
              COALESCE(cl.nombre, 'Cliente General') AS cliente,
              pa.total_cuenta::float AS total,
              pa.metodo_pago AS metodo,
              u.nombre AS usuario,
              co.estado AS estatus,
-             m.numero AS mesa
+              co.tipo_origen AS "tipoOrigen",
+              co.folio_origen AS "folioOrigen",
+              co.mesa_id AS "mesaId",
+              COALESCE(m.numero, co.folio_origen) AS mesa
       FROM pagos pa
       JOIN comandas co ON pa.comanda_id = co.id
-      JOIN mesas m ON co.mesa_id = m.id
+            LEFT JOIN mesas m ON co.mesa_id = m.id
       JOIN usuarios u ON pa.usuario_id = u.id
       LEFT JOIN clientes cl ON co.cliente_id = cl.id
       WHERE DATE(pa.fecha) ${fechaInicio ? (fechaFin ? 'BETWEEN $1 AND $2' : '>= $1') : '= CURRENT_DATE'} ORDER BY pa.fecha DESC LIMIT 15
@@ -1750,16 +2067,20 @@ app.get('/api/dashboard/tickets', async (req, res) => {
       `
       SELECT
         pa.id AS folio,
+        co.id AS "comandaId",
         TO_CHAR(pa.fecha, 'DD/MM/YYYY HH24:MI') AS fecha,
         COALESCE(cl.nombre, 'Cliente General') AS cliente,
         pa.total_cuenta::float AS total,
         pa.metodo_pago AS metodo,
         u.nombre AS usuario,
         co.estado AS estatus,
-        m.numero AS mesa
+        co.tipo_origen AS "tipoOrigen",
+        co.folio_origen AS "folioOrigen",
+        co.mesa_id AS "mesaId",
+        COALESCE(m.numero, co.folio_origen) AS mesa
       FROM pagos pa
       JOIN comandas co ON pa.comanda_id = co.id
-      JOIN mesas m ON co.mesa_id = m.id
+      LEFT JOIN mesas m ON co.mesa_id = m.id
       JOIN usuarios u ON pa.usuario_id = u.id
       LEFT JOIN clientes cl ON co.cliente_id = cl.id
       ${whereClause}

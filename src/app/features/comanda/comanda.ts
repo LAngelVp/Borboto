@@ -51,7 +51,9 @@ export class Comanda implements OnInit {
       this.mesaId = Number(params['mesaId']) || 0;
       this.comandaId = Number(params['comandaId']) || 0;
 
-      if (this.mesaId > 0) {
+      if (this.comandaId > 0) {
+        this.comandaService.cargarComandaPorId(this.comandaId);
+      } else if (this.mesaId > 0) {
         this.comandaService.cargarComandaActivaPorMesa(this.mesaId);
       }
     });
@@ -64,32 +66,38 @@ export class Comanda implements OnInit {
     }
 
     const usuarioId = this.authService.usuarioActivo()?.id;
-    this.comandaService.enviarComandaACocina(this.comandaId, this.mesaId, usuarioId).subscribe({
-      next: (res: any) => {
-        void this.procesarImpresionesPendientes(res?.impresionesPendientes || []);
-        this.notifications.success('Comanda actualizada y enviada a cocina.');
-        this.comandaService.limpiarComanda();
-        this.mesaService.cargarMesas();
+    this.comandaService
+      .enviarComandaACocina(
+        this.comandaId,
+        this.mesaId || this.comandaService.mesaIdActual(),
+        usuarioId,
+      )
+      .subscribe({
+        next: (res: any) => {
+          void this.procesarImpresionesPendientes(res?.impresionesPendientes || []);
+          this.notifications.success('Comanda actualizada y enviada a cocina.');
+          this.comandaService.limpiarComanda();
+          this.mesaService.cargarMesas();
 
-        // Si el backend devuelve la comanda simulada la previsualizamos en el modal
-        if (res?.ticketTexto) {
-          const dialogRef = this.dialog.open(TicketModal, {
-            width: '360px',
-            data: {
-              contenidoTicket: res.ticketTexto,
-              titulo: 'Comanda Enviada (Simulación)',
-            },
-          });
+          // Si el backend devuelve la comanda simulada la previsualizamos en el modal
+          if (res?.ticketTexto) {
+            const dialogRef = this.dialog.open(TicketModal, {
+              width: '360px',
+              data: {
+                contenidoTicket: res.ticketTexto,
+                titulo: 'Comanda Enviada (Simulación)',
+              },
+            });
 
-          dialogRef.afterClosed().subscribe(() => {
+            dialogRef.afterClosed().subscribe(() => {
+              this.router.navigate(['/mesas']);
+            });
+          } else {
             this.router.navigate(['/mesas']);
-          });
-        } else {
-          this.router.navigate(['/mesas']);
-        }
-      },
-      error: () => this.notifications.error('Error al guardar comanda en base de datos'),
-    });
+          }
+        },
+        error: () => this.notifications.error('Error al guardar comanda en base de datos'),
+      });
   }
 
   private async procesarImpresionesPendientes(impresionesPendientes: ElectronPendingPrintJob[]) {

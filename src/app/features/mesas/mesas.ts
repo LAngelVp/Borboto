@@ -95,14 +95,18 @@ export class MesasComponent implements OnInit, OnDestroy {
             const numeroLimpio = res.numero ? res.numero.split('-')[0] : '';
 
             const mesaVirtual: Mesa = {
-              id: res.mesaId,
-              numero: res.numero,
+              id: -res.comandaId,
+              mesaId: undefined,
+              numero: res.folioOrigen || res.numero,
               zona: 'Mostrador', // 👈 Asignación estricta de zona Mostrador
               capacidad: 1,
               estado: 'PENDIENTE',
               comensales: 1,
               minutosAbierta: 1,
               total: 0,
+              comandaId: res.comandaId,
+              tipoOrigen: res.tipoOrigen,
+              folioOrigen: res.folioOrigen,
               clienteNombre: result.nombre || 'Cliente Mostrador',
               mesero: usuarioNombre,
             };
@@ -111,7 +115,7 @@ export class MesasComponent implements OnInit, OnDestroy {
             this.notifications.success(`Pedido #${numeroLimpio} registrado con éxito.`);
 
             this.router.navigate(['/comanda'], {
-              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId },
+              queryParams: { comandaId: res.comandaId },
             });
             this.mesaService.cargarMesas();
           },
@@ -140,20 +144,24 @@ export class MesasComponent implements OnInit, OnDestroy {
             const numeroLimpio = res.numero ? res.numero.split('-')[0] : '';
 
             const mesaVirtual: Mesa = {
-              id: res.mesaId,
-              numero: res.numero,
+              id: -res.comandaId,
+              mesaId: undefined,
+              numero: res.folioOrigen || res.numero,
               zona: 'Domicilio',
               capacidad: 1,
               estado: 'PENDIENTE',
               comensales: 1,
               minutosAbierta: 1,
               total: 0,
+              comandaId: res.comandaId,
+              tipoOrigen: res.tipoOrigen,
+              folioOrigen: res.folioOrigen,
               mesero: usuarioNombre,
             };
             this.mesaService.seleccionarMesaActiva(mesaVirtual);
             this.notifications.success(`Envío #${numeroLimpio} registrado con éxito.`);
             this.router.navigate(['/comanda'], {
-              queryParams: { mesaId: res.mesaId, comandaId: res.comandaId },
+              queryParams: { comandaId: res.comandaId },
             });
             this.mesaService.cargarMesas();
           },
@@ -180,7 +188,11 @@ export class MesasComponent implements OnInit, OnDestroy {
 
       case 'AGREGAR_COMANDA':
         this.mesaService.seleccionarMesaActiva(mesa);
-        this.router.navigate(['/comanda'], { queryParams: { mesaId: mesa.id } });
+        this.router.navigate(['/comanda'], {
+          queryParams: mesa.comandaId
+            ? { comandaId: mesa.comandaId, mesaId: mesa.mesaId || mesa.id }
+            : { mesaId: mesa.id },
+        });
         break;
 
       case 'IMPRIMIR_PRECUENTA':
@@ -193,7 +205,11 @@ export class MesasComponent implements OnInit, OnDestroy {
 
       case 'COBRAR':
         this.mesaService.seleccionarMesaActiva(mesa);
-        this.router.navigate(['/caja'], { queryParams: { mesaId: mesa.id } });
+        this.router.navigate(['/caja'], {
+          queryParams: mesa.comandaId
+            ? { comandaId: mesa.comandaId, mesaId: mesa.mesaId || mesa.id }
+            : { mesaId: mesa.id },
+        });
         break;
     }
   }
@@ -223,7 +239,11 @@ export class MesasComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((res) => {
       if (res?.confirmado && res.destinoId) {
-        this.mesaService.moverMesa(mesaOrigen.id, res.destinoId).subscribe({
+        const mover$ = mesaOrigen.comandaId
+          ? this.mesaService.asignarComandaAMesa(mesaOrigen.comandaId, res.destinoId)
+          : this.mesaService.moverMesa(mesaOrigen.id, res.destinoId);
+
+        mover$.subscribe({
           next: () => {
             this.notifications.success(
               `El pedido de ${mesaOrigen.numero} se transfirió exitosamente a la mesa seleccionada.`,
@@ -252,9 +272,13 @@ export class MesasComponent implements OnInit, OnDestroy {
           next: (respuesta) => {
             const mesaActualizada: Mesa = {
               ...mesa,
+              mesaId: mesa.mesaId || mesa.id,
               estado: 'PENDIENTE',
               comensales: res.comensales,
               minutosAbierta: 1,
+              comandaId: respuesta.comandaId,
+              tipoOrigen: respuesta.tipoOrigen,
+              folioOrigen: respuesta.folioOrigen,
               mesero: usuarioActivo?.nombre || 'Atención',
             };
 

@@ -64,6 +64,14 @@ export class DesgloseCuentaComponent implements OnInit {
     );
   });
 
+  readonly encabezadoCuenta = computed(() => {
+    if (this.cajaService.tipoOrigen() === 'MESA' && this.cajaService.mesaNumero()) {
+      return `Cuenta Mesa ${this.cajaService.mesaNumero()}`;
+    }
+
+    return `Cuenta ${this.cajaService.folioOrigen() || this.cajaService.mesaNumero() || 'Pedido'}`;
+  });
+
   ngOnInit() {
     this.cargarClientesAll();
   }

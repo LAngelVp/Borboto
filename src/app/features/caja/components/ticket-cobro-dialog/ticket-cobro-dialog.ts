@@ -12,7 +12,7 @@ import { AjustesService, DatosNegocio } from '../../../../core/services/ajustes.
   imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ticket-cobro-dialog.html',
-  styleUrl: './ticket-cobro-dialog.scss'
+  styleUrl: './ticket-cobro-dialog.scss',
 })
 export class TicketCobroDialog implements OnInit {
   readonly dialogRef = inject(MatDialogRef<TicketCobroDialog>);
@@ -25,7 +25,7 @@ export class TicketCobroDialog implements OnInit {
     telefono: '5512345678',
     direccion: 'Av. Principal 123, CDMX',
     email: 'contacto@borboto.com',
-    mensaje_recibo: '¡Gracias por su preferencia!'
+    mensaje_recibo: '¡Gracias por su preferencia!',
   });
 
   ngOnInit() {
@@ -35,12 +35,21 @@ export class TicketCobroDialog implements OnInit {
           this.negocio.set(res);
         }
       },
-      error: (err) => console.error('Error fetching dynamic business details:', err)
+      error: (err) => console.error('Error fetching dynamic business details:', err),
     });
   }
 
   imprimirTicket() {
     window.print();
+  }
+
+  getOrigenLabel(): string {
+    const transaccion = this.data.transaccion;
+    if (transaccion.tipoOrigen === 'MESA' && transaccion.mesaNumero) {
+      return `Mesa ${transaccion.mesaNumero}`;
+    }
+
+    return transaccion.folioOrigen || transaccion.mesaNumero || 'Pedido';
   }
 
   cerrar() {

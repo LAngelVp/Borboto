@@ -199,13 +199,16 @@ export class MesaService {
   }
 
   abrirMesa(mesaId: number, comensales: number, usuarioId?: number) {
-    return this.http.post<{ ok: boolean; comandaId: number }>(
-      `${this.apiUrl}/mesas/${mesaId}/abrir`,
-      {
-        comensales,
-        usuarioId: usuarioId || 1,
-      },
-    );
+    return this.http.post<{
+      ok: boolean;
+      comandaId: number;
+      mesaId: number;
+      tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+      folioOrigen: string;
+    }>(`${this.apiUrl}/mesas/${mesaId}/abrir`, {
+      comensales,
+      usuarioId: usuarioId || 1,
+    });
   }
 
   liberarMesa(mesaId: number) {
@@ -234,18 +237,36 @@ export class MesaService {
     return this.http.post(`${this.apiUrl}/mesas/${origenId}/mover`, { destinoId });
   }
 
+  asignarComandaAMesa(comandaId: number, destinoId: number) {
+    return this.http.post<{
+      ok: boolean;
+      comandaId: number;
+      mesaId: number;
+      tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+      folioOrigen: string;
+    }>(`${this.apiUrl}/comandas/${comandaId}/asignar-mesa`, { destinoId });
+  }
+
   crearEnvio(usuarioId?: number, clienteId?: number) {
-    return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
-      `${this.apiUrl}/envios/crear`,
-      { usuarioId, clienteId },
-    );
+    return this.http.post<{
+      ok: boolean;
+      mesaId: number | null;
+      comandaId: number;
+      numero: string;
+      tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+      folioOrigen: string;
+    }>(`${this.apiUrl}/envios/crear`, { usuarioId, clienteId });
   }
 
   crearPedidoMostrador(usuarioId?: number, clienteId?: number) {
-    return this.http.post<{ ok: boolean; mesaId: number; comandaId: number; numero: string }>(
-      `${this.apiUrl}/mostrador/crear`,
-      { usuarioId, clienteId },
-    );
+    return this.http.post<{
+      ok: boolean;
+      mesaId: number | null;
+      comandaId: number;
+      numero: string;
+      tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+      folioOrigen: string;
+    }>(`${this.apiUrl}/mostrador/crear`, { usuarioId, clienteId });
   }
 
   cancelarComanda(comandaId: number, usuarioId: number, notas: string) {

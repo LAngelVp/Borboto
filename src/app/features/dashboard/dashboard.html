@@ -203,6 +203,7 @@
                     <th>Folio</th>
                     <th>Fecha</th>
                     <th>Cliente</th>
+                    <th>Origen</th>
                     <th>Método</th>
                     <th>Usuario</th>
                     <th>Estatus</th>
@@ -216,6 +217,7 @@
                       <td class="folio">#{{ t.folio }}</td>
                       <td class="hora">{{ t.fecha }}</td>
                       <td>{{ t.cliente }}</td>
+                      <td>{{ getOrigenLabel(t) }}</td>
                       <td class="metodo-badge-col">
                         <span
                           class="metodo-badge"

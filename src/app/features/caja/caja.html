@@ -1,8 +1,6 @@
 <div class="caja-page">
   <div class="caja-header-bar">
-    <h2 class="title">
-      <mat-icon>point_of_sale</mat-icon> Panel de Caja
-    </h2>
+    <h2 class="title"><mat-icon>point_of_sale</mat-icon> Panel de Caja</h2>
     <div class="header-actions">
       <button mat-raised-button color="warn" class="btn-corte" (click)="abrirCorteCaja()">
         <mat-icon>local_atm</mat-icon> Corte de Caja / Cerrar Sesión
@@ -25,7 +23,8 @@
         <mat-checkbox
           [checked]="cajaService.solicitaFactura()"
           (change)="toggleFactura($event.checked)"
-          color="primary">
+          color="primary"
+        >
           <span class="factura-label">
             <mat-icon class="icon-receipt">receipt_long</mat-icon>
             Generar código de autofactura en ticket
@@ -37,10 +36,9 @@
             <mat-checkbox
               [checked]="cajaService.agruparConsumo()"
               (change)="toggleAgruparConsumo($event.checked)"
-              color="accent">
-              <span class="factura-sublabel">
-                Facturar como Consumo General
-              </span>
+              color="accent"
+            >
+              <span class="factura-sublabel"> Facturar como Consumo General </span>
             </mat-checkbox>
           </div>
         }
@@ -52,8 +50,10 @@
         color="primary"
         class="btn-cobrar"
         [class.btn-listo]="cajaService.pagoSuficiente()"
-        (click)="procesarCobro()">
-        <mat-icon>check_circle</mat-icon> COBRAR Y CERRAR MESA
+        (click)="procesarCobro()"
+      >
+        <mat-icon>check_circle</mat-icon>
+        {{ cajaService.tipoOrigen() === 'MESA' ? 'COBRAR Y CERRAR MESA' : 'COBRAR PEDIDO' }}
       </button>
     </section>
   </div>

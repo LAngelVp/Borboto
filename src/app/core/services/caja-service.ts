@@ -18,6 +18,8 @@ export class CajaService {
   readonly mesaId = signal<number>(0);
   readonly comandaId = signal<number>(0);
   readonly numeroMesa = signal<string>('');
+  readonly tipoOrigen = signal<'MESA' | 'MOSTRADOR' | 'ENVIO'>('MESA');
+  readonly folioOrigen = signal<string>('');
 
   // ALIAS PÚBLICO PARA RETROCOMPATIBILIDAD CON LA PLANTILLA HTML
   readonly mesaNumero = this.numeroMesa;
@@ -110,7 +112,10 @@ export class CajaService {
     this.http
       .get<{
         comandaId: number;
+        mesaId: number;
         mesaNumero: string;
+        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+        folioOrigen: string;
         total: number;
         clienteId?: number | null;
         clienteNombre?: string;
@@ -121,7 +126,10 @@ export class CajaService {
       .subscribe({
         next: (res) => {
           this.comandaId.set(res.comandaId);
-          this.numeroMesa.set(String(res.mesaNumero));
+          this.mesaId.set(res.mesaId || mesaId);
+          this.tipoOrigen.set(res.tipoOrigen || 'MESA');
+          this.folioOrigen.set(res.folioOrigen || String(res.mesaNumero || ''));
+          this.numeroMesa.set(String(res.mesaNumero || res.folioOrigen || ''));
           this.totalCuentaOriginal.set(Number(res.total));
           this.totalCuenta.set(Number(res.total));
           this.montoRecibido.set(Number(res.total));
@@ -143,6 +151,51 @@ export class CajaService {
     });
   }
 
+  cargarCuentaComanda(comandaId: number) {
+    this.limpiarSeleccion();
+
+    this.http
+      .get<{
+        comandaId: number;
+        mesaId: number | null;
+        mesaNumero: string;
+        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+        folioOrigen: string;
+        total: number;
+        clienteId?: number | null;
+        clienteNombre?: string;
+        clientePuntos?: number;
+        clienteEsFrecuente?: boolean;
+        clienteVisitas?: number;
+      }>(`${this.apiUrl}/caja/comanda/${comandaId}`)
+      .subscribe({
+        next: (res) => {
+          this.comandaId.set(res.comandaId);
+          this.mesaId.set(res.mesaId || 0);
+          this.tipoOrigen.set(res.tipoOrigen || 'MESA');
+          this.folioOrigen.set(res.folioOrigen || String(res.mesaNumero || ''));
+          this.numeroMesa.set(String(res.mesaNumero || res.folioOrigen || ''));
+          this.totalCuentaOriginal.set(Number(res.total));
+          this.totalCuenta.set(Number(res.total));
+          this.montoRecibido.set(Number(res.total));
+
+          if (res.clienteId) {
+            this.clienteId.set(res.clienteId);
+            this.clienteNombre.set(res.clienteNombre || '');
+            this.clientePuntos.set(res.clientePuntos || 0);
+            this.clienteEsFrecuente.set(!!res.clienteEsFrecuente);
+            this.clienteVisitas.set(res.clienteVisitas || 0);
+          }
+        },
+        error: (err) => console.error('Error al obtener cuenta de caja por comanda:', err),
+      });
+
+    this.http.get<{ items: ItemComanda[] }>(`${this.apiUrl}/comandas/${comandaId}`).subscribe({
+      next: (res: any) => this.items.set(res.items || []),
+      error: (err) => console.error('Error al obtener ítems de la comanda:', err),
+    });
+  }
+
   cobrarYCerrarMesa(usuarioId?: number) {
     const payload = {
       comandaId: this.comandaId(),
@@ -161,10 +214,15 @@ export class CajaService {
       agruparConsumo: this.agruparConsumo(),
     };
 
-    return this.http.post<{ ok: boolean; ticketId: number; autofactura?: any }>(
-      `${this.apiUrl}/caja/cobrar`,
-      payload,
-    );
+    return this.http.post<{
+      ok: boolean;
+      ticketId: number;
+      comandaId: number;
+      mesaId: number | null;
+      tipoOrigen?: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+      folioOrigen?: string;
+      autofactura?: any;
+    }>(`${this.apiUrl}/caja/cobrar`, payload);
   }
 
   vincularClienteAComanda(comandaId: number, clienteId: number | null) {
@@ -244,6 +302,8 @@ export class CajaService {
     this.mesaId.set(0);
     this.comandaId.set(0);
     this.numeroMesa.set('');
+    this.tipoOrigen.set('MESA');
+    this.folioOrigen.set('');
     this.totalCuentaOriginal.set(0);
     this.totalCuenta.set(0);
     this.descuentoAplicado.set(0);
@@ -272,7 +332,17 @@ export class CajaService {
       tarjetaCalculado: number;
       transferenciaCalculado: number;
       ventasTotales: number;
-      pagos: Array<{ id: number; total: string; metodo: string; fecha: string; mesa: string }>;
+      pagos: Array<{
+        id: number;
+        comandaId: number;
+        total: string;
+        metodo: string;
+        fecha: string;
+        mesa: string;
+        mesaId: number | null;
+        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
+        folioOrigen: string;
+      }>;
     }>(`${this.apiUrl}/caja/corte/actual/${usuarioId}`);
   }
 
