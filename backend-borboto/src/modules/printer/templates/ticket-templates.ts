@@ -50,6 +50,8 @@ export interface ItemComandaImpresion {
   notas?: string;
 }
 
+const MARGEN_INFERIOR_LINEAS = 4;
+
 // ─── HELPER DE FORMATEO DINÁMICO SEGÚN ANCHO ──────────────────────────────
 function padLine(left: string, right: string, width: number): string {
   const spaceNeeded = width - left.length - right.length;
@@ -71,10 +73,11 @@ function agregarLineaSiExiste(lineas: string[], valor: string | undefined, width
   }
 }
 
-function agregarRemateFinal(lineas: string[]): void {
-  lineas.push('---------');
-  lineas.push('-------');
-  lineas.push('-------');
+function agregarRemateFinal(lineas: string[], ancho: number): void {
+  const separadorSuave = '-'.repeat(ancho);
+  for (let index = 0; index < MARGEN_INFERIOR_LINEAS; index += 1) {
+    lineas.push(separadorSuave);
+  }
 }
 
 // ─── 1. TEMPLATE DE PRODUCCIÓN (COCINA / BARRA) ───────────────────────────
@@ -112,9 +115,7 @@ export function generarTemplateProduccion(
   });
 
   ticket += separador + '\n';
-  ticket += '---------\n';
-  ticket += '-------\n';
-  ticket += '-------\n';
+  ticket += (separador + '\n').repeat(MARGEN_INFERIOR_LINEAS);
   return ticket;
 }
 
@@ -203,8 +204,7 @@ export function generarTemplateCobro(
   }
 
   lineas.push(separador);
-  lineas.push(centrarTexto('¡GRACIAS POR SU PREFERENCIA!', maxW));
-  agregarRemateFinal(lineas);
+  agregarRemateFinal(lineas, maxW);
 
   return lineas.join('\n') + '\n';
 }

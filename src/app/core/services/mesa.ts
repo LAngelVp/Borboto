@@ -122,8 +122,13 @@ export class MesaService {
     return todasMesas.filter((mesa) => {
       const zonaNombreMesa = (mesa.zona || '').toString().toUpperCase().trim();
 
-      // Descartar SOLO si la zona es explícitamente de envíos a domicilio
-      if (zonaNombreMesa === 'DOMICILIO' || zonaNombreMesa === 'DELIVERY') {
+      // El listado principal solo debe mostrar mesas físicas reales del salón.
+      // Excluimos explícitamente pedidos virtuales de mostrador y domicilio.
+      if (
+        zonaNombreMesa === 'DOMICILIO' ||
+        zonaNombreMesa === 'DELIVERY' ||
+        zonaNombreMesa === 'MOSTRADOR'
+      ) {
         return false;
       }
 

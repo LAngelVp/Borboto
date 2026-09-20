@@ -236,10 +236,16 @@ export class PrinterService {
     const initialize = Buffer.from([0x1b, 0x40]);
     const lineSpacing = Buffer.from([0x1b, 0x33, 0x00]);
     const text = Buffer.from(contenido.replace(/\r?\n/g, '\r\n'), 'latin1');
-    const feed = Buffer.from(anchoPapel === '58mm' ? [0x0a, 0x0a] : [0x0a, 0x0a, 0x0a]);
+    // Refuerzo físico para térmicas: después de las líneas en blanco del template,
+    // este feed adicional fuerza expulsión visible de papel aun sin corte automático.
+    const feed = Buffer.from(
+      anchoPapel === '58mm'
+        ? [0x0a, 0x0a, 0x0a, 0x0a, 0x0a]
+        : [0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a],
+    );
     const cut =
       corteTipo === 'TOTAL'
-        ? Buffer.from([0x1d, 0x56, 0x00])
+        ? Buffer.from([0x1d, 0x56, 0x41, 0x10])
         : corteTipo === 'PARCIAL'
           ? Buffer.from([0x1d, 0x56, 0x01])
           : Buffer.alloc(0);

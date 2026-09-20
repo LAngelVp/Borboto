@@ -145,7 +145,7 @@ app.get('/api/mesas', async (_req, res) => {
              m.creado_en AS "creadoEn"
       FROM mesas m
       LEFT JOIN zonas z ON m.zona_id = z.id
-      LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado != 'CERRADA'
+      LEFT JOIN comandas c ON c.mesa_id = m.id AND c.estado = 'ABIERTA'
       LEFT JOIN clientes cli ON c.cliente_id = cli.id
       LEFT JOIN usuarios u ON c.usuario_id = u.id
       ORDER BY m.id ASC;
@@ -205,7 +205,7 @@ app.post('/api/mesas/:origenId/mover', async (req, res) => {
     }
     const { estado: estadoOrigen, comensales, minutos_abierta } = mesaOrigenRes.rows[0];
     const comandaRes = await client.query(
-      `SELECT id FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`,
+      `SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
       [origenId],
     );
 
@@ -241,7 +241,7 @@ app.post('/api/mesas/mover', async (req, res) => {
   try {
     await client.query('BEGIN');
     await client.query(
-      `UPDATE comandas SET mesa_id = $1 WHERE mesa_id = $2 AND estado != 'CERRADA'`,
+      `UPDATE comandas SET mesa_id = $1 WHERE mesa_id = $2 AND estado = 'ABIERTA'`,
       [destinoId, origenId],
     );
     await client.query(`UPDATE mesas SET estado = 'PENDIENTE' WHERE id = $1`, [destinoId]);
@@ -375,7 +375,7 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
   const { mesaId } = req.params;
   try {
     const comandaRes = await pool.query(
-      `SELECT id, total FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`,
+      `SELECT id, total FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
       [mesaId],
     );
     if (comandaRes.rows.length === 0) {
@@ -567,7 +567,7 @@ app.post('/api/comandas', async (req, res) => {
 
     if (!idComandaActual || idComandaActual === 0) {
       const comandaExistente = await client.query(
-        `SELECT id FROM comandas WHERE mesa_id = $1 AND estado != 'CERRADA' ORDER BY id DESC LIMIT 1`,
+        `SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
         [mesaId],
       );
       if (comandaExistente.rows.length > 0) {
@@ -715,7 +715,7 @@ app.get('/api/cocina/tickets', async (_req, res) => {
       SELECT c.id, c.mesa_id AS "mesaId", m.numero AS "mesaNumero", COALESCE(u.nombre, 'Mesero') AS mesero,
              COALESCE(m.minutos_abierta, 1) AS "minutosTranscurridos", 'PREPARANDO' AS estado
       FROM comandas c JOIN mesas m ON c.mesa_id = m.id LEFT JOIN usuarios u ON c.usuario_id = u.id
-      WHERE c.estado != 'CERRADA' ORDER BY c.fecha_apertura ASC;
+      WHERE c.estado = 'ABIERTA' ORDER BY c.fecha_apertura ASC;
     `;
     const { rows: tickets } = await pool.query(queryComandas);
     const ticketsConItems = [];
@@ -786,7 +786,7 @@ app.get('/api/caja/mesa/:mesaId', async (req, res) => {
              c.cliente_id AS "clienteId", cli.nombre AS "clienteNombre", COALESCE(cli.puntos_acumulados, 0) AS "clientePuntos",
              COALESCE(cli.es_frecuente, false) AS "clienteEsFrecuente", COALESCE(cli.visitas_count, 0) AS "clienteVisitas"
       FROM comandas c JOIN mesas m ON c.mesa_id = m.id LEFT JOIN clientes cli ON c.cliente_id = cli.id
-      WHERE m.id = $1 AND c.estado != 'CERRADA' LIMIT 1;
+      WHERE m.id = $1 AND c.estado = 'ABIERTA' LIMIT 1;
     `;
     const { rows } = await pool.query(query, [mesaId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Mesa sin comanda activa' });
@@ -1299,11 +1299,14 @@ app.get('/api/admin/productos', async (_req, res) => {
 
 app.put('/api/categorias/:id', async (req, res) => {
   const { id } = req.params;
-  const { nombre, icono, orden } = req.body;
+  const { nombre, icono, orden, destino_impresion } = req.body;
   try {
     const { rows } = await pool.query(
-      `UPDATE categorias SET nombre = $1, icono = $2, orden = $3 WHERE id = $4 RETURNING *`,
-      [nombre, icono || 'restaurant', Number(orden) || 0, id],
+      `UPDATE categorias
+       SET nombre = $1, icono = $2, orden = $3, destino_impresion = $4
+       WHERE id = $5
+       RETURNING *`,
+      [nombre, icono || 'restaurant', Number(orden) || 0, destino_impresion || 'COCINA', id],
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Categoría no encontrada' });
     res.json(rows[0]);
@@ -1713,6 +1716,8 @@ app.get('/api/dashboard/tickets', async (req, res) => {
   try {
     const conditions: string[] = [];
     const params: any[] = [];
+    const tieneFiltroTexto =
+      Boolean(String(folio || '').trim()) || Boolean(String(cliente || '').trim());
 
     if (fechaInicio && fechaFin) {
       params.push(fechaInicio, fechaFin);
@@ -1720,12 +1725,17 @@ app.get('/api/dashboard/tickets', async (req, res) => {
     } else if (fechaInicio) {
       params.push(fechaInicio);
       conditions.push(`DATE(pa.fecha) >= $${params.length}`);
-    } else {
+    } else if (!tieneFiltroTexto) {
       conditions.push('DATE(pa.fecha) = CURRENT_DATE');
     }
 
     if (folio) {
-      params.push(Number(folio));
+      const folioNum = Number(folio);
+      if (!Number.isFinite(folioNum)) {
+        return res.status(400).json({ error: 'El folio debe ser numérico.' });
+      }
+
+      params.push(folioNum);
       conditions.push(`pa.id = $${params.length}`);
     }
 
