@@ -169,6 +169,7 @@ async function obtenerComandaPorId(
              c.usuario_id AS "usuarioId",
              c.cliente_id AS "clienteId",
              c.estado,
+              c.estado_operativo AS "estadoOperativo",
              c.total,
              c.tipo_origen AS "tipoOrigen",
              c.folio_origen AS "folioOrigen",
@@ -268,6 +269,7 @@ app.get('/api/mesas', async (_req, res) => {
                c.id AS "comandaId",
                c.tipo_origen AS "tipoOrigen",
                c.folio_origen AS "folioOrigen",
+               c.estado_operativo AS "estadoOperativo",
                c.cliente_id AS "clienteId",
                cli.nombre AS "clienteNombre",
                cli.direccion AS "clienteDireccion",
@@ -289,19 +291,14 @@ app.get('/api/mesas', async (_req, res) => {
                  ELSE 'Sin Zona'
                END AS zona,
                1 AS capacidad,
-               CASE
-                 WHEN EXISTS (
-                   SELECT 1 FROM comanda_items ci
-                   WHERE ci.comanda_id = c.id AND COALESCE(ci.completado, false) = false
-                 ) THEN 'EN COCINA'
-                 ELSE 'PENDIENTE'
-               END::estado_mesa_enum AS estado,
+               COALESCE(c.estado_operativo, 'PENDIENTE'::estado_mesa_enum) AS estado,
                1 AS comensales,
                GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.fecha_apertura)) / 60))::INT AS "minutosAbierta",
                COALESCE(c.total, 0.00) AS total,
                c.id AS "comandaId",
                c.tipo_origen AS "tipoOrigen",
                c.folio_origen AS "folioOrigen",
+               c.estado_operativo AS "estadoOperativo",
                c.cliente_id AS "clienteId",
                cli.nombre AS "clienteNombre",
                cli.direccion AS "clienteDireccion",
@@ -341,7 +338,7 @@ app.post('/api/mesas/:id/abrir', async (req, res) => {
     );
     const comandaRes = await client.query(
       `INSERT INTO comandas (mesa_id, usuario_id, estado, total, tipo_origen, folio_origen)
-       VALUES ($1, $2, 'ABIERTA', 0.00, $3, $4)
+        VALUES ($1, $2, 'ABIERTA', 0.00, $3, $4)
        RETURNING id, mesa_id AS "mesaId", tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen"`,
       [id, usuarioId || 1, origenMesa.tipoOrigen, origenMesa.folioOrigen],
     );
@@ -610,7 +607,8 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
               mesa_id AS "mesaId",
               total,
               tipo_origen AS "tipoOrigen",
-              folio_origen AS "folioOrigen"
+              folio_origen AS "folioOrigen",
+              estado_operativo AS "estadoOperativo"
        FROM comandas
        WHERE mesa_id = $1 AND estado = 'ABIERTA'
        ORDER BY id DESC LIMIT 1`,
@@ -623,6 +621,7 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
         total: 0,
         tipoOrigen: null,
         folioOrigen: null,
+        estadoOperativo: null,
         items: [],
       });
     }
@@ -640,6 +639,7 @@ app.get('/api/comandas/activa/:mesaId', async (req, res) => {
       total: comandaRes.rows[0].total,
       tipoOrigen: comandaRes.rows[0].tipoOrigen,
       folioOrigen: comandaRes.rows[0].folioOrigen,
+      estadoOperativo: comandaRes.rows[0].estadoOperativo,
       items: itemsRes.rows,
     });
   } catch (err: any) {
@@ -829,32 +829,45 @@ app.post('/api/comandas', async (req, res) => {
     await client.query('BEGIN');
     let idComandaActual = comandaId;
     let origenMesa = null;
-    if (mesaId) {
-      origenMesa = await obtenerOrigenComandaPorMesa(client, mesaId);
+    let comandaActual = null;
+    let mesaIdEfectiva = mesaId ? Number(mesaId) : null;
+
+    if (idComandaActual) {
+      comandaActual = await obtenerComandaPorId(client, idComandaActual);
+      if (!comandaActual) {
+        throw new Error('La comanda indicada no existe.');
+      }
+      mesaIdEfectiva = comandaActual.mesaId || mesaIdEfectiva;
+    }
+
+    if (!comandaActual && mesaIdEfectiva) {
+      origenMesa = await obtenerOrigenComandaPorMesa(client, mesaIdEfectiva);
     }
 
     if (!idComandaActual || idComandaActual === 0) {
-      if (!mesaId) {
+      if (!mesaIdEfectiva) {
         throw new Error('Se requiere mesaId para crear una comanda nueva desde una mesa física.');
       }
       const comandaExistente = await client.query(
         `SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
-        [mesaId],
+        [mesaIdEfectiva],
       );
       if (comandaExistente.rows.length > 0) {
         idComandaActual = comandaExistente.rows[0].id;
+        comandaActual = await obtenerComandaPorId(client, idComandaActual);
       } else {
         const nuevaComanda = await client.query(
           `INSERT INTO comandas (mesa_id, usuario_id, estado, total, tipo_origen, folio_origen)
            VALUES ($1, $2, 'ABIERTA', 0.00, $3, $4) RETURNING id`,
           [
-            mesaId,
+            mesaIdEfectiva,
             usuarioId || 1,
             origenMesa?.tipoOrigen || 'MESA',
-            origenMesa?.folioOrigen || String(mesaId),
+            origenMesa?.folioOrigen || String(mesaIdEfectiva),
           ],
         );
         idComandaActual = nuevaComanda.rows[0].id;
+        comandaActual = await obtenerComandaPorId(client, idComandaActual);
       }
     }
 
@@ -876,8 +889,11 @@ app.post('/api/comandas', async (req, res) => {
       totalAdicional,
       idComandaActual,
     ]);
-    if (mesaId) {
-      await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [mesaId]);
+    await client.query(`UPDATE comandas SET estado_operativo = 'EN COCINA' WHERE id = $1`, [
+      idComandaActual,
+    ]);
+    if (mesaIdEfectiva) {
+      await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [mesaIdEfectiva]);
     }
     await client.query('COMMIT');
 
@@ -935,6 +951,9 @@ app.post('/api/comandas/:comandaId/cancelar', async (req, res) => {
       `UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
       [comandaId],
     );
+    await client.query(`UPDATE comandas SET estado_operativo = 'DISPONIBLE' WHERE id = $1`, [
+      comandaId,
+    ]);
     if (mesa_id) {
       await client.query(
         `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
@@ -996,12 +1015,12 @@ app.patch('/api/comandas/:comandaId/cliente', async (req, res) => {
 app.get('/api/cocina/tickets', async (_req, res) => {
   try {
     const queryComandas = `
-      SELECT c.id, c.mesa_id AS "mesaId", m.numero AS "mesaNumero", COALESCE(u.nombre, 'Mesero') AS mesero,
+            SELECT c.id, c.mesa_id AS "mesaId", m.numero AS "mesaNumero", COALESCE(u.nombre, 'Mesero') AS mesero,
               c.id AS "comandaId",
               c.tipo_origen AS "tipoOrigen",
               c.folio_origen AS "folioOrigen",
               COALESCE(m.numero, c.folio_origen) AS "mesaNumero",
-              COALESCE(m.minutos_abierta, 1) AS "minutosTranscurridos", 'PREPARANDO' AS estado
+              COALESCE(m.minutos_abierta, 1) AS "minutosTranscurridos", COALESCE(c.estado_operativo, 'PENDIENTE') AS estado
             FROM comandas c LEFT JOIN mesas m ON c.mesa_id = m.id LEFT JOIN usuarios u ON c.usuario_id = u.id
       WHERE c.estado = 'ABIERTA' ORDER BY c.fecha_apertura ASC;
     `;
@@ -1049,6 +1068,9 @@ app.post('/api/cocina/tickets/:comandaId/despachar', async (req, res) => {
       `UPDATE comanda_items SET completado = TRUE, estado_kds = 'LISTO' WHERE comanda_id = $1`,
       [comandaId],
     );
+    await client.query(`UPDATE comandas SET estado_operativo = 'LISTO PARA SERVIR' WHERE id = $1`, [
+      comandaId,
+    ]);
     const comanda = await obtenerComandaPorId(client, comandaId);
     if (comanda?.mesaId) {
       await client.query(`UPDATE mesas SET estado = 'LISTO PARA SERVIR' WHERE id = $1`, [
@@ -1299,6 +1321,9 @@ app.post('/api/caja/cobrar', async (req, res) => {
       `UPDATE comandas SET estado = 'CERRADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
       [comandaId],
     );
+    await client.query(`UPDATE comandas SET estado_operativo = 'DISPONIBLE' WHERE id = $1`, [
+      comandaId,
+    ]);
     if (mesaIdReal) {
       await client.query(
         `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,

@@ -150,6 +150,7 @@ CREATE TABLE comandas (
     cliente_id INT REFERENCES clientes(id) ON DELETE SET NULL,
     tipo_origen VARCHAR(20) NOT NULL DEFAULT 'MESA',
     folio_origen VARCHAR(50) NOT NULL,
+    estado_operativo estado_mesa_enum NOT NULL DEFAULT 'PENDIENTE',
     estado estado_comanda_enum DEFAULT 'ABIERTA',
     total NUMERIC(10, 2) DEFAULT 0.00,
     fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

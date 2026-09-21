@@ -105,6 +105,14 @@ export class ComandaService {
         mesaId: number;
         tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO' | null;
         folioOrigen: string | null;
+        estadoOperativo:
+          | 'DISPONIBLE'
+          | 'PENDIENTE'
+          | 'EN COCINA'
+          | 'LISTO PARA SERVIR'
+          | 'SERVIDO'
+          | 'LIBRE'
+          | null;
         items: any[];
       }>(`${this.apiUrl}/comandas/activa/${mesaId}`)
       .subscribe({
@@ -157,6 +165,8 @@ export class ComandaService {
         mesaId: number | null;
         tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
         folioOrigen: string;
+        estadoOperativo?:
+          'DISPONIBLE' | 'PENDIENTE' | 'EN COCINA' | 'LISTO PARA SERVIR' | 'SERVIDO' | 'LIBRE';
         items: any[];
       }>(`${this.apiUrl}/comandas/${comandaId}`)
       .subscribe({

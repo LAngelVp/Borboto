@@ -69,7 +69,7 @@ export class Comanda implements OnInit {
     this.comandaService
       .enviarComandaACocina(
         this.comandaId,
-        this.mesaId || this.comandaService.mesaIdActual(),
+        this.comandaId > 0 ? this.comandaService.mesaIdActual() : this.mesaId,
         usuarioId,
       )
       .subscribe({

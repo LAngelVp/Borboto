@@ -32,6 +32,45 @@ export class MesaService {
   readonly filtroMostradorEstado = signal<string>('ACTIVOS');
   readonly filtroMostradorFecha = signal<string>('TODOS');
 
+  private esComandaExternaDeTipo(mesa: Mesa, tipo: 'MOSTRADOR' | 'ENVIO'): boolean {
+    if (mesa.tipoOrigen === tipo) {
+      return true;
+    }
+
+    const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
+    if (tipo === 'MOSTRADOR') {
+      return zonaUpper === 'MOSTRADOR';
+    }
+
+    return zonaUpper === 'DOMICILIO' || zonaUpper === 'DELIVERY';
+  }
+
+  private cumpleFiltroEstadoExterno(mesa: Mesa, estado: string): boolean {
+    const estadoMesa = (mesa.estado || 'PENDIENTE').toString().toUpperCase().trim();
+
+    if (estado === 'ACTIVOS') {
+      return estadoMesa !== 'DISPONIBLE' && estadoMesa !== 'LIBRE';
+    }
+
+    if (estado === 'TODOS') {
+      return true;
+    }
+
+    return estadoMesa === estado;
+  }
+
+  private ordenarComandasExternas(lista: Mesa[]): Mesa[] {
+    return [...lista].sort((a, b) => {
+      const fechaA = a.creadoEn ? new Date(a.creadoEn).getTime() : 0;
+      const fechaB = b.creadoEn ? new Date(b.creadoEn).getTime() : 0;
+      if (fechaA !== fechaB) {
+        return fechaB - fechaA;
+      }
+
+      return (b.comandaId || 0) - (a.comandaId || 0);
+    });
+  }
+
   private evaluarFiltroFecha(fechaRaw: string | undefined, fechaFiltro: string): boolean {
     if (fechaFiltro === 'TODOS' || !fechaRaw) return true;
 
@@ -70,19 +109,16 @@ export class MesaService {
     const estado = this.filtroEnvioEstado();
     const fechaFiltro = this.filtroEnvioFecha();
 
-    return this.mesas().filter((mesa) => {
-      const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
-      if (zonaUpper !== 'DOMICILIO') return false;
+    const filtradas = this.mesas().filter((mesa) => {
+      if (!this.esComandaExternaDeTipo(mesa, 'ENVIO')) return false;
 
-      let cumpleEstado = true;
-      if (estado === 'ACTIVOS') {
-        cumpleEstado = mesa.estado !== 'DISPONIBLE' && mesa.estado !== 'LIBRE';
-      } else if (estado !== 'TODOS') {
-        cumpleEstado = mesa.estado === estado;
-      }
-
-      return cumpleEstado && this.evaluarFiltroFecha(mesa.creadoEn, fechaFiltro);
+      return (
+        this.cumpleFiltroEstadoExterno(mesa, estado) &&
+        this.evaluarFiltroFecha(mesa.creadoEn, fechaFiltro)
+      );
     });
+
+    return this.ordenarComandasExternas(filtradas);
   });
 
   // 🔹 Pedidos de Mostrador activos y filtrados
@@ -90,19 +126,16 @@ export class MesaService {
     const estado = this.filtroMostradorEstado();
     const fechaFiltro = this.filtroMostradorFecha();
 
-    return this.mesas().filter((mesa) => {
-      const zonaUpper = (mesa.zona || '').toString().toUpperCase().trim();
-      if (zonaUpper !== 'MOSTRADOR') return false;
+    const filtradas = this.mesas().filter((mesa) => {
+      if (!this.esComandaExternaDeTipo(mesa, 'MOSTRADOR')) return false;
 
-      let cumpleEstado = true;
-      if (estado === 'ACTIVOS') {
-        cumpleEstado = mesa.estado !== 'DISPONIBLE' && mesa.estado !== 'LIBRE';
-      } else if (estado !== 'TODOS') {
-        cumpleEstado = mesa.estado === estado;
-      }
-
-      return cumpleEstado && this.evaluarFiltroFecha(mesa.creadoEn, fechaFiltro);
+      return (
+        this.cumpleFiltroEstadoExterno(mesa, estado) &&
+        this.evaluarFiltroFecha(mesa.creadoEn, fechaFiltro)
+      );
     });
+
+    return this.ordenarComandasExternas(filtradas);
   });
 
   // 🔹 Cómputo dinámico de mesas de salón filtradas
@@ -125,9 +158,8 @@ export class MesaService {
       // El listado principal solo debe mostrar mesas físicas reales del salón.
       // Excluimos explícitamente pedidos virtuales de mostrador y domicilio.
       if (
-        zonaNombreMesa === 'DOMICILIO' ||
-        zonaNombreMesa === 'DELIVERY' ||
-        zonaNombreMesa === 'MOSTRADOR'
+        this.esComandaExternaDeTipo(mesa, 'ENVIO') ||
+        this.esComandaExternaDeTipo(mesa, 'MOSTRADOR')
       ) {
         return false;
       }
