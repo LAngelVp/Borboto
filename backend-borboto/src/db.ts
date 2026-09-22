@@ -62,6 +62,42 @@ function getDatabaseDirectory(): string {
   // throw new Error('❌ No se encontró la carpeta "Database" con el archivo 000_init.sql');
 }
 
+function getMigrationsDirectory(dbDir: string): string | null {
+  const migrationsDir = path.join(dbDir, 'migrations');
+  if (!fs.existsSync(migrationsDir)) {
+    return null;
+  }
+
+  return migrationsDir;
+}
+
+function getSortedMigrationFiles(migrationsDir: string): string[] {
+  return fs
+    .readdirSync(migrationsDir)
+    .filter((fileName) => fileName.toLowerCase().endsWith('.sql'))
+    .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
+}
+
+async function applySqlMigration(
+  targetPool: InstanceType<typeof Pool>,
+  version: string,
+  filePath: string,
+) {
+  const sqlContent = fs.readFileSync(filePath, 'utf-8');
+
+  await targetPool.query('BEGIN');
+  try {
+    await targetPool.query(sqlContent);
+    await targetPool.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
+    await targetPool.query('COMMIT');
+    console.log(`✅ Migración aplicada: ${version}`);
+  } catch (migrationError: any) {
+    await targetPool.query('ROLLBACK');
+    console.error(`❌ Falló la migración ${version}:`, migrationError.message);
+    throw migrationError;
+  }
+}
+
 export async function sincronizarCombosComoProductos() {
   const client = await pool.connect();
   try {
@@ -220,6 +256,28 @@ export async function initDB(): Promise<void> {
     } else {
       console.log('ℹ️ La migración inicial ya se encontraba aplicada.');
       // console.log('ℹ️ La migración 000_init.sql ya se encontraba aplicada.');
+    }
+
+    const migrationsDir = getMigrationsDirectory(dbDir);
+    if (migrationsDir) {
+      const migrationFiles = getSortedMigrationFiles(migrationsDir);
+
+      for (const migrationFile of migrationFiles) {
+        const migrationCheck = await targetPool.query(
+          'SELECT id FROM schema_migrations WHERE version = $1',
+          [migrationFile],
+        );
+
+        if (migrationCheck.rows.length > 0) {
+          continue;
+        }
+
+        const migrationPath = path.join(migrationsDir, migrationFile);
+        console.log(`🚀 Aplicando migración incremental: ${migrationFile}`);
+        await applySqlMigration(targetPool, migrationFile, migrationPath);
+      }
+    } else {
+      console.log('ℹ️ No se encontró carpeta de migraciones incrementales.');
     }
 
     // Incremental migrations to ensure 'facturas' table satisfies new audit requirements

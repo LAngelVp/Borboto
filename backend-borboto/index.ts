@@ -37,6 +37,10 @@ const PORT = Number(process.env.PORT) || 3000;
 
 function resolveFrontendDistPath() {
   const possiblePaths = [
+    path.join(__dirname, 'dist', 'borboto', 'browser'),
+    path.join(__dirname, 'dist', 'browser'),
+    path.join(__dirname, 'dist', 'borboto'),
+    path.join(__dirname, 'dist'),
     path.join(process.cwd(), 'dist', 'borboto', 'browser'),
     path.join(process.cwd(), 'dist', 'browser'),
     path.join(process.cwd(), 'dist', 'borboto'),

@@ -120653,6 +120653,30 @@ function getDatabaseDirectory() {
   }
   throw new Error("\u274C No se encontr\xF3 la File DB");
 }
+function getMigrationsDirectory(dbDir) {
+  const migrationsDir = import_path.default.join(dbDir, "migrations");
+  if (!import_fs3.default.existsSync(migrationsDir)) {
+    return null;
+  }
+  return migrationsDir;
+}
+function getSortedMigrationFiles(migrationsDir) {
+  return import_fs3.default.readdirSync(migrationsDir).filter((fileName) => fileName.toLowerCase().endsWith(".sql")).sort((left, right) => left.localeCompare(right, "en", { numeric: true }));
+}
+async function applySqlMigration(targetPool, version, filePath) {
+  const sqlContent = import_fs3.default.readFileSync(filePath, "utf-8");
+  await targetPool.query("BEGIN");
+  try {
+    await targetPool.query(sqlContent);
+    await targetPool.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
+    await targetPool.query("COMMIT");
+    console.log(`\u2705 Migraci\xF3n aplicada: ${version}`);
+  } catch (migrationError) {
+    await targetPool.query("ROLLBACK");
+    console.error(`\u274C Fall\xF3 la migraci\xF3n ${version}:`, migrationError.message);
+    throw migrationError;
+  }
+}
 async function sincronizarCombosComoProductos() {
   const client = await pool.connect();
   try {
@@ -120789,6 +120813,24 @@ async function initDB() {
       }
     } else {
       console.log("\u2139\uFE0F La migraci\xF3n inicial ya se encontraba aplicada.");
+    }
+    const migrationsDir = getMigrationsDirectory(dbDir);
+    if (migrationsDir) {
+      const migrationFiles = getSortedMigrationFiles(migrationsDir);
+      for (const migrationFile of migrationFiles) {
+        const migrationCheck = await targetPool.query(
+          "SELECT id FROM schema_migrations WHERE version = $1",
+          [migrationFile]
+        );
+        if (migrationCheck.rows.length > 0) {
+          continue;
+        }
+        const migrationPath = import_path.default.join(migrationsDir, migrationFile);
+        console.log(`\u{1F680} Aplicando migraci\xF3n incremental: ${migrationFile}`);
+        await applySqlMigration(targetPool, migrationFile, migrationPath);
+      }
+    } else {
+      console.log("\u2139\uFE0F No se encontr\xF3 carpeta de migraciones incrementales.");
     }
     console.log('\u{1F504} Ejecutando migraciones incrementales para la tabla "facturas"...');
     await targetPool.query(`
@@ -122102,6 +122144,10 @@ var app = (0, import_express2.default)();
 var PORT = Number(process.env.PORT) || 3e3;
 function resolveFrontendDistPath() {
   const possiblePaths = [
+    import_path5.default.join(__dirname, "dist", "borboto", "browser"),
+    import_path5.default.join(__dirname, "dist", "browser"),
+    import_path5.default.join(__dirname, "dist", "borboto"),
+    import_path5.default.join(__dirname, "dist"),
     import_path5.default.join(process.cwd(), "dist", "borboto", "browser"),
     import_path5.default.join(process.cwd(), "dist", "browser"),
     import_path5.default.join(process.cwd(), "dist", "borboto"),
