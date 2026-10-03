@@ -20,6 +20,8 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
+            "outputPath": "dist/borboto",
+            "index": "src/index.html",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
@@ -28,7 +30,11 @@
                 "glob": "**/*",
                 "input": "public"
               },
-              "BORBOTOIcon.ico"
+              {
+                "glob": "BORBOTOIcon.ico",
+                "input": ".",
+                "output": "."
+              }
             ],
             "styles": [
               "src/styles.scss"

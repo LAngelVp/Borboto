@@ -14,9 +14,9 @@ export class SocketService {
     this.socket = io(this.runtimeConfig.socketUrl);
   }
 
-  onEvent(eventName: string): Observable<any> {
+  onEvent<T>(eventName: string): Observable<T> {
     return new Observable((observer) => {
-      this.socket.on(eventName, (data) => {
+      this.socket.on(eventName, (data: T) => {
         observer.next(data);
       });
     });
