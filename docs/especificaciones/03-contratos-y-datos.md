@@ -257,13 +257,13 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | PUT /api/mesas/:id | numero no vacio (nombre textual o numero finito), zona_id entero positivo, capacidad | Fila SQL; 400 Numero y zona validos son requeridos, 404 Mesa no encontrada; evento mesas solo en exito |
 | DELETE /api/mesas/:id | id | ok; 400 si error de eliminacion/historial |
 | POST /api/mesas/:id/abrir | comensales,usuarioId | {ok,comandaId,mesaId,tipoOrigen,folioOrigen}; crea comanda, estado PENDIENTE |
-| POST /api/mesas/:origenId/mover | destinoId | {ok,mensaje}; mueve ultima comanda abierta y estado/comensales/minutos |
-| POST /api/mesas/mover | origenId,destinoId | {ok}; variante mueve todas ABIERTA de origen, solo cambia estados de mesas |
+| POST /api/mesas/:origenId/mover | IDs enteros positivos; destinoId body | Politica SDD-009: comanda ABIERTA origen FOR UPDATE, mesas ascendentes FOR UPDATE; mueve solo esa comanda/estado operativo/comensales/minutos, libera origen; {ok,mensaje,comandaId,mesaId,tipoOrigen,folioOrigen}; 400 igualdad/IDs, 404 origen sin abierta/mesa ausente, 409 destino ocupado/23505 |
+| POST /api/mesas/mover | origenId,destinoId enteros positivos | Alias compatible de misma politica y respuesta de mover por origen; no mueve estados huerfanos ni todas las comandas; eventos mesas/cocina post-COMMIT |
 | POST /api/mesas/:mesaId/servir | Sin cuerpo requerido | {ok,mensaje}; transaccion con lock mesa, mesas.estado y comandas ABIERTA estado_operativo SERVIDO; 404 tras rollback si no existe; emite actualizar_mesas y actualizar_cocina |
 | POST /api/comandas/:comandaId/servir | ID entero positivo, cuerpo vacio | {ok:true,mensaje}; FOR UPDATE comanda, SERVIDO operativo y mesa asociada si no NULL; 400 ID invalido, 404 ausente, 409 no ABIERTA; rollback/release; eventos mesas/cocina post-COMMIT |
 | POST /api/comandas/:comandaId/precuenta | ID entero positivo, cuerpo vacio | {ok:true,comandaId,ticketTexto:string o null,impresionesPendientes:array}; 404 sin ABIERTA, 400 sin items/ID invalido, 500 error operativo |
 | POST /api/mesas/:mesaId/precuenta | ID entero positivo, cuerpo vacio | Resuelve ABIERTA por mesa y usa misma respuesta/servicio; 404 sin comanda, 400 ID invalido/sin items |
-| POST /api/comandas/:comandaId/asignar-mesa | destinoId | {ok,comandaId,mesaId,tipoOrigen,folioOrigen}; solo ABIERTA; 409 si destino tiene otra ABIERTA; preserva origen/folio |
+| POST /api/comandas/:comandaId/asignar-mesa | IDs enteros positivos; destinoId body | {ok,mensaje,comandaId,mesaId,tipoOrigen,folioOrigen}; lock comanda primero, mesas ascendentes; 404 ausente, 409 no ABIERTA/destino ocupado/23505; 400 misma mesa; externa NULL no libera origen; conserva estado operativo y folio; eventos mesas/cocina post-COMMIT |
 | POST /api/mostrador/crear | usuarioId,clienteId | 201 {ok,mesaId:null,comandaId,numero,tipoOrigen,folioOrigen}; folio M-n del dia |
 | POST /api/envios/crear | usuarioId,clienteId | Igual con ENVIO y folio E-n |
 | GET /api/comandas/activa/:mesaId | mesaId | {comandaId,mesaId,total,tipoOrigen,folioOrigen,estadoOperativo,items}; sin activa: id 0, total 0 e items [] |
@@ -329,6 +329,8 @@ SDD-001: POST cobrar ejecuta `SELECT id, mesa_id, estado, total FROM comandas WH
 SDD-008 reemplaza la limitacion anterior de precios cliente: POST comandas consulta productos en transaccion y usa exclusivamente su precio, incluyendo 0.00. Valida IDs enteros positivos y cantidades enteras positivas; producto inexistente 400, disponible=false 409. Adicion, cancelacion, KDS y cobro comparten lock de comanda. Cobro libera exclusivamente mesa_id de la fila bloqueada; NULL nunca usa mesaId del body. No introduce idempotency key ni cambia division/corte. Verificacion en [SDD-008](SDD-008-ciclo-atomico-comanda-y-precios.md).
 
 SDD-010: estado del ticket es agregado de items, no estado_mesa_enum. PREPARANDO no se persiste en mesas; EN COCINA se conserva hasta despacho explicito. Cerradas externas solo del dia servidor (fecha_cierre >= CURRENT_DATE y < CURRENT_DATE + 1 dia); canceladas excluidas. ACTIVOS excluye DISPONIBLE, TODOS incluye activos/finalizados y DISPONIBLE muestra solo finalizados; fechas frontend usan creadoEn (cierre para cerradas). Minutos evolucionan al recargar HTTP; sin reloj cliente incremental ni historico multidia. Ver [SDD-010](SDD-010-kds-entrega-tiempos-y-finalizados.md).
+
+SDD-009 sustituye la limitacion historica de folios COUNT+1: generarFolioOrigen adquiere pg_advisory_xact_lock(9009,tipo) sobre client transaccional; MAX sufijo numerico del prefijo correcto del dia +1 (COUNT+1 solo si no hay sufijos validos). Creaciones M/E retienen lock hasta INSERT/COMMIT o ROLLBACK; exclusividad entre escritores que usan esta politica, sin UNIQUE nuevo ni reparacion historica. Traslado rechaza 400 {error:'La mesa de destino debe ser distinta a la mesa de origen'}, destino ocupado/23505 409 {error:'La mesa ya tiene una comanda abierta'}, con rollback antes de responder. Dialog envio guarda contacto editado mediante PUT cliente antes de confirmar; direccion compartida, no snapshot por pedido. Ver [SDD-009](SDD-009-transferencias-folios-y-direccion-envio.md).
 
 ## Socket.IO
 

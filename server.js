@@ -119130,16 +119130,95 @@ async function obtenerComandaPorId(db, comandaId) {
 }
 async function generarFolioOrigen(db, tipoOrigen) {
   const prefijo = tipoOrigen === "MOSTRADOR" ? "M" : "E";
+  await db.query("SELECT pg_advisory_xact_lock($1::int, $2::int)", [9009, tipoOrigen === "MOSTRADOR" ? 1 : 2]);
   const { rows } = await db.query(
     `
-      SELECT COUNT(*)::integer + 1 AS consecutivo
+      SELECT COALESCE(MAX(CASE WHEN folio_origen ~ $2 THEN SUBSTRING(folio_origen FROM 3)::bigint END), COUNT(*)) + 1 AS consecutivo
       FROM comandas
       WHERE tipo_origen = $1
         AND DATE(fecha_apertura) = CURRENT_DATE
     `,
-    [tipoOrigen]
+    [tipoOrigen, `^${prefijo}-[0-9]+$`]
   );
   return `${prefijo}-${rows[0].consecutivo}`;
+}
+var TrasladoError = class extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+  status;
+};
+async function trasladarComanda(destinoId, origenId, comandaId) {
+  for (const id of [destinoId, origenId, comandaId].filter((id2) => id2 !== null)) {
+    if (!Number.isInteger(id) || id <= 0 || id > 2147483647) throw new TrasladoError(400, "IDs de mesa o comanda invalidos");
+  }
+  const errorIgualdad = "La mesa de destino debe ser distinta a la mesa de origen";
+  if (origenId === destinoId) throw new TrasladoError(400, errorIgualdad);
+  const client = await pool.connect();
+  let transactionOpen = false;
+  let releaseError;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    const comandaRes = await client.query(
+      comandaId !== null ? "SELECT id, mesa_id, estado, estado_operativo, tipo_origen, folio_origen FROM comandas WHERE id = $1 FOR UPDATE" : "SELECT id, mesa_id, estado, estado_operativo, tipo_origen, folio_origen FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1 FOR UPDATE",
+      [comandaId ?? origenId]
+    );
+    const comanda = comandaRes.rows[0];
+    if (!comanda) throw new TrasladoError(404, comandaId !== null ? "Comanda no encontrada" : "Mesa origen sin comanda abierta");
+    if (comanda.estado !== "ABIERTA") throw new TrasladoError(409, "Solo se pueden reasignar comandas abiertas");
+    if (comanda.mesa_id === destinoId) throw new TrasladoError(400, errorIgualdad);
+    const idsMesas = [...new Set([destinoId, comanda.mesa_id].filter((id) => id !== null))].sort((left, right) => left - right);
+    const mesasRes = await client.query(
+      "SELECT id, comensales, minutos_abierta FROM mesas WHERE id = ANY($1::int[]) ORDER BY id ASC FOR UPDATE",
+      [idsMesas]
+    );
+    if (mesasRes.rows.length !== idsMesas.length) throw new TrasladoError(404, "Mesa no encontrada");
+    const destinoRes = await client.query(
+      "SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' AND id <> $2",
+      [destinoId, comanda.id]
+    );
+    if (destinoRes.rows.length > 0) throw new TrasladoError(409, "La mesa ya tiene una comanda abierta");
+    const mesaOrigen = mesasRes.rows.find((mesa) => mesa.id === comanda.mesa_id);
+    await client.query("UPDATE comandas SET mesa_id = $1 WHERE id = $2", [destinoId, comanda.id]);
+    await client.query(
+      "UPDATE mesas SET estado = $1, comensales = $2, minutos_abierta = $3 WHERE id = $4",
+      [comanda.estado_operativo ?? "PENDIENTE", mesaOrigen?.comensales ?? 1, mesaOrigen?.minutos_abierta ?? 1, destinoId]
+    );
+    if (comanda.mesa_id !== null) {
+      await client.query("UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1", [comanda.mesa_id]);
+    }
+    await client.query("COMMIT");
+    transactionOpen = false;
+    emitirCambioGlobal("actualizar_mesas");
+    emitirCambioGlobal("actualizar_cocina");
+    return {
+      ok: true,
+      mensaje: "Mesa movida exitosamente",
+      comandaId: comanda.id,
+      mesaId: destinoId,
+      tipoOrigen: comanda.tipo_origen,
+      folioOrigen: comanda.folio_origen
+    };
+  } catch (error) {
+    if (transactionOpen) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+      }
+    }
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+      throw new TrasladoError(409, "La mesa ya tiene una comanda abierta");
+    }
+    throw error;
+  } finally {
+    client.release(releaseError);
+  }
+}
+function responderErrorTraslado(error, res) {
+  return res.status(error instanceof TrasladoError ? error.status : 500).json({ error: error instanceof Error ? error.message : String(error) });
 }
 io2.on("connection", (socket) => {
   console.log(`\u{1F50C} Cliente conectado por WebSockets`);
@@ -119300,146 +119379,24 @@ app.post("/api/mesas/:id/abrir", async (req, res) => {
   }
 });
 app.post("/api/mesas/:origenId/mover", async (req, res) => {
-  const { origenId } = req.params;
-  const { destinoId } = req.body;
-  if (!origenId || !destinoId) {
-    return res.status(400).json({ error: "Faltan par\xE1metros: origenId y destinoId son requeridos." });
-  }
-  if (Number(origenId) === Number(destinoId)) {
-    return res.status(400).json({ error: "Origen y destino deben ser distintos" });
-  }
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-    for (const mesaId of [Number(origenId), Number(destinoId)].sort((left, right) => left - right)) {
-      const mesaRes = await client.query("SELECT id, estado FROM mesas WHERE id = $1 FOR UPDATE", [mesaId]);
-      if (mesaRes.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ error: "Mesa no encontrada" });
-      }
-    }
-    if (await obtenerComandaAbiertaPorMesa(client, destinoId)) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
-    }
-    const mesaOrigenRes = await client.query(
-      `SELECT estado, comensales, minutos_abierta FROM mesas WHERE id = $1`,
-      [origenId]
-    );
-    if (mesaOrigenRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "La mesa origen no existe." });
-    }
-    const { estado: estadoOrigen, comensales, minutos_abierta } = mesaOrigenRes.rows[0];
-    const comandaActual = await obtenerComandaAbiertaPorMesa(client, origenId);
-    if (comandaActual) {
-      await client.query(`UPDATE comandas SET mesa_id = $1 WHERE id = $2`, [
-        destinoId,
-        comandaActual.id
-      ]);
-    }
-    await client.query(
-      `UPDATE mesas SET estado = $1, comensales = $2, minutos_abierta = $3 WHERE id = $4`,
-      [estadoOrigen, comensales || 1, minutos_abierta || 1, destinoId]
-    );
-    await client.query(
-      `UPDATE mesas SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0 WHERE id = $1`,
-      [origenId]
-    );
-    await client.query("COMMIT");
-    emitirCambioGlobal("actualizar_mesas");
-    res.json({ ok: true, mensaje: "Mesa movida exitosamente" });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    if (err.code === "23505") {
-      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
-    }
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+    res.json(await trasladarComanda(Number(req.body.destinoId), Number(req.params.origenId), null));
+  } catch (error) {
+    responderErrorTraslado(error, res);
   }
 });
 app.post("/api/mesas/mover", async (req, res) => {
-  const { origenId, destinoId } = req.body;
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-    await client.query(
-      `UPDATE comandas SET mesa_id = $1 WHERE mesa_id = $2 AND estado = 'ABIERTA'`,
-      [destinoId, origenId]
-    );
-    await client.query(`UPDATE mesas SET estado = 'PENDIENTE' WHERE id = $1`, [destinoId]);
-    await client.query(`UPDATE mesas SET estado = 'DISPONIBLE' WHERE id = $1`, [origenId]);
-    await client.query("COMMIT");
-    io2.emit("actualizar_mesas");
-    res.json({ ok: true });
+    res.json(await trasladarComanda(Number(req.body.destinoId), Number(req.body.origenId), null));
   } catch (error) {
-    await client.query("ROLLBACK");
-    res.status(500).json({ error: "Error al mover comanda de mesa" });
-  } finally {
-    client.release();
+    responderErrorTraslado(error, res);
   }
 });
 app.post("/api/comandas/:comandaId/asignar-mesa", async (req, res) => {
-  const { comandaId } = req.params;
-  const { destinoId } = req.body;
-  if (!destinoId) {
-    return res.status(400).json({ error: "Falta la mesa destino." });
-  }
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-    const comanda = await obtenerComandaPorId(client, comandaId);
-    if (!comanda) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "La comanda no existe." });
-    }
-    if (comanda.estado !== "ABIERTA") {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Solo se pueden reasignar comandas abiertas." });
-    }
-    const destinoMesa = await obtenerOrigenComandaPorMesa(client, destinoId);
-    const destinoComandaActiva = await obtenerComandaAbiertaPorMesa(client, destinoId);
-    if (destinoComandaActiva && Number(destinoComandaActiva.id) !== Number(comandaId)) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "La mesa destino ya tiene una comanda activa." });
-    }
-    await client.query(
-      `UPDATE comandas
-       SET mesa_id = $1
-       WHERE id = $2`,
-      [destinoMesa.mesaId, comandaId]
-    );
-    await client.query(
-      `UPDATE mesas
-       SET estado = 'PENDIENTE',
-           comensales = GREATEST(comensales, 1),
-           minutos_abierta = GREATEST(minutos_abierta, 1)
-       WHERE id = $1`,
-      [destinoMesa.mesaId]
-    );
-    if (comanda.mesaId) {
-      await client.query(
-        `UPDATE mesas
-         SET estado = 'DISPONIBLE', comensales = 0, minutos_abierta = 0
-         WHERE id = $1`,
-        [comanda.mesaId]
-      );
-    }
-    await client.query("COMMIT");
-    emitirCambioGlobal("actualizar_mesas");
-    res.json({
-      ok: true,
-      comandaId: Number(comandaId),
-      mesaId: destinoMesa.mesaId,
-      tipoOrigen: comanda.tipoOrigen,
-      folioOrigen: comanda.folioOrigen
-    });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+    res.json(await trasladarComanda(Number(req.body.destinoId), null, Number(req.params.comandaId)));
+  } catch (error) {
+    responderErrorTraslado(error, res);
   }
 });
 app.post("/api/productos/importar-lote", async (req, res) => {

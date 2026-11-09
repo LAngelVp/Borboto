@@ -19,7 +19,6 @@ import { NotificationService } from '../../../../core/services/notification.serv
 
 @Component({
   selector: 'app-crear-envio-dialog',
-  standalone: true,
   imports: [
     CommonModule,
     FormsModule,
@@ -46,6 +45,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
             <mat-select
               [(ngModel)]="clienteSeleccionadoId"
               (selectionChange)="onSeleccionarCliente($event.value)"
+              [disabled]="guardando()"
               (openedChange)="alAbrirSelect($event)"
             >
               <!-- Campo de Búsqueda Rápida integrado dentro del Select -->
@@ -108,7 +108,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
               required
               placeholder="Ej. Calle Palmas 204, Col. Centro"
               rows="2"
-              [disabled]="clienteSeleccionadoId !== 0"
+              [disabled]="guardando()"
             ></textarea>
           </mat-form-field>
 
@@ -119,7 +119,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
                 matInput
                 [(ngModel)]="telefono"
                 placeholder="Ej. 5511223344"
-                [disabled]="clienteSeleccionadoId !== 0"
+                [disabled]="guardando()"
               />
             </mat-form-field>
 
@@ -129,7 +129,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
                 matInput
                 [(ngModel)]="notas"
                 placeholder="Ej. Portón café / Sin cambio"
-                [disabled]="clienteSeleccionadoId !== 0"
+                [disabled]="guardando()"
               />
             </mat-form-field>
           </div>
@@ -137,11 +137,11 @@ import { NotificationService } from '../../../../core/services/notification.serv
       </mat-dialog-content>
 
       <mat-dialog-actions class="dialog-actions">
-        <button mat-stroked-button (click)="cerrar(false)">Cancelar</button>
+        <button mat-stroked-button [disabled]="guardando()" (click)="cerrar(false)">Cancelar</button>
         <button
           mat-flat-button
           color="primary"
-          [disabled]="!nombre || !direccion"
+          [disabled]="guardando() || !nombre.trim() || !direccion.trim()"
           (click)="confirmar()"
         >
           Proceder con Envío
@@ -295,6 +295,7 @@ export class CrearEnvioDialogComponent implements OnInit {
 
   readonly clientes = signal<Cliente[]>([]);
   readonly busquedaCliente = signal<string>('');
+  readonly guardando = signal(false);
 
   // Filtro reactivo en tiempo real por nombre o teléfono
   readonly clientesFiltrados = computed(() => {
@@ -328,6 +329,8 @@ export class CrearEnvioDialogComponent implements OnInit {
   }
 
   onSeleccionarCliente(id: number) {
+    if (this.guardando()) return;
+    this.clienteSeleccionadoId = id;
     if (id === 0) {
       this.nombre = '';
       this.direccion = '';
@@ -345,35 +348,57 @@ export class CrearEnvioDialogComponent implements OnInit {
   }
 
   cerrar(resultado: boolean) {
+    if (this.guardando()) return;
     this.dialogRef.close(resultado);
   }
 
   confirmar() {
-    if (!this.nombre || !this.direccion) return;
+    if (this.guardando() || !this.nombre.trim() || !this.direccion.trim()) return;
 
     if (this.clienteSeleccionadoId === 0) {
       const nuevo: Cliente = {
-        nombre: this.nombre,
-        direccion: this.direccion,
-        telefono: this.telefono,
-        notas: this.notas,
+        nombre: this.nombre.trim(),
+        direccion: this.direccion.trim(),
+        telefono: this.telefono.trim(),
+        notas: this.notas.trim(),
       };
 
+      this.guardando.set(true);
       this.ajustesService.crearCliente(nuevo).subscribe({
         next: (cli) => {
+          this.guardando.set(false);
           this.dialogRef.close({
             confirmado: true,
             clienteId: cli.id,
           });
         },
         error: () => {
+          this.guardando.set(false);
           this.notifications.error('Error al pre-registrar el cliente.');
         },
       });
     } else {
-      this.dialogRef.close({
-        confirmado: true,
-        clienteId: this.clienteSeleccionadoId,
+      const clienteId = this.clienteSeleccionadoId;
+      const original = this.clientes().find(cliente => cliente.id === clienteId);
+      if (!original) {
+        this.notifications.error('Cliente no encontrado. Seleccione nuevamente el cliente.');
+        return;
+      }
+      const actualizado: Cliente = { ...original, direccion: this.direccion.trim(), telefono: this.telefono.trim(), notas: this.notas.trim() };
+      if (actualizado.direccion === (original.direccion ?? '') && actualizado.telefono === (original.telefono ?? '') && actualizado.notas === (original.notas ?? '')) {
+        this.dialogRef.close({ confirmado: true, clienteId });
+        return;
+      }
+      this.guardando.set(true);
+      this.ajustesService.actualizarCliente(clienteId, actualizado).subscribe({
+        next: () => {
+          this.guardando.set(false);
+          this.dialogRef.close({ confirmado: true, clienteId });
+        },
+        error: () => {
+          this.guardando.set(false);
+          this.notifications.error('No se pudo guardar la direccion y contacto del envio.');
+        },
       });
     }
   }
