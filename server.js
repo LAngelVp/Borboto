@@ -119420,7 +119420,7 @@ app.get("/api/comandas/activa/:mesaId", async (req, res) => {
     }
     const comandaId = comandaRes.rows[0].id;
     const itemsRes = await pool.query(
-      `SELECT ci.id, ci.cantidad, ci.precio_unitario AS subtotal, ci.notas, ci.completado, ci.estado_kds,
+      `SELECT ci.id, ci.cantidad, ci.subtotal, ci.precio_unitario, ci.notas, ci.completado, ci.estado_kds,
               json_build_object('id', p.id, 'nombre', p.nombre, 'precio', ci.precio_unitario, 'categoria', c.nombre) AS producto
        FROM comanda_items ci JOIN productos p ON ci.producto_id = p.id JOIN categorias c ON p.categoria_id = c.id
        WHERE ci.comanda_id = $1 ORDER BY ci.id ASC`,
@@ -119447,7 +119447,7 @@ app.get("/api/comandas/:comandaId", async (req, res) => {
       return res.status(404).json({ error: "Comanda no encontrada." });
     }
     const itemsRes = await pool.query(
-      `SELECT ci.id, ci.cantidad, ci.precio_unitario AS subtotal, ci.notas, ci.completado, ci.estado_kds,
+      `SELECT ci.id, ci.cantidad, ci.subtotal, ci.precio_unitario, ci.notas, ci.completado, ci.estado_kds,
               json_build_object('id', p.id, 'nombre', p.nombre, 'precio', ci.precio_unitario, 'categoria', c.nombre) AS producto
        FROM comanda_items ci
        JOIN productos p ON ci.producto_id = p.id
@@ -119700,15 +119700,24 @@ app.post("/api/comandas/:comandaId/cancelar", async (req, res) => {
   const { comandaId } = req.params;
   const { notas } = req.body;
   const client = await pool.connect();
+  let transactionOpen = true;
+  let releaseError;
   try {
     await client.query("BEGIN");
     const comandaRes = await client.query("SELECT mesa_id, estado FROM comandas WHERE id = $1", [
       comandaId
     ]);
-    if (comandaRes.rows.length === 0) return res.status(404).json({ error: "Comanda no existe." });
+    if (comandaRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return res.status(404).json({ error: "Comanda no existe." });
+    }
     const { mesa_id, estado } = comandaRes.rows[0];
-    if (estado !== "ABIERTA")
+    if (estado !== "ABIERTA") {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
       return res.status(400).json({ error: "Solo se pueden cancelar comandas abiertas." });
+    }
     await client.query(
       `UPDATE comandas SET estado = 'CANCELADA', fecha_cierre = CURRENT_TIMESTAMP WHERE id = $1`,
       [comandaId]
@@ -119727,6 +119736,7 @@ app.post("/api/comandas/:comandaId/cancelar", async (req, res) => {
       [notas || "CANCELADO POR USUARIO", comandaId]
     );
     await client.query("COMMIT");
+    transactionOpen = false;
     emitirCambioGlobal("actualizar_mesas");
     emitirCambioGlobal("actualizar_cocina");
     res.json({
@@ -119734,10 +119744,16 @@ app.post("/api/comandas/:comandaId/cancelar", async (req, res) => {
       mensaje: mesa_id ? "Comanda cancelada y mesa liberada" : "Comanda cancelada correctamente"
     });
   } catch (err) {
-    await client.query("ROLLBACK");
-    res.status(500).json({ error: err.message });
+    if (transactionOpen) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+      }
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   } finally {
-    client.release();
+    client.release(releaseError);
   }
 });
 app.patch("/api/comandas/:comandaId/cliente", async (req, res) => {
@@ -119889,8 +119905,24 @@ app.post("/api/caja/cobrar", async (req, res) => {
     agruparConsumo
   } = req.body;
   const client = await pool.connect();
+  let transactionOpen = true;
+  let releaseError;
   try {
     await client.query("BEGIN");
+    const comandaRes = await client.query(
+      "SELECT id, mesa_id, estado, total FROM comandas WHERE id = $1 FOR UPDATE",
+      [comandaId]
+    );
+    if (comandaRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return res.status(404).json({ error: "Comanda no encontrada" });
+    }
+    if (comandaRes.rows[0].estado !== "ABIERTA") {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return res.status(409).json({ error: "La comanda ya fue cobrada o cancelada" });
+    }
     const configRes = await client.query(
       `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto FROM configuracion_facturacion WHERE id = 1`
     );
@@ -120053,6 +120085,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
       );
     }
     await client.query("COMMIT");
+    transactionOpen = false;
     emitirCambioGlobal("actualizar_mesas");
     let ticketTextoCobro = null;
     let impresionesPendientes = [];
@@ -120084,10 +120117,16 @@ app.post("/api/caja/cobrar", async (req, res) => {
       errorFacturapi: errorFacturapiMsg
     });
   } catch (err) {
-    await client.query("ROLLBACK");
-    res.status(500).json({ error: err.message });
+    if (transactionOpen) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+      }
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   } finally {
-    client.release();
+    client.release(releaseError);
   }
 });
 app.get("/api/caja/corte/actual/:usuarioId", async (req, res) => {

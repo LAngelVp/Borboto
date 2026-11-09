@@ -1,0 +1,253 @@
+# 04. Flujos y funcionalidad (As-Built)
+
+Fecha: 2026-11-09. Fuentes: [main.js](../../main.js), [license.html](../../license.html), [index.ts](../../backend-borboto/index.ts), [db.ts](../../backend-borboto/src/db.ts) y los servicios/componentes catalogados en [02](02-especificacion-componentes.md). Los diagramas son lectura del codigo, no resultado de una prueba en dispositivos.
+
+Revision [SDD-001](SDD-001-estabilizacion-comandas-cobro.md) implementada: rollback en cancelacion, cobro con FOR UPDATE/estado ABIERTA y subtotal generado en lecturas. Veinticuatro escenarios controlados pasan y server.js fue regenerado; no se ejecutaron pruebas sobre PostgreSQL real ni dispositivos. El typecheck conserva errores previos de declaraciones Multer, sin regresiones semanticas nuevas.
+
+## Casos de uso actuales
+
+| Caso | Actor / condicion | Resultado implementado |
+| --- | --- | --- |
+| Activar y renovar licencia | Puesto Electron, clave firmada | Verifica firma/equipo/vencimiento; guarda .lic; inicio o renovacion sin recrear main existente |
+| Configurar primer administrador | Sin filas usuarios | Registro ADMIN con nombre/PIN, sesion local y navegacion |
+| Login, cambio de turno y logout | Usuario activo con PIN | Reemplaza/borra usuario en localStorage; permisos de UI por rol/dispositivo |
+| Abrir mesa | Operador autorizado en UI | Comensales, comanda ABIERTA/PENDIENTE y notificacion global |
+| Mostrador / domicilio | Cliente seleccionado o creado | Comanda sin mesa, origen/folio diario M-n o E-n; proyeccion en tablero |
+| Mover/asignar mesa | Comanda y destino | Traslada mesa asociada; asignacion verifica ABIERTA y conflicto; origen comercial se conserva |
+| Registrar consumo | Mesa o comanda seleccionada | Borrador por producto/notas, agrega nuevas lineas, suma total, envia cocina e impresion por destino |
+| Preparar/despachar | Cocinero | Toggle completado; despacho pone todos LISTO y pedido LISTO PARA SERVIR |
+| Servir | Endpoint existente | Marca mesa SERVIDO; no cambia estado operativo de comanda |
+| Detalle/cancelacion | Comanda abierta | Motivo sobre notas, CANCELADA, items completados y mesa liberada |
+| Cobrar | ADMIN/CAJERO en Electron por permisos UI | Efectivo/tarjeta/transferencia, descuentos/puntos, metadatos de division, pago y cierre total |
+| Autofactura | Solicitud al cobrar y key configurada | Receipt Facturapi, codigo/URL/expiracion; cliente completa proceso fuera del POS |
+| Corte de caja | Usuario de caja | Resumen desde ultimo corte por usuario; guarda efectivo/fondo/diferencia y reporte Sheets |
+| Ventas y reimpresion | ADMIN Electron | Estadisticas, consulta max 100 tickets y reimpresion por pago |
+| Administracion | ADMIN Electron | CRUD, importacion primera hoja XLSX/CSV, imagenes y datos fiscales/negocio/banco |
+| Impresoras | Configuracion por destino | RED/USB/SIMULACION, ancho 58/80 mm, termica y corte, prueba |
+| Sincronizacion fiscal y reporte | Arranque, endpoint manual, corte/senales | Facturas locales por periodo y conteo enviado a Sheets |
+
+Limites de capacidad: IMPRIMIR_PRECUENTA es solo un snackbar. No se implementa pasarela de tarjeta, confirmacion bancaria, logistica de reparto ni cobros parciales acumulados. Los filtros de pedidos externos no convierten GET mesas en un historial de pedidos cerrados.
+
+## Arranque y apagado
+
+1. Electron define isDev desde NODE_ENV, rutas, dotenv y handlers IPC/errores.
+2. app.whenReady lee userData/borboto_license.lic y valida. Si falla, muestra license.html; no arranca el sistema completo desde esa rama hasta activar.
+3. iniciarSistemaCompleto ejecuta setupAndStartPostgres: intenta taskkill /F /IM postgres.exe /T, crea cluster si falta con initdb y archivo temporal de password, elimina pid, intenta stop previo y ejecuta pg_ctl start.
+4. Espera conexion TCP 127.0.0.1:DB_PORT, cada 200 ms, timeout 15 s. Esto confirma puerto abierto, no credenciales/esquema.
+5. En produccion requiere server.js y espera startServer. En desarrollo no inicia backend desde main: lo ejecuta concurrently via Bun.
+6. startServer crea/verifica BD, aplica esquema/migraciones, sincroniza combos, lanza sincronizacion fiscal sin bloquear su termino y escucha en 0.0.0.0. Al escuchar dispara reporte Sheets no bloqueante.
+7. Crea ventana principal. Desarrollo espera HTTP 4200 cada 500 ms sin timeout explicito; produccion busca cuatro candidatos index compilado y usa loadFile.
+8. Angular importa zone.js, bootstrapApplication(App,appConfig), HttpClient, animaciones, rutas hash y precarga. Sesion se restaura desde localStorage y guards deciden acceso.
+
+```mermaid
+sequenceDiagram
+  participant E as Electron main
+  participant L as License window
+  participant PG as PostgreSQL portable
+  participant B as Backend startServer
+  participant U as Angular renderer
+  E->>E: app.whenReady y validarLicencia
+  alt Licencia invalida o ausente
+    E->>L: loadFile license.html
+    E-->>L: init-license-view
+    L->>E: submit-license-key
+    E->>E: Verificar y guardar
+    E-->>L: submit-license-key-response
+  end
+  opt Licencia valida
+    E->>PG: setupAndStartPostgres
+    E->>PG: Sondeo TCP hasta 15 s
+    alt Produccion
+      E->>B: require server.js y await startServer
+      B->>PG: initDB y migraciones
+      B->>PG: Sincronizar combos
+      B->>B: Lanzar sincronizacion fiscal
+      B-->>E: Listener HTTP/Socket.IO listo
+      E->>U: loadFile index compilado
+    else Desarrollo
+      Note over B,U: Bun backend y Angular CLI arrancan por concurrently
+      E->>U: Esperar HTTP 4200 y loadURL
+    end
+    U->>U: Bootstrap y restaurar sesion
+    U->>B: HTTP y conexion Socket.IO
+  end
+```
+
+did-fail-load vuelve a cargar raiz. En produccion before-input-event bloquea F5 y Ctrl/Cmd+R. Ante fallo de iniciarSistemaCompleto, registra error, intenta notificar (puede no existir mainWindow), cierra listener, detiene PG y termina app. window-all-closed termina salvo macOS; will-quit cierra servidor retenido y detiene PG. Backend SIGINT/SIGTERM espera reporte Sheets, pool.end y process.exit; no es la misma ruta que will-quit de Electron ni garantiza su reporte final.
+
+El cierre forzado global postgres.exe no se limita al cluster Borboto. Las rutas activas dependen de cwd/userData/resources. No se verificaron privilegios, puerto ocupado ni instalacion portable en ejecucion. EADDRINUSE se registra y rechaza: el mensaje de liberar puerto no corresponde a una liberacion implementada.
+
+## Licenciamiento
+
+La verificacion usa [licencia_publica.pem](../../licencia_publica.pem). getPublicKeyPath prueba resources, __dirname, tools y cwd. WMIC csproduct uuid obtiene hardware Windows; si no es util, MD5 uppercase de COMPUTERNAME-USERNAME. validarLicencia divide la clave, verifica SHA256 sobre payloadBase64 y luego decodifica JSON. Si hardware_id existe, compara case-insensitive. Vencimiento se concatena con T23:59:59 y se compara con hora local.
+
+```mermaid
+flowchart TD
+  A[Leer clave guardada o enviada] --> B{Existe clave publica?}
+  B -->|No| X[Resultado invalido con motivo]
+  B -->|Si| C{Clave y partes payload/firma?}
+  C -->|No| X
+  C -->|Si| D{Firma SHA256 valida?}
+  D -->|No| X
+  D -->|Si| E[Decodificar JSON base64]
+  E --> F{hardware_id presente y diferente?}
+  F -->|Si| X
+  F -->|No| G{Fecha posterior al vencimiento?}
+  G -->|Si| H[Invalida y vencida]
+  G -->|No| I[Valida con payload]
+  I --> J{Clave enviada por IPC?}
+  J -->|Si| K[Guardar userData/borboto_license.lic]
+  K --> M{Main ya existe?}
+  M -->|Si| N[Cerrar licencia sin reiniciar sistema]
+  M -->|No| O[Iniciar sistema completo]
+  J -->|No| O
+  X --> P[Mostrar motivo en activacion o consulta]
+  H --> P
+```
+
+license.html valida texto no vacio y maneja init-license-view/respuesta. Ajustes consulta get-hardware-id/get-license-status y renueva por send/once; usa NgZone para actualizar vista. Fuera Electron, consultarEstadoLicencia muestra datos demo y renovar no usa el canal real; no constituye una licencia valida del backend.
+
+No hay validacion estricta del esquema payload ni timer que cierre ventas al vencer durante una sesion ya abierta. Los servicios fiscales leen el payload local sin verificar firma, y sus rutas de busqueda de .lic son heuristicas APPDATA/home/cwd, distintas de app.getPath(userData). El backend independiente no aplica la compuerta de licencia de Electron.
+
+## Pedido y cocina
+
+El borrador de ComandaService distingue itemsGuardados y itemsComanda. Agregar igual producto y notas incrementa cantidad; modificar notas es por indice; enviar manda solo nuevas lineas con productoId, cantidad y precio. POST comandas conserva/reusa la abierta por mesa o crea una, inserta lineas PENDIENTE y suma totalAdicional en transaccion; comanda y mesa pasan EN COCINA.
+
+```mermaid
+sequenceDiagram
+  actor M as Mesero
+  participant U as Angular Comanda
+  participant B as Backend
+  participant DB as PostgreSQL
+  participant P as PrinterService
+  participant K as Angular Cocina
+  M->>U: Seleccionar productos y notas
+  U->>B: POST /api/comandas con adiciones
+  B->>DB: BEGIN, resolver comanda, insertar items y total
+  B->>DB: Estado operativo EN COCINA y COMMIT
+  B-->>U: Socket actualizar_mesas
+  B-->>K: Socket actualizar_cocina
+  K->>B: GET /api/cocina/tickets
+  B->>P: imprimirComandaProduccion
+  P->>DB: Leer items impreso=false por destino
+  P->>P: TCP o construir trabajos USB
+  P->>DB: Marcar impreso=true e impreso_en
+  P-->>B: Texto fallback y trabajos pendientes
+  B-->>U: ok, comandaId y resultados de impresion
+  U->>U: Procesar USB / mostrar TicketModal
+  K->>B: PATCH item toggle
+  B->>DB: Invertir completado
+  K->>B: POST ticket despachar
+  B->>DB: Items LISTO y comanda/mesa LISTO PARA SERVIR
+  B-->>K: actualizar_cocina
+```
+
+KDS filtra PENDIENTE si algun item no esta completado, PREPARANDO si hay mezcla; toggle actualiza optimistamente la UI y no revierte ante error HTTP. Despacho quita ticket local pero el servidor sigue devolviendo comandas ABIERTA con items hasta cobrar/cancelar. El filtro por estado nominal puede discrepar con estado_operativo del contrato.
+
+Cancelacion solo acepta ABIERTA; pone CANCELADA/fecha_cierre, estado operativo DISPONIBLE, libera mesa, completa items y antepone notas. Desde SDD-001, las respuestas tempranas 404/400 ejecutan ROLLBACK antes de retornar; catch intenta rollback ante error precommit y finally libera una vez. Si rollback falla, release(Error) descarta la conexion en lugar de devolverla reutilizable al pool. Tras COMMIT confirmado no se intenta revertir. El SELECT de cancelacion no toma FOR UPDATE: la serializacion entre cancelacion y cobro no forma parte de esta correccion.
+
+Lecturas de items: GET comanda activa/por ID entrega ci.subtotal (linea completa) y precio_unitario, manteniendo producto.precio unitario. Tres unidades de 12.50 muestran 37.50 tanto en desglose como en totalComanda; Caja carga estos items por separado de su cabecera. No fue necesario modificar servicios o templates Angular.
+
+## Cobro y autofactura
+
+CajaService calcula total original/descuento, cambio y pagoSuficiente; efectivo debe cubrir total o cuota por persona, otros metodos se consideran suficientes si total>0. Cupon porcentaje/monto descuenta sobre original y se limita superiormente a ese subtotal. Canje limita puntos a saldo y ceil(total original), usa 1 punto=$1, limpia promocion y no se acumula como descuento independiente.
+
+```mermaid
+sequenceDiagram
+  actor C as Cajero
+  participant U as Angular Caja
+  participant B as Backend
+  participant DB as PostgreSQL
+  participant F as Facturapi
+  participant P as Impresion
+  C->>U: Elegir metodo, monto, descuento y factura
+  U->>U: Evaluar pagoSuficiente
+  U->>B: POST /api/caja/cobrar
+  B->>DB: BEGIN y SELECT comanda FOR UPDATE
+  alt Comanda inexistente
+    B->>DB: ROLLBACK
+    B-->>U: 404 Comanda no encontrada
+  else Estado distinto de ABIERTA
+    B->>DB: ROLLBACK
+    B-->>U: 409 Ya cobrada o cancelada
+  else ABIERTA con lock retenido
+    B->>DB: INSERT pagos
+    opt Solicita factura
+      B->>DB: Leer key activa y productos
+      alt Key disponible
+        B->>F: receipts.create
+        alt Receipt creado
+          F-->>B: id, key, URL y expires_at
+          B->>DB: INSERT tickets_autofactura
+        else Falla fiscal
+          B->>B: Capturar errorFacturapi
+        end
+      else Sin key
+        B->>B: errorFacturapi de configuracion
+      end
+    end
+    B->>DB: Actualizar puntos/visitas del cliente
+    B->>DB: CERRADA, liberar mesa y COMMIT
+    B-->>U: Socket actualizar_mesas
+    B->>P: Generar/despachar ticket por pagoId
+    B-->>U: ok, autofactura/error, texto y trabajos USB
+    U->>U: Avisar, imprimir y volver a mesas
+  end
+```
+
+El backend sigue usando campos financieros recibidos, pero SDD-001 exige comanda ABIERTA bajo FOR UPDATE antes de pagos o efectos fiscales. Dos cobros concurrentes esperan por la misma fila: tras COMMIT del primero, el segundo observa CERRADA y devuelve 409 despues de rollback, sin otro pago/impresion/evento. Inexistente devuelve 404. Los errores precommit intentan rollback y descartan conexion si no pueden limpiarla. La idempotencia es por estado, no una key con replay ni garantia para endpoints ajenos al bloqueo. Dividir cuenta persiste dividir_cuenta/partes_iguales pero el primer POST cierra toda la cuenta: no hay saldo parcial persistente. Facturapi se invoca dentro de la transaccion SQL; no hay transaccion distribuida para revertir un receipt externo si falla SQL despues.
+
+Para autofactura: EFECTIVO -> payment_form 01, TARJETA -> 04, TRANSFERENCIA -> 03. agruparConsumo crea un solo concepto CONSUMO DE ALIMENTOS Y BEBIDAS con product_key 90101501, unit_key E48 y precio totalCuenta. Sin agrupar usa lineas por producto y clave producto/categoria/default; el fallback de clave es 90101501, tax_included=true. dias_vigencia_ticket se guarda, pero receipts.create no envia ese parametro: la expiracion local se toma del receipt externo.
+
+Cliente al cobrar: visitas+1; puntos nuevos = floor(totalCuenta/pesosPorPunto)*factorPuntos; resta canje con minimo cero, suma nuevos y marca frecuente al alcanzar visitas requeridas. UI puntosPorGanar usa floor(total/10), y el canje sigue 1 punto=$1; no se debe asumir que reproduce todos los parametros de negocio.
+
+## Impresion
+
+```mermaid
+flowchart TD
+  A[Ticket por destino configurado en BD] --> B{Tipo impresora}
+  B -->|RED| C[TCP IP y puerto default 9100]
+  C --> D{Termica?}
+  D -->|Si| E[Buffer ESC/POS latin1, feed y corte]
+  D -->|No| F[Texto UTF-8]
+  E --> G{Envio o timeout/error?}
+  F --> G
+  G -->|Envio| H[Sin texto fallback]
+  G -->|Error o 3 s| I[Devolver texto para UI]
+  B -->|SIMULACION| I
+  B -->|USB| J[Devolver ElectronPendingPrintJob]
+  J --> K[Angular requiere IPC disponible]
+  K --> L{Termica con corte solicitado?}
+  L -->|Si| M[POST USB raw-print a backend Windows]
+  M --> N{HTTP falla?}
+  N -->|Si| O[IPC print-ticket-silent]
+  N -->|No| P[Trabajo considerado enviado por UI]
+  L -->|No| O
+  O --> Q[BrowserWindow oculta y webContents.print silent]
+  Q --> R[Cerrar ventana finally]
+```
+
+Produccion separa COCINA/BARRA por categorias.destino_impresion; CAJA/NINGUNO no generan esos tickets. Marca todos los items consultados impreso=true incluso si no hay impresora, si el envio devuelve fallback o si USB aun no se confirma. Cobro sin impresoras CAJA genera ticket simulado 80mm. No hay retry persistente ni confirmacion de papel entregado. RAW requiere Windows y usa temporal .bin con PowerShell/C# winspool; la UI solo evalua exito HTTP, no el campo ok=false de un 200. Electron escapa contenido/titulo para HTML; ancho usa 220/300 px, no una garantia fisica del driver.
+
+La prueba HTTP USB se rechaza para usar Electron desde ajustes. GET impresoras/system esta retirado (410). TicketModal no imprime si no recibe printerName, habitual en los textos de fallback. TicketCobroDialog si tiene window.print, pero no es el dialog que usa el cobro principal.
+
+## Sincronizacion fiscal, reporte y administracion
+
+[sincronizarFacturas.ts](../../backend-borboto/src/sincronizarFacturas.ts) selecciona key segun modo, pagina invoices.list de 50 y filtra fechas: por defecto ultimo ano hasta hoy; si hay vencimiento, inicio un ano antes de vencer y fin min(hoy,vencimiento). Vincula ticket por receipt, monto PENDIENTE, external_id y metadatos/codigos/pago. Upsert uuid_sat conserva ticket previo si nuevo es null. Sin UUID usa DRAFT_id; estado ticket pasa CANCELADA para canceled y TIMBRADA en otro caso. Construye URLs PDF/XML de dashboard Facturapi; no descarga archivos al filesystem.
+
+[reporteFacturas.service.ts](../../backend-borboto/src/services/reporteFacturas.service.ts) cuenta todas las filas de facturas, no solo activas ni un periodo. Resuelve hardware/nombre desde env, licencia y fallbacks; envia GET con token, hardware_id, cliente, total_facturas. Timeout fetch 10 s; captura errores y devuelve success=false. Arranque y corte lo disparan sin esperar; SIGINT/SIGTERM esperan. Hay endpoint de prueba manual, sin programador periodico.
+
+Administracion carga catalogos mediante HTTP; imagen usa Multer/Jimp y URL relativa, Excel/CSV usa FileReader/XLSX y primera hoja, luego POST lote crea categorias faltantes. Promociones COMBO_PRECIO se materializan en categoria Combos y Promociones y productos con promocion_id; sync desactiva productos de promociones que ya no correspondan. El borrado de promocion hace SET NULL en productos, por lo que no debe inferirse que todo producto antiguo del combo se elimina automaticamente.
+
+## Errores y validaciones
+
+- UI: Validators en login/fiscal, campos requeridos, patrones RFC/CP, email, dias 1..30; snackbars y confirmaciones; apertura limita entrada de comensales en dialog. No sustituyen validacion de servidor.
+- HTTP: checks especificos para campos faltantes, lote no vacio, folio/pago/impresora numericos, cuenta/comanda inexistente, estado ABIERTA en asignacion/cliente/cancelacion y conflicto de mesa destino. SDD-001 agrega existencia/ABIERTA con lock en cobro (404/409).
+- SQL: enum, FK, UNIQUE, precio>=0 y cantidad>0. No valida que un pago coincida con total real, que un PIN sea hash o que origen/folio sean unicos.
+- Transacciones de negocio suelen usar client retenido, BEGIN/COMMIT/ROLLBACK y release; SDD-001 corrige returns de cancelacion y cubre errores precommit de cancelacion/cobro con rollback o descarte de conexion. Migraciones siguen usando Pool.query y otros handlers no se refactorizaron; no afirmar atomicidad uniforme.
+- Errores de imagen/CSD y red externa se capturan en handlers, pero errores de middleware Multer no tienen normalizacion JSON central.
+- Electron/App interceptan warn/error, uncaughtException/unhandledRejection y errores del renderer; notifican con deduplicacion 2.5 s y texto de 220 caracteres. Filtran mensajes PRINT/DEBUG y logs info del puente.
+- AuthService.getHasUsers convierte fallo de GET usuarios en false, pudiendo mostrar registro inicial cuando falla la red. El servidor sigue rechazando registro si ya existen usuarios.
+- Existen credenciales/tokens por defecto y GET que devuelven PIN/API keys; CORS abierto y falta auth HTTP. No se reproducen valores sensibles ni se los presenta como practicas recomendadas.
+
+No se ejecutaron ventas, migraciones, impresion fisica, verificacion de licencia de un cliente ni solicitudes fiscales durante la elaboracion: se documento el comportamiento de las fuentes sin modificar ni operar datos del proyecto.
