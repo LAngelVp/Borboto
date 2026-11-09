@@ -7,11 +7,10 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { Mesa } from '../../../../core/models/mesa';
 
-export type AccionMesa = 'ABRIR' | 'AGREGAR_COMANDA' | 'VER_DETALLE' | 'IMPRIMIR_PRECUENTA' | 'MOVER_MESA' | 'COBRAR';
+export type AccionMesa = 'ABRIR' | 'AGREGAR_COMANDA' | 'VER_DETALLE' | 'IMPRIMIR_PRECUENTA' | 'MOVER_MESA' | 'COBRAR' | 'SERVIR';
 
 @Component({
   selector: 'app-mesa-card',
-  standalone: true,
   imports: [
     CommonModule,
     MatCardModule,

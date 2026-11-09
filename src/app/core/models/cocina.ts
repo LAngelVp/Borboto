@@ -6,6 +6,7 @@ export interface ItemTicketCocina {
   cantidad: number;
   notas?: string;
   completado: boolean;
+  estado_kds?: 'PENDIENTE' | 'PREPARANDO' | 'LISTO';
 }
 
 export interface TicketCocina {

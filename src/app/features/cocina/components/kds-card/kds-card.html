@@ -1,4 +1,4 @@
-<mat-card class="kds-card" [ngClass]="getUrgenciaClass(ticket().minutosTranscurridos)">
+<mat-card class="kds-card" [class]="getUrgenciaClass(ticket().minutosTranscurridos)">
   <!-- Encabezado de la Comanda -->
   <mat-card-header class="kds-header">
     <div class="header-left">
@@ -11,34 +11,35 @@
     </div>
   </mat-card-header>
 
-  <!-- Lista de Platillos (Sin acción de clic individual) -->
   <mat-card-content class="kds-body">
     <div class="items-list">
       @for (item of ticket().items; track item.id) {
-        <div class="item-row" [class.completado]="item.completado">
-          <div class="item-info">
+        <button type="button" class="item-row" [class.completado]="item.completado"
+          [attr.aria-pressed]="item.completado" [disabled]="itemsPendientes().has(item.id)"
+          (click)="itemToggle.emit(item.id)">
+          <span class="item-info">
+            <mat-icon aria-hidden="true">{{ item.completado ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
             <span class="cantidad">{{ item.cantidad }}x</span>
             <span class="nombre">{{ item.nombre }}</span>
-          </div>
+          </span>
           @if (item.notas) {
-            <div class="nota-tag"><mat-icon>priority_high</mat-icon> {{ item.notas }}</div>
+            <span class="nota-tag"><mat-icon>priority_high</mat-icon> {{ item.notas }}</span>
           }
-        </div>
+        </button>
       }
     </div>
   </mat-card-content>
 
-  <!-- Botón Final: Marcar Despachado (Se deshabilita cuando todos los ítems están completados) -->
   <mat-card-actions class="kds-actions">
     <button
       mat-flat-button
       color="accent"
       class="btn-listo"
       (click)="ticketListo.emit()"
-      [disabled]="todosCompletados()"
+      [disabled]="ticket().items.length === 0 || tieneItemsPendientes()"
     >
       <mat-icon>check_circle</mat-icon>
-      {{ todosCompletados() ? 'DESPACHADO' : '¡DESPACHAR!' }}
+      DESPACHAR
     </button>
   </mat-card-actions>
 </mat-card>

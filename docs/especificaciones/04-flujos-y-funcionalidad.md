@@ -176,13 +176,13 @@ sequenceDiagram
   B-->>U: ok, comandaId y resultados de impresion
   U->>U: Procesar USB / mostrar TicketModal
   K->>B: PATCH item toggle
-  B->>DB: Invertir completado
+  B->>DB: Lock comanda/item, invertir completado y estado_kds, EN COCINA y COMMIT
   K->>B: POST ticket despachar
-  B->>DB: Items LISTO y comanda/mesa LISTO PARA SERVIR
+  B->>DB: Items LISTO y comanda/mesa LISTO PARA SERVIR, COMMIT
   B-->>K: actualizar_cocina
 ```
 
-KDS filtra PENDIENTE si algun item no esta completado, PREPARANDO si hay mezcla; toggle actualiza optimistamente la UI y no revierte ante error HTTP. Desde SDD-008 toggle bloquea primero comanda y luego item, despacho bloquea comanda; ambos exigen ABIERTA, responden 404 si ausente y 409 si terminal con rollback sin eventos. Despacho quita ticket local pero el servidor sigue devolviendo comandas ABIERTA con items hasta cobrar/cancelar. Eventos post-COMMIT, incluido actualizar_cocina al cobrar, provocan recarga y retiro de cerradas. El filtro por estado nominal puede discrepar con estado_operativo del contrato.
+Desde SDD-010, cada item KDS usa boton nativo clic/Enter/Espacio y aria-pressed. Toggle optimista actualiza completado/estado_kds y agregado; fallo HTTP restaura item previo sin borrar otros cambios. Una peticion local pendiente bloquea ese item y despacho hasta completar. PENDIENTE significa ninguno listo, PREPARANDO mezcla, LISTO todos; LISTO es filtro visible y permite despacho. El estado operativo de mesa/comanda se mantiene EN COCINA durante preparacion (enum sin PREPARANDO). Locks/404/409 de SDD-008 conservados; eventos cocina/mesas post-COMMIT. GET excluye LISTO PARA SERVIR/SERVIDO para evitar reaparicion tras recarga; adiciones nuevas EN COCINA vuelven a incluir ticket. Minutos calculados desde apertura, minimo 1; avanzan en recargas HTTP, no por contador persistido ni reloj cliente.
 
 Cancelacion solo acepta ABIERTA; pone CANCELADA/fecha_cierre, estado operativo DISPONIBLE, libera mesa, completa items y antepone notas. Desde SDD-001, las respuestas tempranas 404/400 ejecutan ROLLBACK antes de retornar; catch intenta rollback ante error precommit y finally libera una vez. Si rollback falla, release(Error) descarta la conexion en lugar de devolverla reutilizable al pool. Tras COMMIT confirmado no se intenta revertir. El SELECT de cancelacion no toma FOR UPDATE: la serializacion entre cancelacion y cobro no forma parte de esta correccion.
 
@@ -279,6 +279,8 @@ La prueba HTTP USB se rechaza para usar Electron desde ajustes. GET impresoras/s
 Mesas llama precuenta por comanda o mesa fisica; backend valida ABIERTA/items, lee datos de negocio y genera ticket 58/80mm con cantidades/precio unitario/subtotal y suma real. Consulta CAJA activa y usa RED, USB pendiente o texto fallback. No escribe pagos, comanda, mesa ni flags impreso/impreso_en. USB fallido se visualiza tambien para accion manual. Lecturas separadas no son una transaccion snapshot.
 
 Servir adquiere client, BEGIN y SELECT mesa FOR UPDATE. Inexistente -> ROLLBACK/404; existente -> UPDATE mesas SERVIDO y UPDATE comandas ABIERTA estado_operativo SERVIDO, COMMIT, actualizar_mesas y actualizar_cocina. Error precommit intenta rollback, finally libera una vez; si rollback falla descarta con release(Error). No cambia estado_kds/completado ni cierra comanda.
+
+Desde [SDD-010](SDD-010-kds-entrega-tiempos-y-finalizados.md), MesaCard ofrece SERVIR cuando LISTO PARA SERVIR y las tarjetas MOSTRADOR/ENVIO ofrecen ENTREGAR. Mesas.onAccionMesa llama MesaService.marcarServido(Mesa), POST por comanda cuando hay comandaId; ruta fisica se conserva como fallback legacy. La nueva ruta bloquea comanda, exige existencia 404 y ABIERTA 409, actualiza SERVIDO y solo mesa_id persistida no NULL, COMMIT y ambos eventos. UI notifica exito/error y recarga mesas; pedido queda abierto para cobrar. GET mesas incluye externas CERRADA cuya fecha_cierre es de hoy servidor, estado DISPONIBLE y minutos 0; ACTIVOS las oculta, DISPONIBLE muestra Cobrados/Finalizados, TODOS muestra ambas. Tarjetas finalizadas no ofrecen editar/mover/cobrar. No incluye canceladas ni historico anterior a hoy.
 
 ```mermaid
 sequenceDiagram

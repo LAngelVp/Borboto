@@ -278,7 +278,7 @@ app.get('/api/mesas', async (_req, res) => {
                m.capacidad,
                COALESCE(m.estado, 'DISPONIBLE') AS estado,
                COALESCE(m.comensales, 0) AS comensales,
-               COALESCE(m.minutos_abierta, 0) AS "minutosAbierta",
+               CASE WHEN c.id IS NULL THEN 0 ELSE GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.fecha_apertura)) / 60))::INT END AS "minutosAbierta",
                COALESCE(c.total, 0.00) AS total,
                c.id AS "comandaId",
                c.tipo_origen AS "tipoOrigen",
@@ -305,23 +305,23 @@ app.get('/api/mesas', async (_req, res) => {
                  ELSE 'Sin Zona'
                END AS zona,
                1 AS capacidad,
-               COALESCE(c.estado_operativo, 'PENDIENTE'::estado_mesa_enum) AS estado,
+               CASE WHEN c.estado = 'CERRADA' THEN 'DISPONIBLE'::estado_mesa_enum ELSE COALESCE(c.estado_operativo, 'PENDIENTE'::estado_mesa_enum) END AS estado,
                1 AS comensales,
-               GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.fecha_apertura)) / 60))::INT AS "minutosAbierta",
+               CASE WHEN c.estado = 'CERRADA' THEN 0 ELSE GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.fecha_apertura)) / 60))::INT END AS "minutosAbierta",
                COALESCE(c.total, 0.00) AS total,
                c.id AS "comandaId",
                c.tipo_origen AS "tipoOrigen",
                c.folio_origen AS "folioOrigen",
-               c.estado_operativo AS "estadoOperativo",
+               CASE WHEN c.estado = 'CERRADA' THEN 'DISPONIBLE'::estado_mesa_enum ELSE c.estado_operativo END AS "estadoOperativo",
                c.cliente_id AS "clienteId",
                cli.nombre AS "clienteNombre",
                cli.direccion AS "clienteDireccion",
                u.nombre AS mesero,
-               c.fecha_apertura AS "creadoEn"
+               CASE WHEN c.estado = 'CERRADA' THEN c.fecha_cierre ELSE c.fecha_apertura END AS "creadoEn"
         FROM comandas c
         LEFT JOIN clientes cli ON c.cliente_id = cli.id
         LEFT JOIN usuarios u ON c.usuario_id = u.id
-        WHERE c.estado = 'ABIERTA'
+        WHERE (c.estado = 'ABIERTA' OR (c.estado = 'CERRADA' AND c.fecha_cierre >= CURRENT_DATE AND c.fecha_cierre < CURRENT_DATE + INTERVAL '1 day'))
           AND c.mesa_id IS NULL
           AND c.tipo_origen IN ('MOSTRADOR', 'ENVIO')
       )
@@ -890,6 +890,47 @@ app.post('/api/mesas/:mesaId/servir', async (req, res) => {
   }
 });
 
+app.post('/api/comandas/:comandaId/servir', async (req, res) => {
+  const comandaId = Number(req.params.comandaId);
+  if (!Number.isInteger(comandaId) || comandaId <= 0) {
+    return res.status(400).json({ error: 'ID de comanda invalido' });
+  }
+  const client = await pool.connect();
+  let transactionOpen = false;
+  let releaseError: Error | undefined;
+  try {
+    await client.query('BEGIN');
+    transactionOpen = true;
+    const { rows } = await client.query('SELECT id, mesa_id, estado FROM comandas WHERE id = $1 FOR UPDATE', [comandaId]);
+    const comanda = rows[0];
+    if (!comanda || comanda.estado !== 'ABIERTA') {
+      await client.query('ROLLBACK');
+      transactionOpen = false;
+      return res.status(comanda ? 409 : 404).json({ error: comanda ? 'La comanda esta cerrada o cancelada' : 'Comanda no encontrada' });
+    }
+    await client.query(`UPDATE comandas SET estado_operativo = 'SERVIDO' WHERE id = $1`, [comandaId]);
+    if (comanda.mesa_id !== null) {
+      await client.query(`UPDATE mesas SET estado = 'SERVIDO' WHERE id = $1`, [comanda.mesa_id]);
+    }
+    await client.query('COMMIT');
+    transactionOpen = false;
+    emitirCambioGlobal('actualizar_mesas');
+    emitirCambioGlobal('actualizar_cocina');
+    res.json({ ok: true, mensaje: 'Comanda marcada como servida o entregada' });
+  } catch (error: unknown) {
+    if (transactionOpen) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError: unknown) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+      }
+    }
+    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  } finally {
+    client.release(releaseError);
+  }
+});
+
 app.post('/api/comandas/:comandaId/precuenta', async (req, res) => {
   const comandaId = Number(req.params.comandaId);
   if (!Number.isInteger(comandaId) || comandaId <= 0) {
@@ -1175,14 +1216,16 @@ app.patch('/api/comandas/:comandaId/cliente', async (req, res) => {
 app.get('/api/cocina/tickets', async (_req, res) => {
   try {
     const queryComandas = `
-            SELECT c.id, c.mesa_id AS "mesaId", m.numero AS "mesaNumero", COALESCE(u.nombre, 'Mesero') AS mesero,
+            SELECT c.id, c.mesa_id AS "mesaId", COALESCE(u.nombre, 'Mesero') AS mesero,
               c.id AS "comandaId",
               c.tipo_origen AS "tipoOrigen",
               c.folio_origen AS "folioOrigen",
               COALESCE(m.numero, c.folio_origen) AS "mesaNumero",
-              COALESCE(m.minutos_abierta, 1) AS "minutosTranscurridos", COALESCE(c.estado_operativo, 'PENDIENTE') AS estado
+              GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - c.fecha_apertura)) / 60))::INT AS "minutosTranscurridos"
             FROM comandas c LEFT JOIN mesas m ON c.mesa_id = m.id LEFT JOIN usuarios u ON c.usuario_id = u.id
-      WHERE c.estado = 'ABIERTA' ORDER BY c.fecha_apertura ASC;
+      WHERE c.estado = 'ABIERTA'
+        AND COALESCE(c.estado_operativo, 'PENDIENTE'::estado_mesa_enum) NOT IN ('LISTO PARA SERVIR', 'SERVIDO')
+      ORDER BY c.fecha_apertura ASC;
     `;
     const { rows: tickets } = await pool.query(queryComandas);
     const ticketsConItems = [];
@@ -1196,6 +1239,8 @@ app.get('/api/cocina/tickets', async (_req, res) => {
       const { rows: items } = await pool.query(itemsQuery, [ticket.id]);
       if (items.length > 0) {
         ticket.items = items;
+        const completados = items.filter(item => item.completado === true).length;
+        ticket.estado = completados === 0 ? 'PENDIENTE' : completados === items.length ? 'LISTO' : 'PREPARANDO';
         ticketsConItems.push(ticket);
       }
     }
@@ -1211,7 +1256,7 @@ app.patch('/api/cocina/items/:itemId/toggle', async (req, res) => {
   try {
     await client.query('BEGIN');
     const comandaRes = await client.query(
-      'SELECT c.id, c.estado FROM comandas c WHERE c.id = (SELECT comanda_id FROM comanda_items WHERE id = $1) FOR UPDATE',
+      'SELECT c.id, c.mesa_id, c.estado FROM comandas c WHERE c.id = (SELECT comanda_id FROM comanda_items WHERE id = $1) FOR UPDATE',
       [itemId],
     );
     const itemRes = await client.query('SELECT id FROM comanda_items WHERE id = $1 FOR UPDATE', [itemId]);
@@ -1224,11 +1269,17 @@ app.patch('/api/cocina/items/:itemId/toggle', async (req, res) => {
       return res.status(409).json({ error: 'La comanda esta cerrada o cancelada' });
     }
     await client.query(
-      `UPDATE comanda_items SET completado = NOT COALESCE(completado, false) WHERE id = $1`,
+      `UPDATE comanda_items SET completado = NOT COALESCE(completado, false),
+       estado_kds = CASE WHEN NOT COALESCE(completado, false) THEN 'LISTO'::estado_item_kds_enum ELSE 'PENDIENTE'::estado_item_kds_enum END WHERE id = $1`,
       [itemId],
     );
+    await client.query(`UPDATE comandas SET estado_operativo = 'EN COCINA' WHERE id = $1`, [comandaRes.rows[0].id]);
+    if (comandaRes.rows[0].mesa_id != null) {
+      await client.query(`UPDATE mesas SET estado = 'EN COCINA' WHERE id = $1`, [comandaRes.rows[0].mesa_id]);
+    }
     await client.query('COMMIT');
     emitirCambioGlobal('actualizar_cocina');
+    emitirCambioGlobal('actualizar_mesas');
     res.json({ ok: true });
   } catch (err: any) {
     await client.query('ROLLBACK');

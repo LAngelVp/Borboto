@@ -78,20 +78,33 @@
   }
 
   .item-row {
+    width: 100%;
+    border: 1px solid transparent;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
     padding: 10px;
     background-color: #26303b;
     border-radius: 8px;
     user-select: none;
 
     &.completado {
-      opacity: 0.4;
       text-decoration: line-through;
       background-color: #1c232b;
     }
 
+    &:focus-visible {
+      outline: 3px solid #ffb300;
+      outline-offset: 2px;
+    }
+
+    &:disabled { cursor: progress; }
+
     .item-info {
       display: flex;
       gap: 10px;
+      overflow-wrap: anywhere;
       font-size: 16px;
       font-weight: 700;
 
@@ -135,7 +148,7 @@
     height: 48px;
     font-size: 16px;
     font-weight: 800;
-    letter-spacing: 0.5px;
+    letter-spacing: 0;
     border-radius: 8px;
     background-color: #4caf50 !important;
     color: #ffffff !important;

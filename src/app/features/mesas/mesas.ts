@@ -178,6 +178,15 @@ export class MesasComponent implements OnInit, OnDestroy {
     const { tipo, mesa } = event;
 
     switch (tipo) {
+      case 'SERVIR':
+        this.mesaService.marcarServido(mesa).subscribe({
+          next: () => {
+            this.mesaService.cargarMesas();
+            this.notifications.success(mesa.tipoOrigen === 'MESA' ? 'Mesa marcada como servida' : 'Pedido marcado como entregado');
+          },
+          error: () => this.notifications.error('No se pudo marcar como servido o entregado'),
+        });
+        break;
       case 'ABRIR':
         this.abrirMesaModal(mesa);
         break;

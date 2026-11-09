@@ -42,6 +42,11 @@
 
   <!-- Acciones Contextuales -->
   <mat-card-actions align="end" (click)="$event.stopPropagation()">
+    @if (mesa().estado === 'LISTO PARA SERVIR') {
+      <button mat-flat-button color="accent" (click)="emitirAccion('SERVIR')">
+        <mat-icon>room_service</mat-icon> Marcar Servido / Entregado
+      </button>
+    }
     @if (mesa().estado === 'DISPONIBLE') {
       <button mat-flat-button color="primary" class="btn-action" (click)="emitirAccion('ABRIR')">
         <mat-icon>add</mat-icon> Abrir Mesa

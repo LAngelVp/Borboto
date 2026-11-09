@@ -110,6 +110,12 @@
                 </div>
 
                 <div class="envio-actions">
+                  @if (item.estado !== 'DISPONIBLE') {
+                  @if (item.estado === 'LISTO PARA SERVIR') {
+                    <button mat-flat-button color="accent" (click)="onAccionMesa({ tipo: 'SERVIR', mesa: item })">
+                      <mat-icon>done_all</mat-icon> Marcar Entregado
+                    </button>
+                  }
                   <button mat-icon-button color="primary" (click)="moverMesaModal(item)" title="Transferir Pedido a Mesa de Salón">
                     <mat-icon>sync_alt</mat-icon>
                   </button>
@@ -122,6 +128,9 @@
                     <button mat-flat-button color="accent" class="btn-cobrar-envio" (click)="onAccionMesa({ tipo: 'COBRAR', mesa: item })">
                       <mat-icon>payments</mat-icon> COBRAR
                     </button>
+                  }
+                  } @else {
+                    <span>Cobrado</span>
                   }
                 </div>
               </div>
@@ -198,6 +207,12 @@
                 </div>
 
                 <div class="envio-actions">
+                  @if (envio.estado !== 'DISPONIBLE') {
+                  @if (envio.estado === 'LISTO PARA SERVIR') {
+                    <button mat-flat-button color="accent" (click)="onAccionMesa({ tipo: 'SERVIR', mesa: envio })">
+                      <mat-icon>done_all</mat-icon> Marcar Entregado
+                    </button>
+                  }
                   <button mat-icon-button color="primary" (click)="moverMesaModal(envio)" title="Transferir Envío a Mesa de Salón">
                     <mat-icon>sync_alt</mat-icon>
                   </button>
@@ -210,6 +225,9 @@
                     <button mat-flat-button color="accent" class="btn-cobrar-envio" (click)="onAccionMesa({ tipo: 'COBRAR', mesa: envio })">
                       <mat-icon>payments</mat-icon> COBRAR
                     </button>
+                  }
+                  } @else {
+                    <span>Finalizado</span>
                   }
                 </div>
               </div>

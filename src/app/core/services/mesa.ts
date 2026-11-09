@@ -211,6 +211,11 @@ export class MesaService {
     this.filtroMostradorFecha.set(fecha);
   }
 
+  marcarServido(mesa: Mesa) {
+    const ruta = mesa.comandaId ? `comandas/${mesa.comandaId}` : `mesas/${mesa.mesaId ?? mesa.id}`;
+    return this.http.post<{ ok: boolean; mensaje: string }>(`${this.apiUrl}/${ruta}/servir`, {});
+  }
+
   cargarMesas() {
     this.http.get<Mesa[]>(`${this.apiUrl}/mesas`).subscribe({
       next: (data) => {

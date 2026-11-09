@@ -251,7 +251,7 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 
 | Metodo y ruta | Entrada | Salida / comportamiento |
 | --- | --- | --- |
-| GET /api/mesas | Ninguna | Array union de mesas fisicas y pedidos externos abiertos; Mesa proyectada |
+| GET /api/mesas | Ninguna | Union de mesas fisicas, externas ABIERTA y CERRADA del dia servidor por fecha_cierre; cerradas DISPONIBLE, minutos 0, creadoEn=fecha_cierre; abiertas minutos desde fecha_apertura minimo 1; fisica sin abierta 0 |
 | POST /api/mesas | numero,zona_id,capacidad | Mesa proyectada 201; estado DISPONIBLE |
 | PUT /api/mesas/:id | mismos campos | Fila SQL o 404 |
 | DELETE /api/mesas/:id | id | ok; 400 si error de eliminacion/historial |
@@ -259,6 +259,7 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | POST /api/mesas/:origenId/mover | destinoId | {ok,mensaje}; mueve ultima comanda abierta y estado/comensales/minutos |
 | POST /api/mesas/mover | origenId,destinoId | {ok}; variante mueve todas ABIERTA de origen, solo cambia estados de mesas |
 | POST /api/mesas/:mesaId/servir | Sin cuerpo requerido | {ok,mensaje}; transaccion con lock mesa, mesas.estado y comandas ABIERTA estado_operativo SERVIDO; 404 tras rollback si no existe; emite actualizar_mesas y actualizar_cocina |
+| POST /api/comandas/:comandaId/servir | ID entero positivo, cuerpo vacio | {ok:true,mensaje}; FOR UPDATE comanda, SERVIDO operativo y mesa asociada si no NULL; 400 ID invalido, 404 ausente, 409 no ABIERTA; rollback/release; eventos mesas/cocina post-COMMIT |
 | POST /api/comandas/:comandaId/precuenta | ID entero positivo, cuerpo vacio | {ok:true,comandaId,ticketTexto:string o null,impresionesPendientes:array}; 404 sin ABIERTA, 400 sin items/ID invalido, 500 error operativo |
 | POST /api/mesas/:mesaId/precuenta | ID entero positivo, cuerpo vacio | Resuelve ABIERTA por mesa y usa misma respuesta/servicio; 404 sin comanda, 400 ID invalido/sin items |
 | POST /api/comandas/:comandaId/asignar-mesa | destinoId | {ok,comandaId,mesaId,tipoOrigen,folioOrigen}; solo ABIERTA; 409 si destino tiene otra ABIERTA; preserva origen/folio |
@@ -269,8 +270,8 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | POST /api/comandas | comandaId o mesaId, usuarioId, items:[{productoId o producto.id,cantidad,notas}]; precio cliente ignorado | {ok,totalAdicional,comandaId,ticketTexto,impresionesPendientes}; FOR UPDATE y solo ABIERTA; precio de catalogo incluido cero; 400 datos invalidos/producto ausente, 404 comanda ausente, 409 estado terminal/producto no disponible |
 | POST /api/comandas/:comandaId/cancelar | notas | {ok,mensaje}; solo ABIERTA; cancela, libera mesa y completa items con motivo; 404/400 ejecutan ROLLBACK antes de responder |
 | PATCH /api/comandas/:comandaId/cliente | clienteId o null | {ok,cliente:{id,nombre,clientePuntos,clienteEsFrecuente,clienteVisitas} o null}; solo ABIERTA |
-| GET /api/cocina/tickets | Ninguna | Tickets de comandas ABIERTA con items; estado operativo y items con estado_kds/completado |
-| PATCH /api/cocina/items/:itemId/toggle | Sin cuerpo requerido | {ok}; bloquea comanda e item en transaccion; invierte completado, no estado_kds; 404 ausente, 409 no ABIERTA con ROLLBACK |
+| GET /api/cocina/tickets | Ninguna | ABIERTA con items, excluye operativos LISTO PARA SERVIR/SERVIDO; estado agregado PENDIENTE ninguno completado, PREPARANDO mezcla, LISTO todos; un mesaNumero, minutos desde apertura minimo 1; items con estado_kds/completado |
+| PATCH /api/cocina/items/:itemId/toggle | Sin cuerpo requerido | {ok}; bloquea comanda e item, invierte completado y sincroniza estado_kds LISTO/PENDIENTE (NULL completado se trata false); comanda/mesa EN COCINA; 404 ausente, 409 no ABIERTA con ROLLBACK; eventos cocina/mesas post-COMMIT |
 | POST /api/cocina/tickets/:comandaId/despachar | Sin cuerpo requerido | {ok}; bloquea comanda; 404 ausente, 409 no ABIERTA con ROLLBACK; todos items LISTO/completado, comanda/mesa LISTO PARA SERVIR; eventos post-COMMIT |
 
 ### Caja, ventas, ajustes y fiscal
@@ -325,6 +326,8 @@ SDD-002: cobro ignora totalCuenta/cambio cliente, suma COALESCE(SUM(subtotal),0)
 SDD-001: POST cobrar ejecuta `SELECT id, mesa_id, estado, total FROM comandas WHERE id = $1 FOR UPDATE` inmediatamente despues de BEGIN. No existe: ROLLBACK y `404 {error:'Comanda no encontrada'}`; estado distinto de ABIERTA: ROLLBACK y `409 {error:'La comanda ya fue cobrada o cancelada'}`. Dos cobros que usan este handler se serializan y el segundo rechaza el estado confirmado; no devuelve replay del pago anterior. No sustituye validacion financiera ni serializa todos los otros endpoints. Cancelacion y cobro intentan rollback en errores precommit, liberan una vez y descartan el client con release(Error) si rollback falla; no intentan rollback tras COMMIT confirmado.
 
 SDD-008 reemplaza la limitacion anterior de precios cliente: POST comandas consulta productos en transaccion y usa exclusivamente su precio, incluyendo 0.00. Valida IDs enteros positivos y cantidades enteras positivas; producto inexistente 400, disponible=false 409. Adicion, cancelacion, KDS y cobro comparten lock de comanda. Cobro libera exclusivamente mesa_id de la fila bloqueada; NULL nunca usa mesaId del body. No introduce idempotency key ni cambia division/corte. Verificacion en [SDD-008](SDD-008-ciclo-atomico-comanda-y-precios.md).
+
+SDD-010: estado del ticket es agregado de items, no estado_mesa_enum. PREPARANDO no se persiste en mesas; EN COCINA se conserva hasta despacho explicito. Cerradas externas solo del dia servidor (fecha_cierre >= CURRENT_DATE y < CURRENT_DATE + 1 dia); canceladas excluidas. ACTIVOS excluye DISPONIBLE, TODOS incluye activos/finalizados y DISPONIBLE muestra solo finalizados; fechas frontend usan creadoEn (cierre para cerradas). Minutos evolucionan al recargar HTTP; sin reloj cliente incremental ni historico multidia. Ver [SDD-010](SDD-010-kds-entrega-tiempos-y-finalizados.md).
 
 ## Socket.IO
 

@@ -7,7 +7,6 @@ import { TicketCocina } from '../../../../core/models/cocina';
 
 @Component({
   selector: 'app-kds-card',
-  standalone: true,
   imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kds-card.html',
@@ -16,6 +15,12 @@ import { TicketCocina } from '../../../../core/models/cocina';
 export class KdsCardComponent {
   readonly ticket = input.required<TicketCocina>();
   readonly ticketListo = output<void>();
+  readonly itemToggle = output<number>();
+  readonly itemsPendientes = input<ReadonlySet<number>>(new Set());
+
+  tieneItemsPendientes(): boolean {
+    return this.ticket().items.some(item => this.itemsPendientes().has(item.id));
+  }
 
   getOrigenLabel(): string {
     const actualTicket = this.ticket();
