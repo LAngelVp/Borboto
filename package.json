@@ -11,7 +11,7 @@
     "ng": "ng",
     "start": "bunx ng serve --host 127.0.0.1 --open false",
     "build": "ng build",
-    "build:server": "esbuild backend-borboto/index.ts --bundle --platform=node --target=node18 --outfile=server.js --external:pg-native",
+    "build:server": "esbuild backend-borboto/index.ts --bundle --platform=node --target=node18 --outfile=server.js --external:pg-native --minify-whitespace",
     "server": "bun run backend-borboto/index.ts",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"bun run start\" \"bun run server\" \"bunx electron .\"",
     "dist": "bun run build && bun run build:server && cross-env NODE_ENV=production electron-builder"

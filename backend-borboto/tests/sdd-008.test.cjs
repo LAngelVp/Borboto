@@ -56,7 +56,9 @@ async function run(route, options = {}) {
     comandaId: 1, mesaId: 5, items: [{ productoId: 2, cantidad: 2, precio: 0.01 }],
     metodoPago: 'EFECTIVO', montoRecibido: 20, ...options.body,
   } }, res);
-  assert.equal(log.at(-1).sql, 'RELEASE');
+  assert.equal(log.filter(entry => entry.sql === 'RELEASE').length, 1);
+  const released = log.findIndex(entry => entry.sql === 'RELEASE');
+  assert.ok(log.slice(released + 1).every(entry => entry.sql === 'EVENT'));
   return { res, log };
 }
 

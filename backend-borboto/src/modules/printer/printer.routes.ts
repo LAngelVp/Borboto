@@ -119,6 +119,15 @@ router.post('/:id/test', async (req, res) => {
   }
 });
 
+router.post('/confirmar-impresion', async (req, res) => {
+  try {
+    res.json(await PrinterService.confirmarItemsImpresos(req.body?.itemIds));
+  } catch (error: unknown) {
+    const status = error instanceof Error && 'status' in error && error.status === 400 ? 400 : 500;
+    res.status(status).json({ error: status === 400 ? 'IDs de items invalidos' : 'No se pudo confirmar la impresion' });
+  }
+});
+
 router.post('/usb/raw-print', async (req, res) => {
   const { printerName, contenido, anchoPapel, corteTipo } = req.body || {};
 

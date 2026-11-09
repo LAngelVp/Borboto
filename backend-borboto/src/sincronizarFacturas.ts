@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import { pool } from './db';
 import * as FacturapiModule from 'facturapi';
+import { reconciliarRecibosPendientes } from './services/fiscal-receipts.service';
 
 // Helper to safely instantiate Facturapi avoiding CJS/ESM bundling issues
 function obtenerInstanciaFacturapi(apiKey: string) {
@@ -61,7 +62,7 @@ export function obtenerVencimientoLicencia(): string | null {
 export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; total: number; error?: string }> {
   try {
     // 1. Obtener apiKey fiscal activa
-    const configRes = await pool.query(`SELECT api_key_test, api_key_live, modo_produccion FROM configuracion_facturacion WHERE id = 1`);
+    const configRes = await pool.query(`SELECT api_key_test, api_key_live, modo_produccion, dias_vigencia_ticket FROM configuracion_facturacion WHERE id = 1`);
     if (configRes.rows.length === 0) {
       return { ok: false, total: 0, error: 'No se ha configurado la facturación en el sistema' };
     }
@@ -94,6 +95,7 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
 
     // 3. Consultar listado de facturas en Facturapi paginado
     const facturapi = obtenerInstanciaFacturapi(apiKeyActiva.trim());
+    const conciliacion = await reconciliarRecibosPendientes(facturapi, Number(configRes.rows[0].dias_vigencia_ticket) || 7);
     let currentPage = 1;
     let hasMore = true;
     let totalSincronizadas = 0;
@@ -282,7 +284,8 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
     }
 
     console.log(`✅ [SincronizarFacturas] Sincronización finalizada con éxito. ${totalSincronizadas} facturas procesadas/actualizadas.`);
-    return { ok: true, total: totalSincronizadas };
+    return { ok: conciliacion.pendientes === 0, total: totalSincronizadas,
+      ...(conciliacion.pendientes > 0 ? { error: 'Hay recibos pendientes de conciliacion por pago' } : {}) };
   } catch (err: any) {
     console.error('❌ [SincronizarFacturas] Error en proceso de sincronización:', err.message);
     return { ok: false, total: 0, error: err.message };

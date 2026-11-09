@@ -119,10 +119,11 @@ export class Comanda implements OnInit, OnDestroy {
     for (const trabajo of impresionesPendientes) {
       try {
         await this.printerService.printTicketSilently(trabajo);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error en impresión USB con Electron:', err);
+        const mensaje = err instanceof Error ? err.message : 'No se pudo imprimir la comanda USB automaticamente.';
         this.notifications.error(
-          err?.message || 'No se pudo imprimir la comanda USB automáticamente.',
+          trabajo.itemIds?.length ? `${mensaje} Productos sin confirmar; revise la impresora antes de reintentar.` : mensaje,
           5000,
         );
       }

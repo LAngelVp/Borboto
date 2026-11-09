@@ -158,7 +158,7 @@ Usar una tabla REQ -> AC -> archivos/simbolos -> TEST -> evidencia; registrar de
 
 Ejemplo implementado: [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md) define precuenta real desde items persistidos, destino CAJA y fallback USB/texto; no registra pago ni cambia flags de produccion. [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md) agrega impresion de navegador aislada y estado contextual. Entrega fisica real no se presume por generar un trabajo USB.
 
-El cierre maestro SDD-099 registra implementacion por bloques y evidencia mediante mocks/tsc. No sustituir contratos pendientes de recuperacion fiscal o confirmacion durable por una declaracion de auditoria 100% cerrada; consultar la matriz actual antes de marcar todos los paquetes Implementado.
+El cierre maestro SDD-099 registra implementacion por bloques y evidencia mediante mocks/tsc. La revision durable final implementa ack USB e intento/recuperacion fiscal por pago y marca los paquetes Implementado dentro de esos contratos. Consultar matriz y limites: mocks no certifican PostgreSQL, Electron, Facturapi ni hardware reales, y un ack perdido no garantiza exactamente-una-vez fisico.
 
 ## Mantenimiento de estas especificaciones
 

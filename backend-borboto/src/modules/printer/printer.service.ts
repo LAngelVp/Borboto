@@ -47,6 +47,7 @@ export interface WindowsPrinterInfo {
 
 export interface ElectronPendingPrintJob {
   tipo: 'USB';
+  itemIds?: number[];
   printerName: string;
   contenido: string;
   titulo: string;
@@ -69,6 +70,16 @@ export class PrecuentaError extends Error {
 }
 
 export class PrinterService {
+  static async confirmarItemsImpresos(itemIds: number[]): Promise<{ ok: true }> {
+    if (!Array.isArray(itemIds) || itemIds.length === 0 || itemIds.length > 2000 ||
+        itemIds.some(id => !Number.isInteger(id) || id <= 0 || id > 2147483647)) {
+      throw new PrecuentaError('IDs de items invalidos', 400);
+    }
+    await pool.query(`UPDATE comanda_items SET impreso = TRUE, impreso_en = NOW()
+      WHERE id = ANY($1::int[]) AND impreso IS NOT TRUE`, [[...new Set(itemIds)]]);
+    return { ok: true };
+  }
+
   static async imprimirPrecuenta(comandaId: number): Promise<{
     ok: true;
     comandaId: number;
@@ -696,15 +707,15 @@ public static class RawPrinterHelper {
 
           if (imp.tipo === 'USB') {
             impresionesPendientes.push(
-              this.crearTrabajoElectron(imp, ticketText, 'Comanda Cocina'),
+              { ...this.crearTrabajoElectron(imp, ticketText, 'Comanda Cocina'),
+                itemIds: itemsRes.rows.filter(row => row.destino_impresion === 'COCINA').map(row => row.id) },
             );
-            destinosEnviados.add('COCINA');
             continue;
           }
 
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + '\n\n';
-          else if (imp.tipo === 'RED') destinosEnviados.add('COCINA');
+          else if (resText === null && imp.tipo === 'RED') destinosEnviados.add('COCINA');
         }
         if (impresorasCocina.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosCocina, 'COCINA', '80mm');
       }
@@ -727,14 +738,14 @@ public static class RawPrinterHelper {
           const ticketText = generarTemplateProduccion(datosBarra, 'BARRA', anchoConfigurado);
 
           if (imp.tipo === 'USB') {
-            impresionesPendientes.push(this.crearTrabajoElectron(imp, ticketText, 'Comanda Barra'));
-            destinosEnviados.add('BARRA');
+            impresionesPendientes.push({ ...this.crearTrabajoElectron(imp, ticketText, 'Comanda Barra'),
+              itemIds: itemsRes.rows.filter(row => row.destino_impresion === 'BARRA').map(row => row.id) });
             continue;
           }
 
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + '\n\n';
-          else if (imp.tipo === 'RED') destinosEnviados.add('BARRA');
+          else if (resText === null && imp.tipo === 'RED') destinosEnviados.add('BARRA');
         }
         if (impresorasBarra.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosBarra, 'BARRA', '80mm');
       }
@@ -742,7 +753,7 @@ public static class RawPrinterHelper {
       for (const row of itemsRes.rows) {
         if (destinosEnviados.has(row.destino_impresion)) itemIdsAActualizar.push(row.id);
       }
-      await client.query(
+      if (itemIdsAActualizar.length > 0) await client.query(
         `
         UPDATE comanda_items
         SET impreso = TRUE, impreso_en = NOW()

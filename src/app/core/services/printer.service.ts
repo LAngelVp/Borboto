@@ -2,7 +2,7 @@
 
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { RuntimeConfigService } from './runtime-config.service';
 
 declare const window: {
@@ -33,6 +33,7 @@ export interface WindowsPrinterInfo {
 
 export interface ElectronPendingPrintJob {
   tipo: 'USB';
+  itemIds?: number[];
   printerName: string;
   contenido: string;
   titulo: string;
@@ -101,11 +102,7 @@ export class PrinterService {
   }
 
   async printTicketSilently(job: ElectronPendingPrintJob): Promise<void> {
-    const ipcRenderer = this.getIpcRenderer();
-    if (!ipcRenderer) {
-      throw new Error('La impresión silenciosa solo está disponible dentro de Electron.');
-    }
-
+    let rawExitoso = false;
     if (job.esTermica === true && job.corteTipo && job.corteTipo !== 'NINGUNO') {
       try {
         await new Promise<void>((resolve, reject) => {
@@ -114,11 +111,17 @@ export class PrinterService {
             error: (err) => reject(err),
           });
         });
-        return;
+        rawExitoso = true;
       } catch {
         // Fallback a Electron print cuando RAW no esté disponible o falle.
       }
     }
+    if (rawExitoso) {
+      await this.confirmarTrabajo(job);
+      return;
+    }
+    const ipcRenderer = this.getIpcRenderer();
+    if (!ipcRenderer) throw new Error('La impresion silenciosa requiere Electron o RAW disponible.');
 
     const payload: ElectronPrintPayload = {
       tipo: job.tipo,
@@ -130,7 +133,15 @@ export class PrinterService {
       empresaData: undefined,
     };
 
-    await ipcRenderer.invoke('print-ticket-silent', payload);
+    const resultado = await ipcRenderer.invoke('print-ticket-silent', payload);
+    if (resultado?.ok === false || resultado?.success === false) throw new Error('Impresion USB rechazada');
+    await this.confirmarTrabajo(job);
+  }
+
+  private async confirmarTrabajo(job: ElectronPendingPrintJob): Promise<void> {
+    if (!job.itemIds?.length) return;
+    const resultado = await firstValueFrom(this.http.post<{ ok: boolean }>(`${this.API_URL}/confirmar-impresion`, { itemIds: job.itemIds }));
+    if (!resultado?.ok) throw new Error('No se pudo confirmar la impresion');
   }
 
   private getIpcRenderer(): any | null {

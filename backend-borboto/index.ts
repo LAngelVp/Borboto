@@ -2,6 +2,7 @@
 import express from 'express';
 import type { PoolClient } from 'pg';
 import { emitirSesion, verificarSesion, hashPin, verificarPin } from './src/session';
+import { emitirORecuperarRecibo, ReciboFiscalError } from './src/services/fiscal-receipts.service';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
@@ -339,11 +340,11 @@ app.use('/api', async (req, res, next) => {
   const caja = req.path.startsWith('/caja') || req.path.startsWith('/dashboard');
   const cocina = req.path.startsWith('/cocina');
   const administrativo = /^\/(usuarios|admin|ajustes|productos|categorias|promociones|zonas)(\/|$)/.test(req.path) ||
-    (req.path.startsWith('/impresoras') && req.path !== '/impresoras/usb/raw-print') ||
+    (req.path.startsWith('/impresoras') && !['/impresoras/usb/raw-print', '/impresoras/confirmar-impresion'].includes(req.path)) ||
     (/^\/mesas(?:\/\d+)?$/.test(req.path) && req.method !== 'GET');
   const negocio = !administrativo && !caja && !cocina;
   if (session.rol !== 'ADMIN' && !(caja && session.rol === 'CAJERO') && !(cocina && session.rol === 'COCINERO') &&
-      !(negocio && (session.rol === 'MESERO' || session.rol === 'CAJERO' || req.path === '/impresoras/usb/raw-print'))) {
+      !(negocio && (session.rol === 'MESERO' || session.rol === 'CAJERO' || ['/impresoras/usb/raw-print', '/impresoras/confirmar-impresion'].includes(req.path)))) {
     return res.status(403).json({ error: 'Permisos insuficientes' });
   }
   try {
@@ -1433,6 +1434,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
   } = req.body;
   const client = await pool.connect();
   let transactionOpen = true;
+  let clientReleased = false;
   let releaseError: Error | undefined;
   try {
     await client.query('BEGIN');
@@ -1550,7 +1552,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
     if (solicitaFacturaActual) {
       if (apiKeyActiva) {
         try {
-          const itemsRes = await client.query(
+          const itemsRes = await pool.query(
             `SELECT ci.cantidad, ci.precio_unitario, p.nombre, p.clave_sat AS prod_clave, cat.clave_sat AS cat_clave
              FROM comanda_items ci JOIN productos p ON ci.producto_id = p.id JOIN categorias cat ON p.categoria_id = cat.id
              WHERE ci.comanda_id = $1`,
@@ -1609,36 +1611,16 @@ app.post('/api/caja/cobrar', async (req, res) => {
 
           if (descuento > 0 && !esConsumoGeneral) lineItemsFacturapi = ajustarImportesRecibo(lineItemsFacturapi, totalCuenta);
           const facturapi = obtenerInstanciaFacturapi(apiKeyActiva);
-          const receipt = await facturapi.receipts.create({
+          datosAutofactura = await emitirORecuperarRecibo(pagoId, facturapi, {
             payment_form: paymentForm,
             items: lineItemsFacturapi,
-          });
-          const diasVigencia = Math.max(1, Number(configFiscal?.dias_vigencia_ticket) || 7);
-          const expiracionLocal = new Date(Date.now() + diasVigencia * 86400000).toISOString();
+          }, Number(configFiscal?.dias_vigencia_ticket) || 7);
 
           console.log(
             `[Cobro #${pagoId}] Recibo generado exitosamente en Factura`,
             // `[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, Código: ${receipt.key}`,
           );
 
-          await client.query(
-            `INSERT INTO tickets_autofactura (pago_id, facturapi_receipt_id, codigo_ticket, url_autofactura, total, fecha_expiracion)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              pagoId,
-              receipt.id,
-              receipt.key,
-              receipt.self_invoice_url,
-              totalCuenta,
-              expiracionLocal,
-            ],
-          );
-
-          datosAutofactura = {
-            codigo: receipt.key,
-            url: receipt.self_invoice_url,
-            expiracion: expiracionLocal,
-          };
         } catch (fError: any) {
           console.error(`Error fiscal despues de confirmar pago #${pagoId}`);
           // console.error(`❌ [Cobro #${pagoId}] Error generando recibo en Facturapi:`, fError);
@@ -1700,6 +1682,8 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
     await client.query('COMMIT');
     transactionOpen = false;
+    client.release();
+    clientReleased = true;
     emitirCambioGlobal('actualizar_mesas');
 
     let ticketTextoCobro: string | null = null;
@@ -1747,7 +1731,21 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   } finally {
-    client.release(releaseError);
+    if (!clientReleased) client.release(releaseError);
+  }
+});
+
+app.post('/api/caja/pagos/:pagoId/autofactura', async (req, res) => {
+  try {
+    const configRes = await pool.query('SELECT api_key_test, api_key_live, modo_produccion, dias_vigencia_ticket FROM configuracion_facturacion WHERE id = 1');
+    const config = configRes.rows[0];
+    const key = config?.modo_produccion ? config.api_key_live : config?.api_key_test;
+    if (!key) return res.status(409).json({ error: 'Facturacion no configurada para el modo activo' });
+    const autofactura = await emitirORecuperarRecibo(Number(req.params.pagoId), obtenerInstanciaFacturapi(key), undefined, Number(config.dias_vigencia_ticket) || 7);
+    res.json({ ok: true, pagoId: Number(req.params.pagoId), autofactura });
+  } catch (error: unknown) {
+    res.status(error instanceof ReciboFiscalError ? error.status : 503)
+      .json({ error: error instanceof ReciboFiscalError ? error.message : 'No se pudo conciliar la autofactura' });
   }
 });
 
