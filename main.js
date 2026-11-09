@@ -1,9 +1,9 @@
 // main.js - Orquestador Principal de Electron para Borboto POS
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const http = require('http');
 const net = require('net');
 
@@ -130,31 +130,35 @@ const logPath = path.join(dataPath, 'logfile');
 // ─── RUTINAS DE POSTGRESQL PORTABLE ─────────────────────────────────────────
 function setupAndStartPostgres() {
   try {
-    if (!fs.existsSync(dataPath)) {
+    if (!fs.existsSync(path.join(dataPath, 'PG_VERSION'))) {
       fs.mkdirSync(dataPath, { recursive: true });
-      const pwFile = path.join(basePath, 'pwfile.txt');
-      fs.writeFileSync(pwFile, DB_PASS);
+      const pwDirectory = fs.mkdtempSync(path.join(app.getPath('temp'), 'borboto-pg-'));
+      const pwFile = path.join(pwDirectory, 'pwfile.txt');
       const initdbPath = path.join(binPath, 'initdb.exe');
-      execSync(
-        `"${initdbPath}" -D "${dataPath}" -U ${DB_USER} --pwfile="${pwFile}" -A md5 --encoding=UTF8`,
-        { stdio: 'ignore' },
-      );
-      if (fs.existsSync(pwFile)) fs.unlinkSync(pwFile);
+      try {
+        fs.writeFileSync(pwFile, DB_PASS, { flag: 'wx', mode: 0o600 });
+        execFileSync(initdbPath, [
+          '-D', dataPath, '-U', DB_USER, `--pwfile=${pwFile}`, '-A', 'md5', '--encoding=UTF8',
+        ], { stdio: 'pipe', windowsHide: true });
+      } finally {
+        fs.rmSync(pwDirectory, { recursive: true, force: true });
+      }
     }
 
     const pgCtlPath = path.join(binPath, 'pg_ctl.exe');
     try {
-      execSync(`"${pgCtlPath}" -D "${dataPath}" status`, { stdio: 'ignore' });
+      execFileSync(pgCtlPath, ['-D', dataPath, 'status'], { stdio: 'pipe', windowsHide: true });
       return;
     } catch (e) {}
 
-    execSync(`"${pgCtlPath}" -D "${dataPath}" -l "${logPath}" -o "-p ${DB_PORT}" start`, {
-      stdio: 'ignore',
+    execFileSync(pgCtlPath, ['-D', dataPath, '-l', logPath, '-o', `-p ${DB_PORT}`, 'start'], {
+      stdio: 'ignore', windowsHide: true,
     });
     console.log(`✅ [PG] DB iniciado exitosamente`);
     // console.log(`✅ [PG] PostgreSQL iniciado exitosamente en puerto ${DB_PORT}`);
   } catch (error) {
     console.error('❌ [PG] Error al gestionar DB:', error.message);
+    throw error;
     // console.error('❌ [PG] Error al gestionar PostgreSQL:', error.message);
   }
 }
@@ -568,6 +572,7 @@ async function iniciarSistemaCompleto() {
     createMainWindow();
   } catch (err) {
     console.error('Error de inicio de la aplicación:', err.message);
+    dialog.showErrorBox('Borboto POS - Error de inicio', `${err.message}\n\nRegistro de PostgreSQL: ${logPath}`);
     emitUiNotification('error', `Error de inicio: ${err.message}`);
     if (expressServer && typeof expressServer.close === 'function') expressServer.close();
     stopPostgres();

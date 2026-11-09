@@ -9,6 +9,44 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const compile = text => transformSync(text, { loader: 'ts', format: 'cjs', target: 'node18' }).code;
 const backend = read('backend-borboto/index.ts');
 
+test('PostgreSQL portable initializes outside the installation directory and retries an empty cluster', () => {
+  const main = read('main.js');
+  const start = main.indexOf('function setupAndStartPostgres()');
+  const end = main.indexOf('function waitForPostgres', start);
+  for (const initialized of [false, true]) {
+    let cleaned = false;
+    const calls = [];
+    const temporaryDirectory = path.join('user-temp', 'borboto-pg-test');
+    vm.runInNewContext(main.slice(start, end) + 'setupAndStartPostgres();', {
+      path, dataPath: 'user-data', binPath: 'read-only-install', logPath: 'user-data/logfile',
+      DB_USER: 'test', DB_PASS: 'test', DB_PORT: 58432,
+      app: { getPath: () => 'user-temp' },
+      console: { log() {}, error() {} },
+      fs: {
+        existsSync(file) { assert.equal(file, path.join('user-data', 'PG_VERSION')); return initialized; },
+        mkdirSync() {},
+        mkdtempSync: () => temporaryDirectory,
+        writeFileSync(file) { assert.equal(path.dirname(file), temporaryDirectory); },
+        rmSync() { cleaned = true; },
+      },
+      execFileSync(executable, args, options) {
+        calls.push({ executable, args });
+        if (args.includes('start')) assert.equal(options.stdio, 'ignore');
+        if (args.includes('status')) throw new Error('not running');
+      },
+    });
+    assert.equal(calls.filter(call => call.executable.endsWith('initdb.exe')).length, initialized ? 0 : 1);
+    assert.equal(cleaned, !initialized);
+    assert.ok(calls.some(call => call.args.includes('start')));
+  }
+});
+
+test('Windows package includes SQL resources at the production lookup location', () => {
+  const configuration = JSON.parse(read('package.json'));
+  assert.ok(configuration.build.extraResources.some(resource => resource.from === 'Database' && resource.to === 'Database'));
+  assert.ok(configuration.build.extraResources.some(resource => resource.to === 'postgres-bin'));
+});
+
 function fiscalModule(pool) {
   const module = { exports: {} };
   vm.runInNewContext(compile(read('backend-borboto/src/services/fiscal-receipts.service.ts')), {

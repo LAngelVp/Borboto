@@ -42,6 +42,35 @@ Borboto POS & KDS está compuesto por tres capas principales:
 
 ---
 
+## Empaquetar para Windows
+
+Desde la raiz del proyecto, con Bun instalado:
+
+```bash
+bun install --frozen-lockfile
+bun run dist
+```
+
+El instalador se genera en `dist-electron/`. Incluye Electron, el backend,
+las dependencias de produccion, PostgreSQL portable y las migraciones SQL.
+El equipo destino no necesita instalar Bun, Node.js ni PostgreSQL por separado.
+
+La aplicacion requiere una licencia valida. Tras activarla, crea su cluster en
+`%APPDATA%/borboto/data-pg`, inicializa `borboto_pos` y aplica las migraciones
+automaticamente. Las actualizaciones conservan los datos del perfil del usuario.
+
+Antes de probar el instalador, cierra el backend de desarrollo (puerto 3000)
+y deten su cluster con:
+
+```bash
+./backend-borboto/postgres-bin/bin/pg_ctl.exe -D ./backend-borboto/data-pg stop -m fast
+```
+
+No ejecutes simultaneamente desarrollo y la aplicacion instalada con los mismos
+puertos (3000 y 58432). Los errores de inicio se muestran en un dialogo; el registro
+de PostgreSQL queda en `%APPDATA%/borboto/data-pg/logfile`.
+Los archivos `.env`, las claves privadas y los datos de desarrollo no se distribuyen.
+
 # 🛠️ Stack tecnológico
 
 | Tecnología | Uso                           |

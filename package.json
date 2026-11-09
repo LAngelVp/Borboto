@@ -28,13 +28,16 @@
       "**/node_modules/pdf-to-printer/**/*"
     ],
     "extraFiles": [
-      "licencia_publica.pem",
-      "Database/**/*"
+      "licencia_publica.pem"
     ],
     "extraResources": [
       {
         "from": "backend-borboto/postgres-bin",
         "to": "postgres-bin"
+      },
+      {
+        "from": "Database",
+        "to": "Database"
       }
     ],
     "files": [
