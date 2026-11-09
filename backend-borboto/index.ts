@@ -32,6 +32,16 @@ function obtenerInstanciaFacturapi(apiKey: string) {
   return new FacturapiClass(apiKey);
 }
 
+function enmascararApiKey(value: string | null | undefined): string {
+  if (!value) return '';
+  return `********${value.length > 4 ? value.slice(-4) : ''}`;
+}
+
+function resolverApiKey(value: unknown, stored: string | null | undefined): string | null {
+  const input = typeof value === 'string' ? value.trim() : '';
+  return !input || /^[*\u2022]/.test(input) ? stored || null : input;
+}
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -711,9 +721,9 @@ app.get('/api/comandas/:comandaId', async (req, res) => {
 app.get('/api/usuarios', async (_req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, nombre, rol, pin, activo FROM usuarios ORDER BY nombre',
+      'SELECT id, nombre, rol, activo FROM usuarios ORDER BY nombre',
     );
-    res.json(rows);
+    res.json(rows.map((usuario) => ({ id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, activo: usuario.activo, pin: '', tienePin: true })));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -744,29 +754,36 @@ app.post('/api/usuarios', async (req, res) => {
   if (!nombre || !pin || !rol) {
     return res.status(400).json({ error: 'Faltan parámetros: nombre, pin y rol son requeridos.' });
   }
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
+    return res.status(400).json({ error: 'El PIN debe contener de 4 a 6 digitos' });
+  }
   try {
     const { rows } = await pool.query(
-      'INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING id, nombre, rol, activo',
       [nombre, pin, rol, activo !== false],
     );
     res.status(201).json(rows[0]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(err.code === '23505' ? 409 : 500).json({ error: err.code === '23505' ? 'PIN ya utilizado por otro usuario' : 'Error al guardar empleado' });
   }
 });
 
 app.put('/api/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   const { nombre, pin, rol, activo } = req.body;
+  const nuevoPin = typeof pin === 'string' ? pin.trim() : pin;
+  if (nuevoPin != null && nuevoPin !== '' && (typeof nuevoPin !== 'string' || !/^\d{4,6}$/.test(nuevoPin))) {
+    return res.status(400).json({ error: 'El PIN debe contener de 4 a 6 digitos' });
+  }
   try {
     const { rows } = await pool.query(
-      'UPDATE usuarios SET nombre = $1, pin = $2, rol = $3, activo = $4 WHERE id = $5 RETURNING *',
-      [nombre, pin, rol, activo !== false, id],
+      'UPDATE usuarios SET nombre = $1, pin = COALESCE($2, pin), rol = $3, activo = $4 WHERE id = $5 RETURNING id, nombre, rol, activo',
+      [nombre, nuevoPin || null, rol, activo !== false, id],
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Empleado no encontrado' });
     res.json(rows[0]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(err.code === '23505' ? 409 : 500).json({ error: err.code === '23505' ? 'PIN ya utilizado por otro usuario' : 'Error al guardar empleado' });
   }
 });
 
@@ -1661,11 +1678,11 @@ app.get('/api/categorias', async (_req, res) => {
 });
 
 app.post('/api/categorias', async (req, res) => {
-  const { nombre, icono, orden } = req.body;
+  const { nombre, icono, orden, destino_impresion } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO categorias (nombre, icono, orden) VALUES ($1, $2, $3) RETURNING *`,
-      [nombre, icono || 'restaurant', Number(orden) || 0],
+      `INSERT INTO categorias (nombre, icono, orden, destino_impresion) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [nombre, icono || 'restaurant', Number(orden) || 0, destino_impresion || 'COCINA'],
     );
     res.status(201).json(rows[0]);
   } catch (err: any) {
@@ -1674,11 +1691,11 @@ app.post('/api/categorias', async (req, res) => {
 });
 
 app.post('/api/productos', async (req, res) => {
-  const { categoria_id, nombre, precio, disponible, imagen_url } = req.body;
+  const { categoria_id, nombre, precio, disponible, imagen_url, clave_sat } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO productos (categoria_id, nombre, precio, disponible, imagen_url) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [Number(categoria_id), nombre, Number(precio), disponible !== false, imagen_url || null],
+      `INSERT INTO productos (categoria_id, nombre, precio, disponible, imagen_url, clave_sat) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [Number(categoria_id), nombre, Number(precio), disponible !== false, imagen_url || null, clave_sat || null],
     );
     res.status(201).json(rows[0]);
   } catch (err: any) {
@@ -1809,7 +1826,7 @@ app.post('/api/clientes', async (req, res) => {
 // ─── 8. PANEL DE CONTROL Y CONFIGURACIÓN FISCAL ──────────────────────────────
 app.get('/api/admin/productos', async (_req, res) => {
   try {
-    const query = `SELECT p.id, p.nombre, p.precio, p.disponible, p.imagen_url, p.categoria_id, c.nombre AS "categoriaNombre" FROM productos p JOIN categorias c ON p.categoria_id = c.id ORDER BY c.orden, p.nombre;`;
+    const query = `SELECT p.id, p.nombre, p.precio, p.disponible, p.imagen_url, p.clave_sat, p.categoria_id, c.nombre AS "categoriaNombre" FROM productos p JOIN categorias c ON p.categoria_id = c.id ORDER BY c.orden, p.nombre;`;
     const { rows } = await pool.query(query);
     res.json(rows);
   } catch (err: any) {
@@ -1855,11 +1872,12 @@ app.delete('/api/categorias/:id', async (req, res) => {
 
 app.put('/api/productos/:id', async (req, res) => {
   const { id } = req.params;
-  const { categoria_id, nombre, precio, disponible, imagen_url } = req.body;
+  const { categoria_id, nombre, precio, disponible, imagen_url, clave_sat } = req.body;
   try {
     const { rows } = await pool.query(
-      `UPDATE productos SET categoria_id = $1, nombre = $2, precio = $3, disponible = $4, imagen_url = $5 WHERE id = $6 RETURNING *`,
-      [Number(categoria_id), nombre, Number(precio), disponible, imagen_url || null, id],
+      `UPDATE productos SET categoria_id = $1, nombre = $2, precio = $3, disponible = $4, imagen_url = $5,
+       clave_sat = CASE WHEN $7::boolean THEN $8::varchar ELSE clave_sat END WHERE id = $6 RETURNING *`,
+      [Number(categoria_id), nombre, Number(precio), disponible, imagen_url || null, id, clave_sat !== undefined, clave_sat || null],
     );
     emitirCambioGlobal('PRODUCTO_ACTUALIZADO', rows[0]);
     res.json(rows[0]);
@@ -2054,7 +2072,15 @@ app.get('/api/ajustes/facturacion', async (_req, res) => {
              codigo_postal AS "codigoPostal", email_notificaciones AS "emailNotificaciones", dias_vigencia_ticket AS "diasVigenciaTicket", tiene_csd AS "tieneCsd"
       FROM configuracion_facturacion WHERE id = 1
     `);
-    res.json(rows[0] || null);
+    if (!rows[0]) return res.json(null);
+    const { apiKeyTest, apiKeyLive, ...config } = rows[0];
+    res.json({
+      ...config,
+      apiKeyTest: enmascararApiKey(apiKeyTest),
+      apiKeyLive: enmascararApiKey(apiKeyLive),
+      tieneApiKeyTest: Boolean(apiKeyTest),
+      tieneApiKeyLive: Boolean(apiKeyLive),
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2081,8 +2107,15 @@ app.post(
     } = req.body;
     try {
       const modoProdBool = modoProduccion === 'true' || modoProduccion === true;
+      const configRes = await pool.query('SELECT api_key_test, api_key_live FROM configuracion_facturacion WHERE id = 1');
+      const configGuardada = configRes.rows[0];
+      const keyTest = resolverApiKey(apiKeyTest, configGuardada?.api_key_test);
+      const keyLive = resolverApiKey(apiKeyLive, configGuardada?.api_key_live);
+      if (!keyTest) {
+        return res.status(400).json({ error: 'Se requiere una API Key de prueba inicial' });
+      }
       let tieneCsd = false;
-      const apiKeyActiva = modoProdBool ? apiKeyLive : apiKeyTest;
+      const apiKeyActiva = modoProdBool ? keyLive : keyTest;
 
       if (req.files?.csdCer?.[0] && req.files?.csdKey?.[0] && apiKeyActiva) {
         const facturapi = obtenerInstanciaFacturapi(apiKeyActiva);
@@ -2106,8 +2139,8 @@ app.post(
         actualizado_en = CURRENT_TIMESTAMP RETURNING *;
     `;
       await pool.query(query, [
-        apiKeyTest,
-        apiKeyLive || null,
+        keyTest,
+        keyLive,
         modoProdBool,
         rfcEmisor?.toUpperCase(),
         razonSocial,
@@ -2119,22 +2152,25 @@ app.post(
       ]);
       res.json({ ok: true, mensaje: 'Configuración fiscal guardada correctamente.' });
     } catch (err: any) {
-      res.status(500).json({ error: err.message || 'Error al procesar la configuración fiscal.' });
+      res.status(500).json({ error: 'Error al procesar la configuracion fiscal' });
     }
   },
 );
 
 app.post('/api/ajustes/facturacion/test', async (req, res) => {
-  const { apiKey } = req.body;
-  if (!apiKey) return res.status(400).json({ error: 'Proporciona una API Key para validar.' });
+  const { apiKey, isLive } = req.body;
 
   try {
-    const facturapi = obtenerInstanciaFacturapi(apiKey.trim());
+    const configRes = await pool.query('SELECT api_key_test, api_key_live, modo_produccion FROM configuracion_facturacion WHERE id = 1');
+    const config = configRes.rows[0];
+    const modoLive = isLive === undefined ? config?.modo_produccion === true : isLive === true || isLive === 'true';
+    const key = resolverApiKey(apiKey, modoLive ? config?.api_key_live : config?.api_key_test);
+    if (!key) return res.status(400).json({ error: 'No hay una API Key configurada para el modo seleccionado' });
+    const facturapi = obtenerInstanciaFacturapi(key);
     await facturapi.customers.list({ limit: 1 });
     res.json({ ok: true, mensaje: 'Conexión con Facturapi v2 autenticada correctamente.' });
   } catch (err: any) {
-    console.error('❌ Error Factura:', err?.message || err);
-    res.status(err?.status || 401).json({ error: err?.message || 'Error al validar la API Key.' });
+    res.status(err?.status || 401).json({ error: 'No se pudo validar la conexion fiscal' });
   }
 });
 

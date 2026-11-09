@@ -50,6 +50,8 @@ export class BillingComponent implements OnInit {
 
   readonly probandoConexion = signal<boolean>(false);
   readonly guardando = signal<boolean>(false);
+  readonly tieneApiKeyTest = signal(false);
+  readonly tieneApiKeyLive = signal(false);
 
   readonly RegimenesFiscales = [
     { clave: '601', descripcion: '601 - General de Ley Personas Morales' },
@@ -91,7 +93,12 @@ export class BillingComponent implements OnInit {
     this.ajustesService.getConfiguracionFacturacion().subscribe({
       next: (config: FacturacionConfig) => {
         if (config) {
+          this.tieneApiKeyTest.set(Boolean(config.tieneApiKeyTest));
+          this.tieneApiKeyLive.set(Boolean(config.tieneApiKeyLive));
+          const testControl = this.billingForm.get('apiKeyTest');
+          testControl?.setValidators(config.tieneApiKeyTest ? [] : [Validators.required]);
           this.billingForm.patchValue(config);
+          testControl?.updateValueAndValidity();
         }
       },
       error: () => console.log('Sin configuración previa de facturación registrada.'),
@@ -110,18 +117,17 @@ export class BillingComponent implements OnInit {
   }
 
   probarConexionAPI(): void {
-    if (!this.billingForm.get('apiKeyTest')?.value && !this.billingForm.get('apiKeyLive')?.value) {
-      this.notifications.warning('Debes ingresar al menos una API Key para validar.');
-      return;
-    }
-
-    this.probandoConexion.set(true);
-    const isLive = this.billingForm.get('modoProduccion')?.value;
+    const isLive = Boolean(this.billingForm.get('modoProduccion')?.value);
     const key = isLive
       ? this.billingForm.get('apiKeyLive')?.value
       : this.billingForm.get('apiKeyTest')?.value;
+    if (!key && !(isLive ? this.tieneApiKeyLive() : this.tieneApiKeyTest())) {
+      this.notifications.warning('Ingresa una API Key para el modo seleccionado.');
+      return;
+    }
+    this.probandoConexion.set(true);
 
-    this.ajustesService.probarConexionFacturapi({ apiKey: key, isLive }).subscribe({
+    this.ajustesService.probarConexionFacturapi({ apiKey: key || '', isLive }).subscribe({
       next: () => {
         this.probandoConexion.set(false);
         this.notifications.success('Conexión exitosa con el servidor de facturación.', 4000);
@@ -157,6 +163,7 @@ export class BillingComponent implements OnInit {
       next: () => {
         this.guardando.set(false);
         this.notifications.success('Ajustes de facturación CFDI 4.0 guardados correctamente.');
+        this.cargarConfiguracionFiscal();
       },
       error: (err) => {
         this.guardando.set(false);

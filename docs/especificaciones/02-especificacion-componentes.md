@@ -6,6 +6,8 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): index.ts bloquea
 
 ## Shell y paginas Angular
 
+Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): index.ts devuelve usuarios sin PIN real y keys fiscales enmascaradas/flags; resuelve secretos guardados en POST/test/CSD. Ajustes limpia PIN al editar y permite preservarlo; alta lo exige. ProductoAdmin incluye clave_sat y categorias admiten CAJA, con controles de alta/edicion. Billing usa flags para preservar keys vacias y recarga mascara tras guardar. Pruebas en memoria y typechecks limpios, sin PostgreSQL.
+
 Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): generarTemplatePrecuenta e imprimirPrecuenta consultan comanda ABIERTA/items y envian a CAJA sin mutaciones. MesaService ofrece imprimirPrecuenta(Mesa), Mesas procesa USB o TicketModal; servir sincroniza mesa y comandas abiertas con lock/transaccion y dos eventos. Pruebas en memoria, typechecks limpios, bundle regenerado.
 
 | Componente y archivo | Responsabilidad y E/S | Dependencias y estado |
@@ -18,7 +20,7 @@ Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): generarTemplate
 | Caja: [caja.ts](../../src/app/features/caja/caja.ts) | Seleccion por comandaId o mesaId, flags fiscales, valida pagoSuficiente, cobra y abre corte/ticket | CajaService, MesaService, AuthService, ruta/router, dialogs, PrinterService y notificaciones; estado compartido en CajaService |
 | DashboardComponent: [dashboard.ts](../../src/app/features/dashboard/dashboard.ts) | Estadisticas por fechas, filtros folio/cliente, consulta tickets y reimpresion por pago | HttpClient, RuntimeConfigService, PrinterService, MatDialog, NotificationService; signals data/tickets/cargando/reimprimiendo y campos de filtros |
 | AjustesComponent: [ajustes.ts](../../src/app/features/ajustes/ajustes.ts) | CRUD categorias, productos, zonas, mesas, clientes, promociones, empleados, impresoras; datos negocio/transferencia, historial cortes, importacion XLSX/CSV, carga imagen y renovacion de licencia | AjustesService, CajaService, AuthService, HttpClient, PrinterService, RuntimeConfigService, NgZone, NotificationService, XLSX; listas/edicion en signals y objetos mutables de formulario; flags de licencia |
-| BillingComponent: [billing-component.ts](../../src/app/features/billing-component/billing-component.ts) | Configura datos fiscales, API keys y CSD; prueba conexion y guarda FormData; embebido en ajustes, sin ruta propia | FormBuilder, Validators, AjustesService, NotificationService; FormGroup, File cer/key, signals probandoConexion/guardando |
+| BillingComponent: [billing-component.ts](../../src/app/features/billing-component/billing-component.ts) | Configura datos fiscales, keys enmascaradas y CSD; prueba con modo/valor o key guardada server-side; guarda FormData y recarga mascara | FormBuilder, Validators, AjustesService, NotificationService; FormGroup, File cer/key, signals probandoConexion/guardando/tieneApiKeyTest/tieneApiKeyLive |
 | NotFoundComponent: [not-found.ts](../../src/app/features/not-found/not-found.ts) | Ruta **; devuelve al inicio segun sesion | Router y AuthService; sin almacen de dominio |
 | TicketModal: [ticket-modal.ts](../../src/app/features/ticket-modal/ticket-modal.ts) | Visualiza texto de ticket; MAT_DIALOG_DATA DatosDialogTicket; envia a printerName o default del sistema, fallback window.print | MatDialogRef, PrinterService, NotificationService; datos inyectados, no signal propio; no bloquea por ausencia de printerName |
 

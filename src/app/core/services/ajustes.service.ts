@@ -8,7 +8,7 @@ export interface CategoriaAdmin {
   nombre: string;
   icono?: string;
   orden?: number;
-  destino_impresion?: 'COCINA' | 'BARRA' | 'NINGUNO';
+  destino_impresion?: 'COCINA' | 'BARRA' | 'CAJA' | 'NINGUNO';
 }
 
 export interface ProductoAdmin {
@@ -19,6 +19,7 @@ export interface ProductoAdmin {
   disponible?: boolean;
   imagen_url?: string;
   categoriaNombre?: string;
+  clave_sat?: string | null;
 }
 
 export interface MesaAdmin {
@@ -92,6 +93,8 @@ export interface FacturacionConfig {
   emailNotificaciones?: string;
   diasVigenciaTicket: number;
   tieneCsd?: boolean;
+  tieneApiKeyTest?: boolean;
+  tieneApiKeyLive?: boolean;
 }
 
 export interface PruebaConexionPayload {

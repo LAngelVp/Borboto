@@ -79,6 +79,11 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Clave SAT</mat-label>
+                <input matInput [(ngModel)]="prod.clave_sat" name="editProdClaveSat" maxlength="10" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Imagen del Producto</mat-label>
                 <input
                   matInput
@@ -180,6 +185,11 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Clave SAT</mat-label>
+                <input matInput [(ngModel)]="nuevoProducto.clave_sat" name="prodClaveSat" maxlength="10" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Imagen del Producto</mat-label>
                 <input
                   matInput
@@ -273,6 +283,7 @@
                     ><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option
                   >
                   <mat-option value="NINGUNO"><mat-icon>block</mat-icon> Sin Impresión</mat-option>
+                  <mat-option value="CAJA"><mat-icon>point_of_sale</mat-icon> Caja</mat-option>
                 </mat-select>
               </mat-form-field>
 
@@ -337,6 +348,7 @@
                     ><mat-icon>local_bar</mat-icon> Barra (Bebidas)</mat-option
                   >
                   <mat-option value="NINGUNO"><mat-icon>block</mat-icon> Sin Impresión</mat-option>
+                  <mat-option value="CAJA"><mat-icon>point_of_sale</mat-icon> Caja</mat-option>
                 </mat-select>
               </mat-form-field>
 
@@ -1502,7 +1514,6 @@
                   type="password"
                   [(ngModel)]="emp.pin"
                   name="editEmpPin"
-                  required
                   maxlength="6"
                   minlength="4"
                 />
@@ -1530,7 +1541,7 @@
                   mat-flat-button
                   color="primary"
                   type="submit"
-                  [disabled]="!emp.nombre || !emp.pin"
+                  [disabled]="!emp.nombre"
                 >
                   Guardar
                 </button>

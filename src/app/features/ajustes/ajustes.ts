@@ -107,6 +107,7 @@ export class AjustesComponent implements OnInit {
     precio: 0,
     disponible: true,
     imagen_url: '',
+    clave_sat: '',
   };
 
   nuevaCategoria: CategoriaAdmin = {
@@ -503,6 +504,7 @@ export class AjustesComponent implements OnInit {
           precio: 0,
           disponible: true,
           imagen_url: '',
+          clave_sat: '',
         };
         this.cargarProductos();
       },
@@ -873,6 +875,10 @@ export class AjustesComponent implements OnInit {
   // --- CRUD EMPLEADOS ---
 
   guardarEmpleado() {
+    if (!this.nuevoEmpleado.nombre.trim() || !/^\d{4,6}$/.test(this.nuevoEmpleado.pin)) {
+      this.notifications.warning('El nombre y un PIN de 4 a 6 digitos son obligatorios.');
+      return;
+    }
     this.authService.crearUsuario(this.nuevoEmpleado).subscribe({
       next: (emp) => {
         this.notifications.success(`Empleado "${emp.nombre}" registrado con éxito.`);
@@ -890,7 +896,7 @@ export class AjustesComponent implements OnInit {
   }
 
   habilitarEdicionEmpleado(emp: any) {
-    this.empleadoEditando.set({ ...emp });
+    this.empleadoEditando.set({ ...emp, pin: '' });
   }
 
   guardarEdicionEmpleado() {

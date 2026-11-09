@@ -8,6 +8,8 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): indice unico par
 
 ## Esquema SQL
 
+Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): sin migracion; respuestas de usuarios omiten PIN real y configuracion fiscal solo devuelve mascaras/flags. Campos destino_impresion y clave_sat ahora completos en CRUD administrativo y formularios. Secrets siguen almacenados en BD; no se implementa hashing/cifrado ni autorizacion.
+
 Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): sin cambios de esquema; precuenta solo lee y servir sincroniza estado_operativo de comandas abiertas. Template DatosPrecuenta extiende DatosComandaProduccion con datosEmpresa y total calculado desde items; PrecuentaError expone status 400/404. Bundle actualizado y pruebas en memoria sin PostgreSQL.
 
 El SQL inicial establece timezone America/Mexico_City, elimina tablas/tipos anteriores con CASCADE y crea 18 tablas contando schema_migrations. No contiene usuarios o configuracion de negocio sembrados. PK id es SERIAL salvo datos_negocio/datos_transferencia (INT); FK y nulabilidad indicadas abajo. `?` significa columna nullable; los DEFAULT no implican NOT NULL. Importes son NUMERIC(10,2), fechas TIMESTAMP sin zona y creado_en suele tener CURRENT_TIMESTAMP.
@@ -202,7 +204,7 @@ Son interfaces/DTO, no clases ORM; los atributos opcionales se resumen sin expre
 - GET mesas proyecta pedidos externos con `id=-comandaId`, `mesaId:null`, numero=folio y zona Mostrador/Domicilio; ese id es sintetico, no una PK de mesas. GET solo incluye pedidos externos ABIERTA, no su historial cerrado.
 - Promocion expone aplica_a/categoria_id/producto_id en UI; la tabla y los handlers no almacenan esos campos. Los descuentos de caja se calculan sobre total original, no por esos alcances.
 - Cliente UI no declara puntos/visitas/frecuente, aunque SQL los tiene y la cuenta los proyecta con alias clientePuntos/clienteVisitas/clienteEsFrecuente.
-- GET mesas usa aliases operativos, mientras MesaAdmin espera zona_id, que esa proyeccion no incluye. CategoriaAdmin no admite CAJA aunque el enum SQL si. ProductoAdmin no incluye clave_sat, que el importador puede insertar.
+- GET mesas usa aliases operativos, mientras MesaAdmin espera zona_id, que esa proyeccion no incluye. Desde SDD-004 CategoriaAdmin admite CAJA y ProductoAdmin incluye clave_sat opcional/nullable; alta y edicion lo persisten y GET admin lo devuelve.
 
 ## HTTP: convenciones y catalogo completo
 
@@ -216,19 +218,19 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | --- | --- | --- |
 | POST /api/auth/login | pin | Usuario {id,nombre,rol}; 401 si PIN incorrecto/inactivo; sin token |
 | POST /api/auth/register-first-admin | nombre,pin | Usuario ADMIN, 201; 403 si existe cualquier usuario; 400 si faltan campos |
-| GET /api/usuarios | Ninguna | Array id,nombre,rol,pin,activo |
-| POST /api/usuarios | nombre,pin,rol,activo | Fila; exige nombre/pin/rol |
-| PUT /api/usuarios/:id | nombre,pin,rol,activo | Fila o 404 |
+| GET /api/usuarios | Ninguna | Array id,nombre,rol,activo,pin:'',tienePin:true; nunca PIN real |
+| POST /api/usuarios | nombre,pin,rol,activo | id,nombre,rol,activo; exige PIN string 4..6 digitos; 400 invalido, 409 PIN duplicado |
+| PUT /api/usuarios/:id | nombre,pin opcional,rol,activo | id,nombre,rol,activo o 404; PIN omitido/vacio conserva por COALESCE, nuevo valida 4..6 digitos; 409 ante 23505 |
 | DELETE /api/usuarios/:id | id | Inactiva si tiene comandas, elimina si no; otras FK pueden impedir eliminacion |
 | GET /api/productos | Ninguna | Solo disponibles, categoria como nombre, precio e imagen_url |
 | GET /api/admin/productos | Ninguna | Todos, categoria_id y categoriaNombre |
-| POST /api/productos | categoria_id,nombre,precio,disponible,imagen_url | Fila 201; no consume clave_sat |
+| POST /api/productos | categoria_id,nombre,precio,disponible,imagen_url,clave_sat opcional | Fila 201; persiste clave_sat o null |
 | PUT /api/productos/:id | mismos campos | Fila; emite PRODUCTO_ACTUALIZADO; no 404 explicito si falta |
 | DELETE /api/productos/:id | id | Elimina; si falla intenta disponible=false |
 | POST /api/productos/upload | multipart imagen | {url:'/uploads/productos/...png'}; max 10 MB, MIME image/, resize 600x600 |
 | POST /api/productos/importar-lote | {productos:[{nombre,precio,categoria?,disponible?,clave_sat?}]} | {ok:true,agregados}, 201; crea categoria faltante; transaccion de lote |
 | GET /api/categorias | Ninguna | Filas ordenadas por orden/nombre |
-| POST /api/categorias | nombre,icono,orden | Fila 201; destino por default SQL, no consume destino_impresion |
+| POST /api/categorias | nombre,icono,orden,destino_impresion opcional | Fila 201; persiste destino o COCINA por default; enum admite CAJA |
 | PUT /api/categorias/:id | nombre,icono,orden,destino_impresion | Fila o 404 |
 | DELETE /api/categorias/:id | id | 400 si existe cualquier producto asociado |
 | GET /api/zonas | Ninguna | Filas ordenadas por id |
@@ -288,9 +290,9 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | POST /api/ajustes/negocio | nombre,rfc,telefono,direccion,email,mensaje_recibo,visitas_requeridas_frecuente,puntos_por_cada_diez_pesos,pesos_por_punto | UPSERT id=1, devuelve fila |
 | GET /api/ajustes/transferencia | Ninguna | Fila id=1 o {} |
 | POST /api/ajustes/transferencia | banco,titular,clabe,email | UPSERT id=1, devuelve fila |
-| GET /api/ajustes/facturacion | Ninguna | FacturacionConfig camelCase o null; incluye API keys; no devuelve clave_sat_defecto |
+| GET /api/ajustes/facturacion | Ninguna | FacturacionConfig camelCase o null; apiKeyTest/Live enmascaradas, flags tieneApiKeyTest/Live; no devuelve secreto completo ni clave_sat_defecto |
 | POST /api/ajustes/facturacion | multipart apiKeyTest,apiKeyLive,modoProduccion,rfcEmisor,razonSocial,regimenFiscal,codigoPostal,emailNotificaciones,csdPassword,diasVigenciaTicket,csdCer?,csdKey? | {ok,mensaje}; sube ambos CSD si hay key activa y guarda id=1 |
-| POST /api/ajustes/facturacion/test | apiKey | {ok,mensaje}; consulta customers limit 1; error status externo o 401; isLive recibido por UI no usado |
+| POST /api/ajustes/facturacion/test | apiKey opcional, isLive opcional | {ok,mensaje}; vacio/mascara resuelve key almacenada por modo elegido o guardado; 400 sin key, error generico con status externo o 401 |
 | POST /api/ajustes/facturacion/sincronizar | Ninguna | {ok,total,mensaje}; 400 si servicio devuelve ok=false |
 | GET /api/licencia/test-sheets | Ninguna | {ok,success,url,status,data,error?}; prueba reporte, no verificacion criptografica de licencia |
 
@@ -309,6 +311,10 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | GET archivos Angular / fallback | ruta fuera de /api y /uploads | Estaticos/index solo si frontendDistPath existe |
 
 ### Formas relevantes de respuesta
+
+SDD-004: mascara `********` + ultimos cuatro caracteres para keys de longitud>4; keys cortas solo `********`, inexistentes vacio. Guardar campo omitido/vacio/enmascarado (prefijo asterisco/bullet) conserva key privada; nuevo valor reemplaza. Se exige test key inicial, CSD usa key resuelta activa y respuestas POST solo ok/mensaje. Errores de guardado/prueba fiscal no reenvian mensajes externos sensibles. Billing puede guardar test key vacia si flag de almacenada es true y recarga mascara tras exito.
+
+PUT producto recibe clave_sat: omitido conserva; vacio/null limpia; nuevo reemplaza. GET admin incluye clave_sat y los controles de Ajustes lo editan. Sin cambios a otros campos/eventos.
 
 `autofactura` es null o `{codigo,url,expiracion}`. `ticketTexto` puede ser null/ausente/string segun operacion. `impresionesPendientes` contiene `{tipo:'USB',printerName,contenido,titulo,anchoPapel?,esTermica?,corteTipo?}`. No es una cola persistente: el caller Angular la procesa.
 

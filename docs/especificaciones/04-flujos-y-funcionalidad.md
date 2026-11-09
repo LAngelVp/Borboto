@@ -18,6 +18,33 @@ Socket conserva callback por suscripcion y unsubscribe retira la misma referenci
 
 ## Casos de uso actuales
 
+Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): proteccion de respuestas administrativas, PIN opcional al editar, keys enmascaradas/preservadas y contratos SAT/destino completos. 36 casos con mocks pg/servicios Angular/proveedor y verificaciones de bindings pasan; los tres typechecks y bundle/sintaxis pasan sin instancia PostgreSQL activa.
+
+### Secretos y catalogo desde SDD-004
+
+GET usuarios no proyecta PIN; devuelve pin vacio y tienePin:true. POST exige 4..6 digitos; PUT vacio/omitido conserva PIN, nuevo valido cambia y 23505 devuelve 409. Respuestas de POST/PUT no contienen PIN. Ajustes limpia el campo al editar y permite guardar sin cambiarlo, manteniendo obligatoriedad en alta.
+
+GET fiscal enmascara keys y devuelve flags. POST fiscal lee keys privadas y conserva si request omite/envia vacio/mascara; nuevas keys sustituyen y CSD usa la activa resuelta. POST test selecciona modo por isLive o configuracion guardada, resuelve key privada y no reenvia mensajes de error del proveedor. Billing usa flags para validar alta/edicion, permite prueba con key guardada y recarga mascaras tras guardar. No hay borrado explicito de keys ni control de concurrencia adicional del UPSERT.
+
+Categoria alta persiste destino con default COCINA, tipos/UI incluyen CAJA. Producto alta/edicion/listado admin incluyen clave_sat; PUT omitido conserva y vacio/null limpia. Los formularios mantienen resto de flujos.
+
+```mermaid
+sequenceDiagram
+  participant U as Ajustes / Billing
+  participant B as API
+  participant D as BD
+  participant F as Facturapi
+  U->>B: GET configuracion fiscal
+  B->>D: Leer keys privadas
+  B-->>U: Mascara y flags
+  U->>B: Guardar mascara/vacio o nueva key
+  B->>D: Conservar key guardada o reemplazar
+  B-->>U: ok sin secreto
+  U->>B: Probar key con modo
+  B->>F: SDK con key resuelta server-side
+  B-->>U: Resultado generico sin secreto
+```
+
 | Caso | Actor / condicion | Resultado implementado |
 | --- | --- | --- |
 | Activar y renovar licencia | Puesto Electron, clave firmada | Verifica firma/equipo/vencimiento; guarda .lic; inicio o renovacion sin recrear main existente |
@@ -286,6 +313,6 @@ Administracion carga catalogos mediante HTTP; imagen usa Multer/Jimp y URL relat
 - Errores de imagen/CSD y red externa se capturan en handlers, pero errores de middleware Multer no tienen normalizacion JSON central.
 - Electron/App interceptan warn/error, uncaughtException/unhandledRejection y errores del renderer; notifican con deduplicacion 2.5 s y texto de 220 caracteres. Filtran mensajes PRINT/DEBUG y logs info del puente.
 - AuthService.getHasUsers convierte fallo de GET usuarios en false, pudiendo mostrar registro inicial cuando falla la red. El servidor sigue rechazando registro si ya existen usuarios.
-- Existen credenciales/tokens por defecto y GET que devuelven PIN/API keys; CORS abierto y falta auth HTTP. No se reproducen valores sensibles ni se los presenta como practicas recomendadas.
+- Existen credenciales/tokens por defecto; SDD-004 elimina PIN real de GET/POST/PUT usuarios y enmascara keys de GET fiscal, conservandolas server-side. CORS abierto, falta auth HTTP y PINs en texto en BD siguen pendientes. No se reproducen valores sensibles ni se los presenta como practicas recomendadas.
 
 No se ejecutaron ventas, migraciones, impresion fisica, verificacion de licencia de un cliente ni solicitudes fiscales durante la elaboracion: se documento el comportamiento de las fuentes sin modificar ni operar datos del proyecto.
