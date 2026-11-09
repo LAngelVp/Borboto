@@ -16,6 +16,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService } from '../../../core/services/auth.service';
 import { RoleAccessService } from '../../../core/services/role-access.service';
+import { InventarioService } from '../../../core/services/inventario.service';
 import { ThemeService } from '../../../core/services/theme.service'; // Adjust path
 import { CambiarTurnoDialogComponent } from '../cambiar-turno-dialog/cambiar-turno-dialog';
 
@@ -39,6 +40,7 @@ import { CambiarTurnoDialogComponent } from '../cambiar-turno-dialog/cambiar-tur
 export class NavbarComponent {
   protected readonly authService = inject(AuthService);
   protected readonly roleAccess = inject(RoleAccessService);
+  protected readonly inventario = inject(InventarioService);
   protected readonly themeService = inject(ThemeService);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);

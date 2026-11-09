@@ -8,6 +8,23 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): indice unico par
 
 ## Esquema SQL
 
+### Inventario SDD-024
+
+[007_inventario_almacen.sql](../../Database/migrations/007_inventario_almacen.sql) agrega inventario_insumos e inventario_movimientos; [000_init.sql](../../Database/000_init.sql) refleja sus mismas definiciones. Insumos tienen codigo unico nullable, configuracion de unidad/paquete, stock/minimo/costo no negativos, factor positivo y desactivacion logica. Movimientos conservan captura, factor aplicado, delta firmado, saldos anterior/resultante y responsable; FK insumo RESTRICT y usuario SET NULL con nombre historico. Indices activo, categoria_almacen e insumo_id/fecha DESC. La migracion no se ejecuto contra PostgreSQL en esta entrega.
+
+Todas las rutas siguientes se prefijan con /api/inventario y exigen sesion firmada y usuario activo con rol vigente en servidor.
+
+| Contrato | Permisos | Resultado |
+| --- | --- | --- |
+| GET /insumos | ADMIN/CAJERO/COCINERO/MESERO | Activos normalizados; incluirInactivos=true solo ADMIN. estado_guardia, desglose_paquetes y faltante_sugerido calculados en servidor |
+| GET /resumen-alertas | Los cuatro roles | totalInsumos, sinStock, bajoGuardia (excluye agotados), enPrecaucion, itemsCriticos (stock<=minimo) |
+| POST /salidas-lote | ADMIN/CAJERO/COCINERO | origen, notas?, items de insumoId/modoCaptura/cantidad; 200 ok, 409 error/disponible/solicitado sin mutacion parcial |
+| POST /insumos, PUT /insumos/:id | ADMIN | Configuracion; POST acepta stock_inicial en unidad base y audita entrada en la misma transaccion; PUT nunca modifica stock desde el cuerpo |
+| POST /insumos/:id/ajuste | ADMIN | tipoMovimiento ENTRADA_COMPRA suma cantidad convertida; REINVENTARIO_AJUSTE usa nuevoStockFisico o paquetesContados+unidadesSueltasContadas y audita diferencia real |
+| GET /movimientos | ADMIN | Kardex por insumoId/tipoMovimiento/limite (1..500, default 100), orden fecha DESC/id DESC, incluye insumo_nombre |
+
+Stock cero precede BAJO_GUARDIA; stock<=minimo es BAJO_GUARDIA; minimo>0 y stock<=minimo*1.25 es PRECAUCION; resto OK. Desglose solo si permite_paquetes y factor>1. NUMERIC de insumos se normaliza a number; movimientos pueden conservar strings NUMERIC de pg. Valores de entrada son numeros JSON finitos no negativos (cantidades positivas) a dos decimales, conversion subcentesimal rechazada. Notas maximo 255 y lote 1..200. Errores 400/401/403/404/409/500 y 503 al no poder verificar usuario. Evento actualizar_inventario sin datos sensibles, exclusivamente tras COMMIT. Sin IPC nuevo ni idempotencia distribuida; contrato detallado y diagramas en [SDD-024](SDD-024-inventario-almacen-cocina-y-guardia.md).
+
 Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): migracion 005 amplia usuarios.pin a TEXT sin modificar legados. Login/register-first-admin conservan id,nombre,rol y agregan token/sessionToken HMAC (12 h, invalido tras reinicio). GET /api/auth/has-users devuelve {hasUsers}; error 503 no equivale a vacio. Mutaciones de negocio y lecturas sensibles requieren Bearer valido/usuario activo; roles ADMIN administrativo, CAJERO caja/dashboard, COCINERO KDS, MESERO operacion; cuerpo usuarioId no suplanta sesion. 401/403 no mutan.
 
 Cobro exige monto recibido >= totalCuenta neto completo, cuota solo informativa; descuento por puntos se acota al subtotal. Ticket imprime subtotal/descuento/neto/cuota. Corte ignora sumas cliente, obtiene pagos desde ultimo corte bajo advisory lock de usuario y rechaza 409 sin nuevos pagos; diferencia=efectivoReal-fondoApertura-efectivoCalculado. Promociones y combos comparten transaccion; delete desactiva/desvincula productos antes de borrar y emite catalogo postcommit.
@@ -20,7 +37,7 @@ Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): sin migrac
 
 Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): sin cambios de esquema; precuenta solo lee y servir sincroniza estado_operativo de comandas abiertas. Template DatosPrecuenta extiende DatosComandaProduccion con datosEmpresa y total calculado desde items; PrecuentaError expone status 400/404. Bundle actualizado y pruebas en memoria sin PostgreSQL.
 
-El SQL inicial establece timezone America/Mexico_City, elimina tablas/tipos anteriores con CASCADE y crea 18 tablas contando schema_migrations. No contiene usuarios o configuracion de negocio sembrados. PK id es SERIAL salvo datos_negocio/datos_transferencia (INT); FK y nulabilidad indicadas abajo. `?` significa columna nullable; los DEFAULT no implican NOT NULL. Importes son NUMERIC(10,2), fechas TIMESTAMP sin zona y creado_en suele tener CURRENT_TIMESTAMP.
+El SQL inicial establece timezone America/Mexico_City, elimina tablas/tipos anteriores y crea las tablas de negocio y schema_migrations, incluyendo las dos tablas de inventario desde SDD-024. No contiene usuarios o configuracion de negocio sembrados. PK id es SERIAL salvo datos_negocio/datos_transferencia (INT); FK y nulabilidad indicadas abajo. `?` significa columna nullable; los DEFAULT no implican NOT NULL. Importes son NUMERIC(10,2), existencias NUMERIC(12,2), fechas TIMESTAMP sin zona y creado_en suele tener CURRENT_TIMESTAMP.
 
 | Tabla | Columnas y restricciones principales |
 | --- | --- |

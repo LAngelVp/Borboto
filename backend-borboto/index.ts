@@ -19,6 +19,7 @@ import { realizarSincronizacionFacturas } from './src/sincronizarFacturas';
 import { enviarConteoAGoogleSheets } from './src/services/reporteFacturas.service';
 import { PrinterService, PrecuentaError } from './src/modules/printer/printer.service';
 import printerRoutes from './src/modules/printer/printer.routes';
+import { registrarInventario } from './src/modules/inventario';
 
 dotenv.config();
 
@@ -329,6 +330,7 @@ io.on('connection', (socket) => {
 
 app.use(cors());
 app.use(express.json());
+registrarInventario(app, pool, emitirCambioGlobal);
 app.use('/api', async (req, res, next) => {
   if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
   const lecturaSensible = /^\/(usuarios|admin|caja|dashboard|ajustes\/facturacion|licencia\/test-sheets)(\/|$)/.test(req.path);

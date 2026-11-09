@@ -24,6 +24,11 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard],
   },
   {
+    path: 'inventario',
+    loadComponent: () => import('./features/inventario/inventario').then((m) => m.InventarioComponent),
+    canActivate: [authGuard, roleGuard],
+  },
+  {
     path: 'caja',
     loadComponent: () => import('./features/caja/caja').then((m) => m.Caja),
     canActivate: [authGuard, roleGuard],

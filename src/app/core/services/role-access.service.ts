@@ -46,6 +46,14 @@ export class RoleAccessService {
       showInNav: true,
     },
     {
+      label: 'Inventario',
+      route: '/inventario',
+      icon: 'inventory_2',
+      electronRoles: ['ADMIN', 'COCINERO', 'CAJERO'],
+      browserRoles: ['COCINERO'],
+      showInNav: true,
+    },
+    {
       label: 'Caja',
       route: '/caja',
       icon: 'point_of_sale',

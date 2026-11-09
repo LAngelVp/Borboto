@@ -12,6 +12,17 @@ Revision [SDD-009](SDD-009-transferencias-folios-y-direccion-envio.md): traslada
 
 ## Shell y paginas Angular
 
+### Inventario SDD-024
+
+| Fuente | Responsabilidad / estado |
+| --- | --- |
+| [inventario.ts](../../src/app/features/inventario/inventario.ts), InventarioComponent | /inventario lazy con authGuard/roleGuard; ADMIN/CAJERO/COCINERO en Electron, COCINERO en navegador segun politica vigente. Filtros de area, guardia y nombre/codigo; tarjetas con stock/paquetes/minimo; vale local con cantidades, saldo proyectado, destino y notas. Signals/computed y formularios reactivos; errores visibles y bloqueo de envio doble local |
+| [inventario-admin.ts](../../src/app/features/inventario/inventario-admin.ts), InventarioAdminComponent | Pestaña Inventario y Almacen de Ajustes, visible solo ADMIN y contenido diferido. Configuracion/alta/edicion/desactivacion, stock inicial, faltantes, entrada por paquete/unidad, conteo fisico por desglose o total, Kardex filtrado. Formularios reactivos; suscripcion socket/lectura desmontadas. Estilos encapsulados en el componente, sin cambios de estilos globales de Ajustes |
+| [inventario.service.ts](../../src/app/core/services/inventario.service.ts), InventarioService | HTTP tipado de dominio, signals de insumos/resumen/carga/error y contador critico. Recarga por actualizar_inventario, cancela lecturas anteriores, limpia datos al cambiar sesion y libera socket/HTTP con DestroyRef. Navbar muestra contador bajo guardia, no inventa existencias locales |
+| [inventario.ts](../../backend-borboto/src/modules/inventario.ts), registrarInventario | requireAuth valida firma y usuario vigente; requireRoles por contrato. Conversion autoritativa en centesimas, SQL parametrizado, transaccion de stock y auditoria y eventos postcommit |
+
+AjustesService se conserva sin incorporar otro dominio: Ajustes compone InventarioAdminComponent, que depende de InventarioService. Navbar real en shared/components/navbar-component. Compilacion Angular correcta; no se ha ejecutado auditoria AXE ni validacion visual en navegador.
+
 Revision UX [SDD-023](SDD-023-filtros-menu-mesas-responsive-y-kds.md): MenuProductos escucha change de MatChipListbox con evento tipado; ComandaService deduplica y filtra categorias normalizadas. Mesas ofrece selector compacto de tres vistas bajo 1200px con contadores activos; desktop conserva panel externo de 400..440px y cards con minimo adaptable de 300px. Acciones envuelven texto, sin altura fija que recorte botones. Cabecera global permite wrap responsive, cambio adicional autorizado. KDS conserva listos en PREPARANDO y todos los no despachados en PENDIENTE, con contador LISTO y boton destacado sin despacho automatico.
 
 Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md), Implementado: CajaService exige pago completo/neto cero valido y parametros reales de puntos; CorteCajaDialog bloquea errorCarga/guardando; Dashboard usa fechas locales y separa busqueda. Login distingue red y app.config agrega sesion. PrinterService prefiere bridge, evalua RAW/IPC y confirma itemIds solo tras exito; Comanda avisa si faltan confirmaciones. TicketModal aisla contenido. fiscal-receipts.service comparte emision/recuperacion entre cobrar, endpoint por pago y sync, con evidencia durable previa a HTTP. Promos/combos atomicos y legacy deprecado. Ver matriz y limites de pruebas en memoria.

@@ -1,0 +1,76 @@
+<section class="admin-inventario" aria-labelledby="inventario-admin-titulo">
+  <h2 id="inventario-admin-titulo">Inventario y Almacen</h2>
+  <div class="indicadores" aria-label="Resumen de guardia">
+    <div><span>Total insumos activos</span><strong>{{ inventario.resumen().totalInsumos }}</strong></div>
+    <div><span>Bajo minimo de guardia</span><strong>{{ inventario.resumen().bajoGuardia }}</strong></div>
+    <div><span>Agotados</span><strong>{{ inventario.resumen().sinStock }}</strong></div>
+  </div>
+  <p role="status" aria-live="polite">{{ mensaje() }}</p>
+  @if (cargando()) { <p role="status">Cargando inventario e historial...</p> }
+  @if (inventario.error()) { <p role="alert">{{ inventario.error() }}</p> }
+  <div class="configuracion">
+    <section aria-labelledby="config-titulo">
+      <h3 id="config-titulo">{{ editando() ? 'Editar insumo' : 'Alta de insumo' }}</h3>
+      <form [formGroup]="configuracion" (ngSubmit)="guardar()">
+        <fieldset [disabled]="ocupado()">
+          <label>Nombre<input formControlName="nombre" required maxlength="120" /></label>
+          <label>Codigo<input formControlName="codigo" maxlength="40" /></label>
+          <label>Categoria<select formControlName="categoria_almacen">@for (area of areas; track area) { <option [value]="area">{{ area }}</option> }</select></label>
+          <label>Unidad base<select formControlName="unidad_base">@for (unidad of unidades; track unidad) { <option [value]="unidad">{{ unidad }}</option> }</select></label>
+          <label class="check"><input type="checkbox" formControlName="permite_paquetes" />Maneja paquetes/cajas</label>
+          <label>Nombre del paquete<select formControlName="nombre_paquete">@for (paquete of paquetes; track paquete) { <option [value]="paquete">{{ paquete }}</option> }</select></label>
+          <label>Unidades por paquete<input type="number" formControlName="factor_paquete" min="0.01" step="0.01" required /></label>
+          <label>Cantidad minima de guardia<input type="number" formControlName="stock_minimo" min="0" step="0.01" required /></label>
+          <label>Costo por unidad<input type="number" formControlName="costo_unitario" min="0" step="0.01" required /></label>
+          <label>Ubicacion<input formControlName="ubicacion" maxlength="80" /></label>
+          @if (!editando()) { <label>Stock inicial en unidad base<input type="number" formControlName="stock_inicial" min="0" step="0.01" required /></label> }
+          <label class="check"><input type="checkbox" formControlName="activo" />Activo</label>
+          <div class="acciones"><button type="submit" class="principal" [disabled]="configuracion.invalid || ocupado()"><mat-icon>save</mat-icon>Guardar insumo</button><button type="button" (click)="nuevo()"><mat-icon>add</mat-icon>Nuevo</button></div>
+        </fieldset>
+      </form>
+    </section>
+    <section class="lista" aria-labelledby="lista-titulo">
+      <h3 id="lista-titulo">Existencias y resurtido</h3>
+      <label class="check"><input type="checkbox" [checked]="soloFaltantes()" (change)="soloFaltantes.set(!soloFaltantes())" />Lista de faltantes / Resurtido</label>
+      <div class="tabla-scroll" tabindex="0" role="region" aria-label="Existencias de insumos">
+        <table><thead><tr><th scope="col">Insumo / Area</th><th scope="col">Existencia</th><th scope="col">Minimo</th><th scope="col">Faltante</th><th scope="col">Acciones</th></tr></thead><tbody>
+          @for (insumo of insumos(); track insumo.id) {
+            @if (!soloFaltantes() || (insumo.activo && insumo.stock_actual <= insumo.stock_minimo)) {
+              <tr><th scope="row">{{ insumo.nombre }}<small>{{ insumo.categoria_almacen }} · {{ insumo.activo ? 'Activo' : 'Inactivo' }}</small></th><td>{{ insumo.stock_actual | number:'1.0-2' }} {{ insumo.unidad_base }}</td><td>{{ insumo.stock_minimo | number:'1.0-2' }}</td><td>{{ insumo.faltante_sugerido | number:'1.0-2' }}</td>
+                <td><div class="acciones"><button type="button" [disabled]="ocupado()" (click)="editar(insumo)" title="Editar insumo" [attr.aria-label]="'Editar ' + insumo.nombre"><mat-icon>edit</mat-icon></button><button type="button" [disabled]="ocupado() || !insumo.activo" (click)="preparar(insumo, 'ENTRADA_COMPRA')" title="Registrar entrada / compra" [attr.aria-label]="'Registrar entrada de ' + insumo.nombre"><mat-icon>add_shopping_cart</mat-icon></button><button type="button" [disabled]="ocupado() || !insumo.activo" (click)="preparar(insumo, 'REINVENTARIO_AJUSTE')" title="Re-inventariar: conteo fisico" [attr.aria-label]="'Re-inventariar ' + insumo.nombre"><mat-icon>fact_check</mat-icon></button></div></td>
+              </tr>
+            }
+          } @empty { <tr><td colspan="5">No hay insumos registrados.</td></tr> }
+        </tbody></table>
+      </div>
+      @if (seleccionado(); as insumo) {
+        <section class="ajuste" aria-labelledby="ajuste-titulo">
+          <h3 id="ajuste-titulo">{{ accion() === 'ENTRADA_COMPRA' ? 'Entrada / Compra' : 'Re-inventariar (Conteo fisico)' }}: {{ insumo.nombre }}</h3>
+          <p>Stock actual: {{ insumo.stock_actual | number:'1.0-2' }} {{ insumo.unidad_base }}</p>
+          <form [formGroup]="ajuste" (ngSubmit)="registrarAjuste()"><fieldset [disabled]="ocupado()">
+            @if (accion() === 'ENTRADA_COMPRA') {
+              <label>Modo<select formControlName="modoCaptura"><option value="UNIDAD">{{ insumo.unidad_base }}</option>@if (insumo.permite_paquetes) { <option value="PAQUETE">{{ insumo.nombre_paquete }} (x{{ insumo.factor_paquete }})</option> }</select></label>
+              <label>Cantidad<input type="number" formControlName="cantidad" min="0.01" step="0.01" /></label>
+            } @else {
+              <label>Captura de conteo<select formControlName="conteo"><option value="DESGLOSE">Paquetes y unidades sueltas</option><option value="TOTAL">Total en unidad base</option></select></label>
+              @if (ajuste.controls.conteo.value === 'TOTAL') { <label>Total fisico en {{ insumo.unidad_base }}<input type="number" formControlName="nuevoStockFisico" min="0" step="0.01" /></label> }
+              @else {
+                @if (insumo.permite_paquetes) { <label>{{ insumo.nombre_paquete }} cerrados (x{{ insumo.factor_paquete }})<input type="number" formControlName="paquetesContados" min="0" step="1" /></label> }
+                <label>{{ insumo.unidad_base }} sueltas<input type="number" formControlName="unidadesSueltasContadas" min="0" step="0.01" /></label>
+              }
+            }
+            <label>Motivo / Notas<textarea formControlName="notas" maxlength="255"></textarea></label>
+            <div class="acciones"><button type="submit" class="principal" [disabled]="ocupado() || ajuste.invalid"><mat-icon>check</mat-icon>Registrar {{ accion() === 'ENTRADA_COMPRA' ? 'entrada' : 'conteo' }}</button><button type="button" (click)="seleccionado.set(null)">Cancelar</button></div>
+          </fieldset></form>
+        </section>
+      }
+    </section>
+  </div>
+  <section class="kardex" aria-labelledby="kardex-titulo">
+    <h3 id="kardex-titulo">Historial de movimientos (Kardex)</h3>
+    <form class="filtros" [formGroup]="filtros" (ngSubmit)="cargar()"><label>Insumo<select formControlName="insumoId"><option value="">Todos</option>@for (insumo of insumos(); track insumo.id) { <option [value]="insumo.id">{{ insumo.nombre }}</option> }</select></label><label>Movimiento<select formControlName="tipoMovimiento"><option value="">Todos</option>@for (tipo of tipos; track tipo) { <option [value]="tipo">{{ tipo }}</option> }</select></label><button type="submit" [disabled]="cargando()"><mat-icon>filter_list</mat-icon>Filtrar</button></form>
+    <div class="tabla-scroll" tabindex="0" role="region" aria-label="Kardex de inventario"><table><thead><tr><th scope="col">Fecha</th><th scope="col">Insumo</th><th scope="col">Tipo</th><th scope="col">Captura / Factor</th><th scope="col">Delta</th><th scope="col">Stock resultante</th><th scope="col">Responsable</th></tr></thead><tbody>
+      @for (movimiento of movimientos(); track movimiento.id) { <tr><td>{{ movimiento.fecha | date:'dd/MM/yyyy HH:mm' }}</td><th scope="row">{{ movimiento.insumo_nombre }}</th><td>{{ movimiento.tipo_movimiento }}</td><td>{{ movimiento.cantidad_capturada | number:'1.0-2' }} {{ movimiento.modo_captura }} x{{ movimiento.factor_aplicado }}</td><td>{{ movimiento.delta_unidad_base | number:'1.0-2' }}</td><td>{{ movimiento.stock_resultante | number:'1.0-2' }}</td><td>{{ movimiento.usuario_nombre || 'Usuario eliminado' }}</td></tr> } @empty { <tr><td colspan="7">Sin movimientos para estos filtros.</td></tr> }
+    </tbody></table></div>
+  </section>
+</section>

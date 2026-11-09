@@ -18,6 +18,16 @@ Socket conserva callback por suscripcion y unsubscribe retira la misma referenci
 
 ## Casos de uso actuales
 
+### Inventario y guardia SDD-024
+
+1. Operador ADMIN/CAJERO/COCINERO abre /inventario (conserva politica de dispositivo), filtra area/nombre/codigo/guardia y agrega unidades o paquetes al vale. La UI muestra saldo previsto, pero el servidor decide conversion y disponibilidad.
+2. Confirmar envia origen, notas e items; requireAuth verifica token/usuario activo y requireRoles autoriza. Transaccion bloquea todos los insumos con ORDER BY id ASC FOR UPDATE; ausente/inactivo 404, paquete no habilitado 400, saldo insuficiente 409. Cantidades duplicadas comparten el saldo acumulado, sin permitir sobregiro.
+3. UPDATE y movimientos se confirman juntos. Fallo intermedio revierte todo y no emite evento. Tras COMMIT se publica actualizar_inventario; clientes recargan catalogo/resumen. La UI conserva el vale en error y no reintenta escrituras automaticamente. Respuesta perdida exige revisar inventario/Kardex antes de reenviar; no hay garantia exactamente-una-vez.
+4. ADMIN abre Inventario y Almacen en Ajustes: configura guardia, unidades/paquetes y stock inicial auditado; puede desactivar sin borrar historial. Lista de faltantes incluye activos con stock<=minimo, no solo el contador BAJO_GUARDIA que excluye agotados.
+5. Compra suma captura convertida; conteo fisico establece el saldo calculado desde total o paquetes+sueltas y registra delta firmado real con responsable de sesion. Conteo identico devuelve exito sin insertar cantidad_capturada=0, incompatible con el CHECK positivo. Kardex conserva fecha, factor historico, captura, delta, saldo y nombre responsable.
+
+Pruebas: [sdd-024-inventario.test.cjs](../../backend-borboto/tests/sdd-024-inventario.test.cjs); doce pruebas propias y 74 junto a las suites requeridas pasan en memoria. Tres typechecks, build Angular, build servidor y node --check correctos. Ninguna conexion o arranque de PostgreSQL/Electron; migracion real y AXE/navegador quedan pendientes. Ver [SDD-024](SDD-024-inventario-almacen-cocina-y-guardia.md).
+
 Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): division informa aportacion por persona pero el cierre requiere total neto completo; cero tras descuento valido no bloquea Caja. Corte calcula resumen SQL serializado y evita duplicado sin pagos; error de carga bloquea envio. CRUD promos/combos atomico publica catalogo; Dashboard HOY envia ambos limites locales y busqueda libre por folio/cliente no fuerza hoy ni es pisada por stats.
 
 Impresion fallida/ausente no marca items; USB generado conserva false y lleva itemIds. Exito RAW/IPC invoca ack; fallo o ack perdido deja pendientes y Comanda avisa antes de reintentar. Ticket navegador abre ventana dedicada. Pago confirma y libera cliente antes de HTTP fiscal; intento durable guarda solicitud/estado antes de receipts.create con external_id por pago. Fallo INSERT posterior no deshace venta: endpoint o sync buscan receipt remoto y persisten sin otra creacion; si aun no es visible, conflicto recuperable sin reemision. Sesion HMAC/PIN compatibles, bootstrap exclusivo, preload y shutdown compartido se conservan. Cierre SDD-099 Implementado; pruebas solo en memoria.

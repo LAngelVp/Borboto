@@ -28,6 +28,9 @@
       <a mat-button [routerLink]="item.route" routerLinkActive="active" class="nav-btn">
         <mat-icon>{{ item.icon }}</mat-icon>
         <span>{{ item.label }}</span>
+        @if (item.route === '/inventario' && inventario.criticos() > 0) {
+          <span role="status" [attr.aria-label]="inventario.criticos() + ' insumos bajo guardia'">({{ inventario.criticos() }})</span>
+        }
       </a>
     }
   </nav>

@@ -1,0 +1,51 @@
+<main class="inventario">
+  <header><div><h1>Inventario</h1><p>Almacen y cocina</p></div><button type="button" (click)="inventario.recargar()" [disabled]="inventario.cargando()" aria-label="Actualizar inventario" title="Actualizar inventario"><mat-icon>refresh</mat-icon></button></header>
+  <section class="filtros" aria-label="Filtros de insumos">
+    <div class="areas" role="group" aria-label="Area">
+      @for (opcion of areas; track opcion) { <button type="button" [attr.aria-pressed]="area() === opcion" (click)="area.set(opcion)">{{ opcion === 'TODOS' ? 'Todos' : opcion }}</button> }
+    </div>
+    <label class="guardia"><input type="checkbox" [checked]="guardia()" (change)="guardia.set(!guardia())" /> En guardia / Por agotarse</label>
+    <label>Buscar nombre o codigo<input type="search" [formControl]="buscar" /></label>
+  </section>
+  @if (inventario.cargando()) { <p role="status">Cargando inventario...</p> }
+  @if (inventario.error()) { <p role="alert">{{ inventario.error() }}</p> }
+  <div class="operacion">
+    <section class="catalogo" aria-label="Insumos">
+      @for (insumo of visibles(); track insumo.id) {
+        <article class="insumo" [attr.data-estado]="insumo.estado_guardia">
+          <div class="insumo-titulo"><mat-icon aria-hidden="true">inventory_2</mat-icon><h2>{{ insumo.nombre }}</h2></div>
+          <span class="estado">{{ etiquetas[insumo.estado_guardia] }}</span>
+          <p>{{ insumo.codigo || 'Sin codigo' }} · {{ insumo.ubicacion || 'Sin ubicacion' }}</p>
+          @if (insumo.desglose_paquetes; as desglose) { <p class="desglose">{{ desglose.paquetesCompletos }} {{ insumo.nombre_paquete }} + {{ desglose.unidadesSueltas | number:'1.0-2' }} {{ insumo.unidad_base }}</p> }
+          <p class="stock">{{ insumo.stock_actual | number:'1.0-2' }} <small>{{ insumo.unidad_base }}</small></p>
+          <p>Minimo de guardia: <strong>{{ insumo.stock_minimo | number:'1.0-2' }} {{ insumo.unidad_base }}</strong></p>
+          <div class="acciones">
+            <button type="button" [disabled]="enviando() || insumo.stock_actual === 0" (click)="agregar(insumo, 'UNIDAD')"><mat-icon>add</mat-icon>1 {{ insumo.unidad_base }}</button>
+            @if (insumo.permite_paquetes) { <button type="button" class="paquete" [disabled]="enviando() || insumo.stock_actual < insumo.factor_paquete" (click)="agregar(insumo, 'PAQUETE')"><mat-icon>add_box</mat-icon>1 {{ insumo.nombre_paquete }} (x{{ insumo.factor_paquete }})</button> }
+          </div>
+          <div class="cantidad-libre"><label [for]="'cantidad-' + insumo.id">Cantidad en {{ insumo.unidad_base }}</label><input #cantidad [id]="'cantidad-' + insumo.id" type="number" value="1" min="0.01" step="0.01" /><button type="button" title="Agregar cantidad al vale" [attr.aria-label]="'Agregar cantidad de ' + insumo.nombre" [disabled]="enviando()" (click)="agregar(insumo, 'UNIDAD', +cantidad.value)"><mat-icon>playlist_add</mat-icon></button></div>
+        </article>
+      } @empty { @if (!inventario.cargando()) { <p>No hay insumos para estos filtros.</p> } }
+    </section>
+    <aside class="vale" aria-labelledby="titulo-vale">
+      <h2 id="titulo-vale">Vale de salida</h2>
+      <p>Almacen / Cocina</p>
+      <fieldset [disabled]="enviando()">
+        @for (item of lineas(); track item.insumoId + item.modoCaptura) {
+          <div class="linea">
+            <strong>{{ item.insumo?.nombre || 'Insumo no disponible' }}</strong>
+            <label>{{ item.modoCaptura === 'PAQUETE' ? item.insumo?.nombre_paquete : item.insumo?.unidad_base }}<input #captura type="number" min="0.01" step="0.01" [value]="item.cantidad" (input)="cambiar(item, captura.value)" /></label>
+            @if (item.insumo; as insumo) { <span [class.negativo]="restante(insumo) < 0">Quedaran {{ restante(insumo) | number:'1.0-2' }} {{ insumo.unidad_base }}</span> }
+            <button type="button" (click)="quitar(item)" [attr.aria-label]="'Quitar ' + item.insumo?.nombre" title="Quitar del vale"><mat-icon>delete_outline</mat-icon></button>
+          </div>
+        } @empty { <p>Vale vacio</p> }
+        <form [formGroup]="formulario" (ngSubmit)="confirmar()">
+          <label>Destino<select formControlName="origen"><option value="SALIDA_COCINA">Salida a Cocina</option><option value="SALIDA_BARRA">Salida a Barra</option><option value="SALIDA_ALMACEN">Uso de Almacen</option><option value="MERMA">Merma / Desperdicio</option></select></label>
+          <label>Nota opcional<textarea formControlName="notas" maxlength="255" rows="2"></textarea></label>
+          <button class="confirmar" type="submit" [disabled]="enviando() || invalido() || formulario.invalid"><mat-icon>check</mat-icon>{{ enviando() ? 'Registrando...' : 'Confirmar Salida y Descontar Inventario' }}</button>
+        </form>
+      </fieldset>
+      <p role="status" aria-live="polite">{{ mensaje() }}</p>
+    </aside>
+  </div>
+</main>
