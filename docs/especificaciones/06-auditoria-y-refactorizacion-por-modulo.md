@@ -4,6 +4,8 @@ Fecha: 2026-11-09. Estado: Auditoria documental / hoja de ruta propuesta, no imp
 
 ## Alcance y metodo
 
+Revision de implementacion [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): las tablas de evidencia original que siguen son una fotografia previa; la matriz maestra registra el estado vigente de los 14 paquetes y pruebas. Se implementaron cambios en los cinco bloques con gates TypeScript, pero no se declara cierre al 100%: siguen pendientes la recuperacion durable fiscal ante fallo local despues de receipt remoto y la confirmacion/reintento durable por impresora. Tampoco se ejecutaron PostgreSQL, Electron, hardware o AXE reales.
+
 Se contrastaron las especificaciones [01](01-arquitectura-general.md), [02](02-especificacion-componentes.md), [03](03-contratos-y-datos.md), [04](04-flujos-y-funcionalidad.md), [05](05-reglas-sdd-y-convenciones.md) y [SDD-001](SDD-001-estabilizacion-comandas-cobro.md), [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md), [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md), [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md), contra Angular, backend, SQL y Electron actuales.
 
 Solo se crea este documento. No se ejecutaron builds, migraciones, backend, Electron, impresoras, Facturapi o conexiones PostgreSQL. La evidencia es lectura de codigo y busqueda de consumidores; los resultados de arneses y typechecks de SDD-001..004 son evidencia historica documentada, no pruebas repetidas en esta auditoria. No se inspeccionan datos de clientes ni se reproducen secretos.

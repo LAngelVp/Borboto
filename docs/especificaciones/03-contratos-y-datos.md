@@ -8,6 +8,14 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): indice unico par
 
 ## Esquema SQL
 
+Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): migracion 005 amplia usuarios.pin a TEXT sin modificar legados. Login/register-first-admin conservan id,nombre,rol y agregan token/sessionToken HMAC (12 h, invalido tras reinicio). GET /api/auth/has-users devuelve {hasUsers}; error 503 no equivale a vacio. Mutaciones de negocio y lecturas sensibles requieren Bearer valido/usuario activo; roles ADMIN administrativo, CAJERO caja/dashboard, COCINERO KDS, MESERO operacion; cuerpo usuarioId no suplanta sesion. 401/403 no mutan.
+
+Cobro exige monto recibido >= totalCuenta neto completo, cuota solo informativa; descuento por puntos se acota al subtotal. Ticket imprime subtotal/descuento/neto/cuota. Corte ignora sumas cliente, obtiene pagos desde ultimo corte bajo advisory lock de usuario y rechaza 409 sin nuevos pagos; diferencia=efectivoReal-fondoApertura-efectivoCalculado. Promociones y combos comparten transaccion; delete desactiva/desvincula productos antes de borrar y emite catalogo postcommit.
+
+Receipt se solicita despues de COMMIT del pago; reparto proporcional de centavos conserva desglose y suma neta, vigencia local usa dias_vigencia_ticket. Facturas actualizan draft/UUID y ticket en misma transaccion, sin vinculo por monto ni FK external_id inexistente. SQL COALESCE preserva keys fiscales no enviadas. Sheets enmascara token en URL/log/respuesta y falla cerrado ante conteo SQL fallido.
+
+Reprint pago ausente devuelve 404 Pago no encontrado; RAW negativo 502 y cliente activa fallback IPC. Produccion reclama items SKIP LOCKED y marca solo destinos enviados RED o USB generado. Importacion invalida devuelve 400 con errores por fila antes de conectar; Multer/JSON invalido responde JSON. Contrato de entrega fisica/reintento durable y recuperacion fiscal remota aun no cerrados.
+
 Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): sin migracion; respuestas de usuarios omiten PIN real y configuracion fiscal solo devuelve mascaras/flags. Campos destino_impresion y clave_sat ahora completos en CRUD administrativo y formularios. Secrets siguen almacenados en BD; no se implementa hashing/cifrado ni autorizacion.
 
 Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): sin cambios de esquema; precuenta solo lee y servir sincroniza estado_operativo de comandas abiertas. Template DatosPrecuenta extiende DatosComandaProduccion con datosEmpresa y total calculado desde items; PrecuentaError expone status 400/404. Bundle actualizado y pruebas en memoria sin PostgreSQL.

@@ -644,6 +644,7 @@ public static class RawPrinterHelper {
         JOIN productos p ON ci.producto_id = p.id
         JOIN categorias cat ON p.categoria_id = cat.id
         WHERE ci.comanda_id = $1 AND ci.impreso = FALSE
+        FOR UPDATE OF ci SKIP LOCKED
       `,
         [comandaId],
       );
@@ -656,9 +657,9 @@ public static class RawPrinterHelper {
       const itemsCocina: ItemComandaImpresion[] = [];
       const itemsBarra: ItemComandaImpresion[] = [];
       const itemIdsAActualizar: number[] = [];
+      const destinosEnviados = new Set<string>();
 
       itemsRes.rows.forEach((row) => {
-        itemIdsAActualizar.push(row.id);
 
         const item: ItemComandaImpresion = {
           cantidad: row.cantidad,
@@ -697,12 +698,15 @@ public static class RawPrinterHelper {
             impresionesPendientes.push(
               this.crearTrabajoElectron(imp, ticketText, 'Comanda Cocina'),
             );
+            destinosEnviados.add('COCINA');
             continue;
           }
 
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + '\n\n';
+          else if (imp.tipo === 'RED') destinosEnviados.add('COCINA');
         }
+        if (impresorasCocina.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosCocina, 'COCINA', '80mm');
       }
 
       if (itemsBarra.length > 0) {
@@ -724,14 +728,20 @@ public static class RawPrinterHelper {
 
           if (imp.tipo === 'USB') {
             impresionesPendientes.push(this.crearTrabajoElectron(imp, ticketText, 'Comanda Barra'));
+            destinosEnviados.add('BARRA');
             continue;
           }
 
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + '\n\n';
+          else if (imp.tipo === 'RED') destinosEnviados.add('BARRA');
         }
+        if (impresorasBarra.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosBarra, 'BARRA', '80mm');
       }
 
+      for (const row of itemsRes.rows) {
+        if (destinosEnviados.has(row.destino_impresion)) itemIdsAActualizar.push(row.id);
+      }
       await client.query(
         `
         UPDATE comanda_items
@@ -782,6 +792,7 @@ public static class RawPrinterHelper {
           TO_CHAR(p.fecha, 'DD/MM/YYYY HH24:MI') AS fecha,
           p.metodo_pago,
           p.total_cuenta,
+          p.descuento, p.dividir_cuenta, p.partes_iguales,
           p.monto_recibido,
           p.cambio,
           ta.codigo_ticket,
@@ -799,7 +810,7 @@ public static class RawPrinterHelper {
       );
 
       if (pagoRes.rows.length === 0) {
-        throw new Error(`Pago #${pagoId} no encontrado.`);
+        throw new PrecuentaError('Pago no encontrado', 404);
       }
 
       const infoPago = pagoRes.rows[0];
@@ -841,6 +852,10 @@ public static class RawPrinterHelper {
         fecha: infoPago.fecha,
         metodoPago: infoPago.metodo_pago,
         totalCuenta: parseFloat(infoPago.total_cuenta),
+        subtotal: items.reduce((total, item) => total + Number(item.subtotal ?? 0), 0),
+        descuento: Number(infoPago.descuento ?? 0),
+        dividirCuenta: infoPago.dividir_cuenta === true,
+        partesIguales: Number(infoPago.partes_iguales ?? 1),
         montoRecibido: parseFloat(infoPago.monto_recibido),
         cambio: parseFloat(infoPago.cambio),
         items,
@@ -881,6 +896,7 @@ public static class RawPrinterHelper {
         impresionesPendientes: impresionesPendientes.length > 0 ? impresionesPendientes : undefined,
       };
     } catch (error: any) {
+      if (error instanceof PrecuentaError) throw error;
       console.error('Error procesando ticket de cobro:', error.message);
       return null;
     }

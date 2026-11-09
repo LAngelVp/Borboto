@@ -2,6 +2,12 @@ import { Injectable } from '@angular/core';
 
 declare global {
   interface Window {
+    borbotoElectron?: {
+      invoke(channel: string, payload?: unknown): Promise<unknown>;
+      send(channel: string, payload: unknown): void;
+      on(channel: string, callback: (event: unknown, payload: unknown) => void): () => void;
+      once(channel: string, callback: (event: unknown, payload: unknown) => void): () => void;
+    };
     __BORBOTO_RUNTIME_CONFIG__?: {
       apiBaseUrl?: string;
       socketUrl?: string;
@@ -15,7 +21,7 @@ declare global {
 })
 export class RuntimeConfigService {
   get isElectron(): boolean {
-    return typeof window !== 'undefined' && typeof window.require === 'function';
+    return typeof window !== 'undefined' && (!!window.borbotoElectron || typeof window.require === 'function');
   }
 
   get isBrowserClient(): boolean {

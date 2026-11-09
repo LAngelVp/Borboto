@@ -108,7 +108,7 @@
 
 <mat-dialog-actions align="end">
   <button mat-button (click)="cerrar()" [disabled]="loading()">Salir sin Cerrar</button>
-  <button mat-raised-button color="accent" (click)="confirmarCorte()" [disabled]="loading()">
+  <button mat-raised-button color="accent" (click)="confirmarCorte()" [disabled]="loading() || errorCarga() || guardando()">
     <mat-icon>check_circle</mat-icon> Realizar Corte y Cerrar Sesión
   </button>
 </mat-dialog-actions>

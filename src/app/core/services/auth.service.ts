@@ -1,13 +1,15 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, map } from 'rxjs';
 import { RuntimeConfigService } from './runtime-config.service';
 
 export interface Usuario {
   id: number;
   nombre: string;
   rol: 'ADMIN' | 'MESERO' | 'COCINERO' | 'CAJERO';
+  token?: string;
+  sessionToken?: string;
 }
 
 @Injectable({
@@ -29,18 +31,7 @@ export class AuthService {
 
   // Comprobar si hay algún usuario registrado en la base de datos
   getHasUsers(): Observable<boolean> {
-    return new Observable<boolean>((observer) => {
-      this.http.get<any[]>(`${this.apiUrl}/usuarios`).subscribe({
-        next: (users) => {
-          observer.next(users && users.length > 0);
-          observer.complete();
-        },
-        error: () => {
-          observer.next(false);
-          observer.complete();
-        },
-      });
-    });
+    return this.http.get<{ hasUsers: boolean }>(`${this.apiUrl}/auth/has-users`).pipe(map(result => result.hasUsers));
   }
 
   // Registrar el primer administrador del POS

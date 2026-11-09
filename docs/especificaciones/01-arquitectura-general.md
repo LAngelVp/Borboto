@@ -4,6 +4,8 @@ Fecha de inspeccion: 2026-11-09. Alcance: fuentes presentes en el repositorio, n
 
 ## Proposito y resumen ejecutivo
 
+Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md), cierre parcial: sesiones HMAC en memoria y autorizacion HTTP por rol, PIN scrypt compatible mediante [005_pin_hash.sql](../../Database/migrations/005_pin_hash.sql), renderer aislado con [preload.js](../../preload.js), URLs del puerto efectivo y uploads en userData del puesto (lectura legacy conservada). Migraciones usan client retenido y no ejecutan init destructivo sobre tablas operativas existentes. main solo gestiona cluster propio y coordina shutdownServer con limite 30 s. Cobro/cortes autoritativos, combos atomicos, receipt posterior a commit y sincronizacion fiscal por identidad. Recuperacion durable del efecto fiscal externo y confirmacion por impresora siguen pendientes; no se declara auditoria al 100%.
+
 Borboto POS es un punto de venta para restaurantes: administra mesas, pedidos de mostrador y domicilio, comandas, preparacion en cocina, cobro, clientes y promociones. Incluye configuracion del negocio, colaboradores por PIN, cortes de caja, consulta de ventas, impresoras y recibos de autofacturacion con Facturapi. Electron actua como puesto principal Windows y administra PostgreSQL portable. Los clientes de navegador pueden operar como mesero o cocinero mediante la red local.
 
 Es un monolito de negocio con interfaz Angular y despliegue de escritorio. En produccion Electron carga el backend CommonJS en su propio proceso principal mediante `require`, no mediante un proceso servidor separado. PostgreSQL si es un proceso externo. En desarrollo Angular CLI, Bun y Electron se ejecutan concurrentemente. El backend expone HTTP y Socket.IO; el IPC no transporta las comandas o el SQL, sino funciones locales de Electron.
@@ -11,6 +13,8 @@ Es un monolito de negocio con interfaz Angular y despliegue de escritorio. En pr
 Fuentes principales: [package.json](../../package.json), [angular.json](../../angular.json), [main.js](../../main.js), [server.js](../../server.js), [backend-borboto/index.ts](../../backend-borboto/index.ts), [db.ts](../../backend-borboto/src/db.ts), [app.config.ts](../../src/app/app.config.ts), [app.routes.ts](../../src/app/app.routes.ts).
 
 ## Tech Stack
+
+Reporte Sheets requiere GOOGLE_SHEET_TOKEN configurado en entorno; no hay token secreto embebido como fallback. Sin configuracion falla cerrado, sin enviar conteos falsos.
 
 | Capa | Declarado / utilizado | Funcion actual |
 | --- | --- | --- |

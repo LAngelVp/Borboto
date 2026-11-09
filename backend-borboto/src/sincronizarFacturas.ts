@@ -118,6 +118,10 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
           continue;
         }
 
+        const client = await pool.connect();
+        try {
+        await client.query('BEGIN');
+        await client.query('SELECT pg_advisory_xact_lock($1::int, hashtext($2))', [9018, invoice.id]);
         // Buscar tickets de autofactura locales asociados
         let receiptId: string | null = null;
         if (typeof invoice.receipt === 'string') {
@@ -139,19 +143,7 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
 
         // Requisito 4: Si se encuentra receiptId, consulta en tickets_autofactura
         if (receiptId) {
-          const tRes = await pool.query('SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1', [receiptId]);
-          if (tRes.rows.length > 0) {
-            ticketId = tRes.rows[0].id;
-          }
-        }
-
-        // Requisito 4 (Fallback): Si receiptId no trae resultados (o no existió), busca por coincidencia de monto y estado PENDIENTE
-        if (!ticketId) {
-          const invoiceTotal = invoice.total || 0;
-          const tRes = await pool.query(
-            "SELECT id FROM tickets_autofactura WHERE total = $1 AND estado = 'PENDIENTE' ORDER BY id DESC LIMIT 1",
-            [invoiceTotal]
-          );
+          const tRes = await client.query('SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1', [receiptId]);
           if (tRes.rows.length > 0) {
             ticketId = tRes.rows[0].id;
           }
@@ -161,9 +153,10 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
         if (!ticketId) {
           const extId = (invoice as any).external_id;
           if (extId) {
-            ticketId = parseInt(extId, 10);
-            if (isNaN(ticketId)) {
-              ticketId = null;
+            const candidato = Number(extId);
+            if (Number.isInteger(candidato) && candidato > 0) {
+              const existente = await client.query('SELECT id FROM tickets_autofactura WHERE id = $1', [candidato]);
+              ticketId = existente.rows[0]?.id ?? null;
             }
           }
         }
@@ -175,30 +168,16 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
 
           const possibleTicketCodes = new Set<string>();
           const invExternalId = (invoice as any).external_id;
-          const invFolio = (invoice as any).folio;
 
           if (invExternalId) possibleTicketCodes.add(String(invExternalId));
-          if (invFolio) possibleTicketCodes.add(String(invFolio));
 
           if (invoice.metadata) {
             const m = invoice.metadata as any;
             if (m.codigo_ticket) possibleTicketCodes.add(String(m.codigo_ticket));
             if (m.codigo) possibleTicketCodes.add(String(m.codigo));
-            if (m.folio) possibleTicketCodes.add(String(m.folio));
             if (m.ticket_code) possibleTicketCodes.add(String(m.ticket_code));
             if (m.key) possibleTicketCodes.add(String(m.key));
             if (m.external_id) possibleTicketCodes.add(String(m.external_id));
-          }
-
-          const possiblePagoIds = new Set<number>();
-          if (invExternalId && !isNaN(Number(invExternalId))) {
-            possiblePagoIds.add(Number(invExternalId));
-          }
-          if (invoice.metadata) {
-            const m = invoice.metadata as any;
-            if (m.pago_id && !isNaN(Number(m.pago_id))) possiblePagoIds.add(Number(m.pago_id));
-            if (m.pagoId && !isNaN(Number(m.pagoId))) possiblePagoIds.add(Number(m.pagoId));
-            if (m.payment_id && !isNaN(Number(m.payment_id))) possiblePagoIds.add(Number(m.payment_id));
           }
 
           if (possibleTicketCodes.size > 0) {
@@ -206,14 +185,9 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
             queryConditions.push(`codigo_ticket = ANY($${queryParams.length})`);
           }
 
-          if (possiblePagoIds.size > 0) {
-            queryParams.push(Array.from(possiblePagoIds));
-            queryConditions.push(`pago_id = ANY($${queryParams.length})`);
-          }
-
           if (queryConditions.length > 0) {
             const selectQuery = `SELECT id FROM tickets_autofactura WHERE ${queryConditions.join(' OR ')} LIMIT 1`;
-            const tRes = await pool.query(selectQuery, queryParams);
+            const tRes = await client.query(selectQuery, queryParams);
             if (tRes.rows.length > 0) {
               ticketId = tRes.rows[0].id;
             }
@@ -266,7 +240,8 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
         `;
 
         // Requisito 5: Pasar la variable ticketId de forma íntegra a la consulta
-        await pool.query(queryUpsert, [
+        await client.query('UPDATE facturas SET uuid_sat = $1 WHERE facturapi_invoice_id = $2', [uuidSat, invoice.id]);
+        await client.query(queryUpsert, [
           ticketId,
           invoice.id,
           uuidSat,
@@ -285,10 +260,17 @@ export async function realizarSincronizacionFacturas(): Promise<{ ok: boolean; t
         // Requisito 1 y 5: Sincronizar el estado del ticket con tickets_autofactura usando el enum ('TIMBRADA' o 'CANCELADA')
         if (ticketId) {
           const nuevoEstadoTicket = invoice.status === 'canceled' ? 'CANCELADA' : 'TIMBRADA';
-          await pool.query('UPDATE tickets_autofactura SET estado = $1 WHERE id = $2', [nuevoEstadoTicket, ticketId]);
+          await client.query('UPDATE tickets_autofactura SET estado = $1 WHERE id = $2', [nuevoEstadoTicket, ticketId]);
         }
 
+        await client.query('COMMIT');
         totalSincronizadas++;
+        } catch (error: unknown) {
+          await client.query('ROLLBACK');
+          throw error;
+        } finally {
+          client.release();
+        }
       }
 
       // Detener si alcanzamos el final de la paginación de Facturapi

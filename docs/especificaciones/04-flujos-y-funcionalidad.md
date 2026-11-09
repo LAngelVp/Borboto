@@ -18,6 +18,10 @@ Socket conserva callback por suscripcion y unsubscribe retira la misma referenci
 
 ## Casos de uso actuales
 
+Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): division informa aportacion por persona pero el cierre requiere total neto completo; cero tras descuento valido no bloquea Caja. Corte calcula resumen SQL serializado y evita duplicado sin pagos; error de carga bloquea envio. CRUD promos/combos atomico publica catalogo; Dashboard HOY envia ambos limites locales y busqueda libre por folio/cliente no fuerza hoy ni es pisada por stats.
+
+Impresion fallida/ausente no marca items; USB generado queda registrado segun contrato actual, no confirmado fisicamente. Ticket navegador abre ventana dedicada sin fondo del POS. Pago se confirma antes de HTTP fiscal; fallo fiscal no deshace venta y requiere conciliacion (recuperacion durable pendiente). Sesion HMAC y PIN legado/hash mantienen login; error de red no permite bootstrap, que se serializa en tabla usuarios. Electron usa preload allowlist/aislamiento y shutdown compartido con limite; no taskkill global ni borrado de postmaster.pid. Ningun proceso real se ejecuto en pruebas.
+
 Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): proteccion de respuestas administrativas, PIN opcional al editar, keys enmascaradas/preservadas y contratos SAT/destino completos. 36 casos con mocks pg/servicios Angular/proveedor y verificaciones de bindings pasan; los tres typechecks y bundle/sintaxis pasan sin instancia PostgreSQL activa.
 
 ### Secretos y catalogo desde SDD-004

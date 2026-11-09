@@ -25,12 +25,12 @@ export class App {
     this.installRendererConsoleBridge();
     this.installGlobalErrorHandlers();
 
-    if (!window.require) {
+    if (!window.borbotoElectron && !window.require) {
       return;
     }
 
     try {
-      const { ipcRenderer } = window.require('electron');
+      const ipcRenderer = window.borbotoElectron || window.require?.('electron').ipcRenderer;
       ipcRenderer.on(
         'app-notification',
         (_event: unknown, payload: { level?: string; message?: string }) => {

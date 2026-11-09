@@ -10,7 +10,9 @@
       <p class="brand-tag">Punto de Venta Profesional Gastronómico</p>
     </header>
 
-    @if (hasUsers() === null) {
+    @if (errorConexion()) {
+      <button mat-flat-button (click)="verificarSistema()"><mat-icon>refresh</mat-icon>Reintentar conexion</button>
+    } @else if (hasUsers() === null) {
       <div class="checking-state">
         <p>Verificando estado del POS en el restaurante...</p>
       </div>

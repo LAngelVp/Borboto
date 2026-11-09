@@ -1,3 +1,4 @@
+/** @deprecated Sin consumidores productivos; app.routes usa roleGuard. No usar en rutas nuevas. */
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';

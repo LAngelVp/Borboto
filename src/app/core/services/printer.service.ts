@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 import { RuntimeConfigService } from './runtime-config.service';
 
 declare const window: {
+  borbotoElectron?: Window['borbotoElectron'];
   require?: (moduleName: string) => any;
 };
 
@@ -109,7 +110,7 @@ export class PrinterService {
       try {
         await new Promise<void>((resolve, reject) => {
           this.imprimirUsbRaw(job).subscribe({
-            next: () => resolve(),
+            next: (res) => res?.ok ? resolve() : reject(new Error('Impresion RAW rechazada')),
             error: (err) => reject(err),
           });
         });
@@ -133,6 +134,7 @@ export class PrinterService {
   }
 
   private getIpcRenderer(): any | null {
+    if (window.borbotoElectron) return window.borbotoElectron;
     if (!window.require) {
       return null;
     }

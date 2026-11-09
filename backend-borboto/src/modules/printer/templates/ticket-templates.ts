@@ -38,6 +38,10 @@ export interface DatosTicketCobro {
   fecha: string;
   metodoPago: string;
   totalCuenta: number;
+  subtotal?: number;
+  descuento?: number;
+  dividirCuenta?: boolean;
+  partesIguales?: number;
   montoRecibido: number;
   cambio: number;
   items: ItemComandaImpresion[];
@@ -243,7 +247,12 @@ export function generarTemplateCobro(
   });
 
   lineas.push(separadorSuave);
+  if (datos.subtotal !== undefined) lineas.push(padLine('SUBTOTAL:', `$${datos.subtotal.toFixed(2)}`, maxW));
+  if ((datos.descuento ?? 0) > 0) lineas.push(padLine('DESCUENTO:', `$${datos.descuento!.toFixed(2)}`, maxW));
   lineas.push(padLine('TOTAL:', `$${datos.totalCuenta.toFixed(2)}`, maxW));
+  if (datos.dividirCuenta && (datos.partesIguales ?? 0) > 1) {
+    lineas.push(padLine('CUOTA INFORMATIVA:', `$${(datos.totalCuenta / datos.partesIguales!).toFixed(2)}`, maxW));
+  }
   lineas.push(padLine(`PAGO (${datos.metodoPago}):`, `$${datos.montoRecibido.toFixed(2)}`, maxW));
   lineas.push(padLine('CAMBIO:', `$${datos.cambio.toFixed(2)}`, maxW));
 

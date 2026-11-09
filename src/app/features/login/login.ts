@@ -11,6 +11,7 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { RoleAccessService } from '../../core/services/role-access.service';
+import { RuntimeConfigService } from '../../core/services/runtime-config.service';
 
 @Component({
   selector: 'app-login',
@@ -33,6 +34,8 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly notifications = inject(NotificationService);
   private readonly roleAccess = inject(RoleAccessService);
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+  readonly errorConexion = signal(false);
 
   readonly hasUsers = signal<boolean | null>(null);
   readonly registerMode = signal<boolean>(false);
@@ -62,6 +65,7 @@ export class LoginComponent implements OnInit {
   }
 
   verificarSistema() {
+    this.errorConexion.set(false);
     this.authService.getHasUsers().subscribe({
       next: (existentes) => {
         this.hasUsers.set(existentes);
@@ -72,8 +76,10 @@ export class LoginComponent implements OnInit {
         }
       },
       error: () => {
-        this.hasUsers.set(false);
-        this.registerMode.set(true);
+        this.hasUsers.set(null);
+        this.registerMode.set(false);
+        this.errorConexion.set(true);
+        this.notifications.error('No se pudo conectar al servidor. Reintente la consulta.');
       },
     });
   }
@@ -101,6 +107,10 @@ export class LoginComponent implements OnInit {
   }
 
   onSubmitRegister() {
+    if (this.runtimeConfig.isBrowserClient || this.errorConexion()) {
+      this.notifications.warning('El alta inicial requiere la estacion principal y conexion al servidor.');
+      return;
+    }
     const nom = this.regNombre.trim();
     const p = this.regPin.trim();
     if (!nom || !p) {

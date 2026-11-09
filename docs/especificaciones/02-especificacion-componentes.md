@@ -12,6 +12,8 @@ Revision [SDD-009](SDD-009-transferencias-folios-y-direccion-envio.md): traslada
 
 ## Shell y paginas Angular
 
+Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): CajaService exige pago completo aunque muestre cuota, permite neto cero tras descuento y carga parametros de puntos. CorteCajaDialog bloquea errorCarga/guardando; Dashboard usa fechas locales y separa busqueda de stats. Login diferencia fallo de red y ofrece reintento; app.config incorpora interceptor de sesion solo API propia. PrinterService evalua RAW ok y prefiere borbotoElectron; TicketModal usa contexto recibido y ventana dedicada con pre.textContent. Ajustes guarda promos/combos atomicos y limita alcance UI a cuenta/catalogo. Guards/config legacy sin imports productivos estan deprecados. Estado integral y pendientes en matriz maestra, no cierre total.
+
 Revision [SDD-004](SDD-004-proteccion-secretos-y-contratos-admin.md): index.ts devuelve usuarios sin PIN real y keys fiscales enmascaradas/flags; resuelve secretos guardados en POST/test/CSD. Ajustes limpia PIN al editar y permite preservarlo; alta lo exige. ProductoAdmin incluye clave_sat y categorias admiten CAJA, con controles de alta/edicion. Billing usa flags para preservar keys vacias y recarga mascara tras guardar. Pruebas en memoria y typechecks limpios, sin PostgreSQL.
 
 Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): generarTemplatePrecuenta e imprimirPrecuenta consultan comanda ABIERTA/items y envian a CAJA sin mutaciones. MesaService ofrece imprimirPrecuenta(Mesa), Mesas procesa USB o TicketModal; servir sincroniza mesa y comandas abiertas con lock/transaccion y dos eventos. Pruebas en memoria, typechecks limpios, bundle regenerado.

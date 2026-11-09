@@ -1,6 +1,7 @@
 // backend-borboto/index.ts
 import express from 'express';
 import type { PoolClient } from 'pg';
+import { emitirSesion, verificarSesion, hashPin, verificarPin } from './src/session';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
@@ -31,6 +32,25 @@ function obtenerInstanciaFacturapi(apiKey: string) {
     FacturapiClass = (FacturapiClass as any).default;
   }
   return new FacturapiClass(apiKey);
+}
+
+function ajustarImportesRecibo<T extends { quantity: number; product: { price: number } }>(items: T[], total: number) {
+  const subtotal = items.reduce((suma, item) => suma + item.quantity * item.product.price, 0);
+  const centavos = Math.round(total * 100);
+  let pesoAcumulado = 0;
+  let asignado = 0;
+  return items.flatMap(item => {
+    pesoAcumulado += item.quantity * item.product.price;
+    const acumulado = subtotal > 0 ? Math.round(centavos * pesoAcumulado / subtotal) : 0;
+    const importe = acumulado - asignado;
+    asignado = acumulado;
+    const base = Math.floor(importe / item.quantity);
+    const extra = importe % item.quantity;
+    const lineas = [];
+    if (item.quantity > extra) lineas.push({ ...item, quantity: item.quantity - extra, product: { ...item.product, price: base / 100 } });
+    if (extra > 0) lineas.push({ ...item, quantity: extra, product: { ...item.product, price: (base + 1) / 100 } });
+    return lineas;
+  });
 }
 
 function enmascararApiKey(value: string | null | undefined): string {
@@ -66,7 +86,8 @@ function resolveFrontendDistPath() {
 const frontendDistPath = resolveFrontendDistPath();
 
 // Configuración Multer y Sockets
-const uploadsDir = path.join(process.cwd(), 'uploads', 'productos');
+const uploadsRoot = process.env.BORBOTO_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+const uploadsDir = path.join(uploadsRoot, 'productos');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -307,8 +328,34 @@ io.on('connection', (socket) => {
 
 app.use(cors());
 app.use(express.json());
+app.use('/api', async (req, res, next) => {
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
+  const lecturaSensible = /^\/(usuarios|admin|caja|dashboard|ajustes\/facturacion|licencia\/test-sheets)(\/|$)/.test(req.path);
+  if (req.method === 'GET' && !lecturaSensible) return next();
+  if (req.path === '/auth/login' || req.path === '/auth/register-first-admin') return next();
+  const session = verificarSesion((req.headers.authorization || '').replace(/^Bearer /, ''));
+  if (!session) return res.status(401).json({ error: 'Sesion requerida o expirada' });
+  const corte = req.path.startsWith('/caja/corte');
+  const caja = req.path.startsWith('/caja') || req.path.startsWith('/dashboard');
+  const cocina = req.path.startsWith('/cocina');
+  const administrativo = /^\/(usuarios|admin|ajustes|productos|categorias|promociones|zonas)(\/|$)/.test(req.path) ||
+    (req.path.startsWith('/impresoras') && req.path !== '/impresoras/usb/raw-print') ||
+    (/^\/mesas(?:\/\d+)?$/.test(req.path) && req.method !== 'GET');
+  const negocio = !administrativo && !caja && !cocina;
+  if (session.rol !== 'ADMIN' && !(caja && session.rol === 'CAJERO') && !(cocina && session.rol === 'COCINERO') &&
+      !(negocio && (session.rol === 'MESERO' || session.rol === 'CAJERO' || req.path === '/impresoras/usb/raw-print'))) {
+    return res.status(403).json({ error: 'Permisos insuficientes' });
+  }
+  try {
+    const { rows } = await pool.query('SELECT rol, activo FROM usuarios WHERE id = $1', [session.id]);
+    if (!rows[0]?.activo || rows[0].rol !== session.rol) return res.status(401).json({ error: 'Sesion invalida' });
+    if (corte && req.method !== 'GET' && Number(req.body.usuarioId) !== session.id) return res.status(403).json({ error: 'Usuario de corte invalido' });
+    if (req.method !== 'GET' && req.body && typeof req.body === 'object' && 'usuarioId' in req.body) req.body.usuarioId = session.id;
+    next();
+  } catch { res.status(503).json({ error: 'No se pudo verificar la sesion' }); }
+});
 app.use('/api/impresoras', printerRoutes);
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(uploadsRoot), express.static(path.join(process.cwd(), 'uploads')));
 
 if (frontendDistPath) {
   app.use(express.static(frontendDistPath));
@@ -499,6 +546,13 @@ app.post('/api/productos/importar-lote', async (req, res) => {
   if (!Array.isArray(productos) || productos.length === 0) {
     return res.status(400).json({ error: 'No se enviaron productos válidos.' });
   }
+  const errores = productos.flatMap((producto, index) => {
+    const valido = producto && typeof producto === 'object' && typeof producto.nombre === 'string' && producto.nombre.trim() &&
+      producto.precio !== null && producto.precio !== '' && Number.isFinite(Number(producto.precio)) && Number(producto.precio) >= 0 &&
+      (producto.categoria === undefined || typeof producto.categoria === 'string');
+    return valido ? [] : [{ fila: index + 1, error: 'Nombre, precio o categoria invalidos' }];
+  });
+  if (errores.length) return res.status(400).json({ error: 'Lote invalido', errores });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -678,25 +732,47 @@ app.get('/api/usuarios', async (_req, res) => {
   }
 });
 
+app.get('/api/auth/has-users', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM usuarios');
+    res.json({ hasUsers: Number(rows[0].count) > 0 });
+  } catch { res.status(503).json({ error: 'No se pudo consultar el sistema' }); }
+});
+
 app.post('/api/auth/register-first-admin', async (req, res) => {
   const { nombre, pin } = req.body;
-  if (!nombre || !pin) {
+  if (!nombre || typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
     return res.status(400).json({ error: 'Faltan parámetros: nombre y pin son requeridos.' });
   }
+  const client = await pool.connect();
   try {
-    const checkCount = await pool.query('SELECT COUNT(*) FROM usuarios');
+    await client.query('BEGIN');
+    await client.query('LOCK TABLE usuarios IN EXCLUSIVE MODE');
+    const checkCount = await client.query('SELECT COUNT(*) FROM usuarios');
     if (parseInt(checkCount.rows[0].count) > 0) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Ya existen usuarios registrados en el sistema.' });
     }
-    const { rows } = await pool.query(
+    const { rows } = await client.query(
       "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, 'ADMIN', TRUE) RETURNING id, nombre, rol",
-      [nombre, pin],
+      [nombre, hashPin(pin)],
     );
-    res.status(201).json(rows[0]);
+    await client.query('COMMIT');
+    const token = emitirSesion(rows[0].id, rows[0].rol);
+    res.status(201).json({ ...rows[0], token, sessionToken: token });
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
-  }
+  } finally { client.release(); }
 });
+
+async function asegurarPinUnico(client: PoolClient, pin: string, usuarioId?: string) {
+  await client.query('SELECT pg_advisory_xact_lock($1)', [9026]);
+  const { rows } = await client.query('SELECT id, pin FROM usuarios');
+  if (rows.some(usuario => String(usuario.id) !== usuarioId && verificarPin(pin, usuario.pin))) {
+    throw Object.assign(new Error('PIN ya utilizado'), { code: '23505' });
+  }
+}
 
 app.post('/api/usuarios', async (req, res) => {
   const { nombre, pin, rol, activo } = req.body;
@@ -706,14 +782,21 @@ app.post('/api/usuarios', async (req, res) => {
   if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
     return res.status(400).json({ error: 'El PIN debe contener de 4 a 6 digitos' });
   }
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+    await asegurarPinUnico(client, pin);
+    const { rows } = await client.query(
       'INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING id, nombre, rol, activo',
-      [nombre, pin, rol, activo !== false],
+      [nombre, hashPin(pin), rol, activo !== false],
     );
+    await client.query('COMMIT');
     res.status(201).json(rows[0]);
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(err.code === '23505' ? 409 : 500).json({ error: err.code === '23505' ? 'PIN ya utilizado por otro usuario' : 'Error al guardar empleado' });
+  } finally {
+    client.release();
   }
 });
 
@@ -724,15 +807,25 @@ app.put('/api/usuarios/:id', async (req, res) => {
   if (nuevoPin != null && nuevoPin !== '' && (typeof nuevoPin !== 'string' || !/^\d{4,6}$/.test(nuevoPin))) {
     return res.status(400).json({ error: 'El PIN debe contener de 4 a 6 digitos' });
   }
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+    if (nuevoPin) await asegurarPinUnico(client, nuevoPin, id);
+    const { rows } = await client.query(
       'UPDATE usuarios SET nombre = $1, pin = COALESCE($2, pin), rol = $3, activo = $4 WHERE id = $5 RETURNING id, nombre, rol, activo',
-      [nombre, nuevoPin || null, rol, activo !== false, id],
+      [nombre, nuevoPin ? hashPin(nuevoPin) : null, rol, activo !== false, id],
     );
-    if (rows.length === 0) return res.status(404).json({ error: 'Empleado no encontrado' });
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Empleado no encontrado' });
+    }
+    await client.query('COMMIT');
     res.json(rows[0]);
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(err.code === '23505' ? 409 : 500).json({ error: err.code === '23505' ? 'PIN ya utilizado por otro usuario' : 'Error al guardar empleado' });
+  } finally {
+    client.release();
   }
 });
 
@@ -757,17 +850,28 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   }
 });
 
+const intentosLogin = new Map<string, { count: number; hasta: number }>();
 app.post('/api/auth/login', async (req, res) => {
   const { pin } = req.body;
+  if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) return res.status(400).json({ error: 'PIN invalido' });
+  const ip = req.ip || 'local';
+  const anterior = intentosLogin.get(ip);
+  if (anterior && anterior.hasta > Date.now() && anterior.count >= 10) return res.status(429).json({ error: 'Demasiados intentos. Reintente en un minuto' });
+  for (const [address, item] of intentosLogin) if (item.hasta <= Date.now()) intentosLogin.delete(address);
+  if (intentosLogin.size >= 1000 && !intentosLogin.has(ip)) return res.status(429).json({ error: 'Reintente mas tarde' });
+  intentosLogin.set(ip, { count: anterior && anterior.hasta > Date.now() ? anterior.count + 1 : 1, hasta: Date.now() + 60000 });
   try {
     const { rows } = await pool.query(
-      'SELECT id, nombre, rol FROM usuarios WHERE pin = $1 AND activo = TRUE',
-      [pin],
+      'SELECT id, nombre, rol, pin FROM usuarios WHERE activo = TRUE',
     );
-    if (rows.length === 0) {
+    const usuario = rows.find(user => verificarPin(pin, user.pin));
+    if (!usuario) {
       return res.status(401).json({ error: 'PIN incorrecto o usuario inactivo' });
     }
-    res.json(rows[0]);
+    if (!usuario.pin.startsWith('hash$')) await pool.query('UPDATE usuarios SET pin = $1 WHERE id = $2 AND pin = $3', [hashPin(pin), usuario.id, usuario.pin]);
+    intentosLogin.delete(ip);
+    const token = emitirSesion(usuario.id, usuario.rol);
+    res.json({ id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, token, sessionToken: token });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1358,7 +1462,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
     const partes = dividirCuenta === true ? Number(partesIguales ?? 1) : 1;
     const montoRecibido = Number(montoSolicitado);
     if (!Number.isFinite(subtotalServidor) || subtotalServidor < 0 ||
-        !Number.isFinite(descuento) || descuento < 0 || descuento > subtotalServidor ||
+        !Number.isFinite(descuento) || descuento < 0 || (descuento > subtotalServidor && puntos === 0) ||
         !Number.isInteger(puntos) || puntos < 0 ||
         !Number.isInteger(partes) || partes < 1 ||
         !Number.isFinite(montoRecibido) || montoRecibido < 0 || (promocionId && puntos > 0)) {
@@ -1391,7 +1495,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
     descuento = Math.round(descuento * 100) / 100;
     const totalCuenta = Math.max(0, Math.round((subtotalServidor - descuento) * 100) / 100);
-    const totalExigible = Math.round(totalCuenta / partes * 100) / 100;
+    const totalExigible = totalCuenta;
     if (metodoPago === 'EFECTIVO' && montoRecibido < totalExigible) {
       await client.query('ROLLBACK');
       transactionOpen = false;
@@ -1403,7 +1507,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
     }
 
     const configRes = await client.query(
-      `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto FROM configuracion_facturacion WHERE id = 1`,
+      `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto, dias_vigencia_ticket FROM configuracion_facturacion WHERE id = 1`,
     );
     const configFiscal = configRes.rows[0];
     const apiKeyActiva = configFiscal?.modo_produccion
@@ -1442,6 +1546,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
       `[Cobro #${pagoId}] Iniciando proceso. solicitaFactura: ${solicitaFacturaActual}, apiKeyActiva: ${apiKeyActiva ? 'Sí (Configurada)' : 'No (Vacía)'}`,
     );
 
+    const generarReciboFiscal = async () => {
     if (solicitaFacturaActual) {
       if (apiKeyActiva) {
         try {
@@ -1462,7 +1567,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
           if (metodoPago === 'TRANSFERENCIA') paymentForm = '03';
 
           const esConsumoGeneral = agruparConsumo === true || agruparConsumo === 'true';
-          let lineItemsFacturapi = [];
+          let lineItemsFacturapi: { quantity: number; product: { description: string; product_key: string; unit_key?: string; price: number; tax_included: boolean } }[] = [];
 
           if (esConsumoGeneral) {
             lineItemsFacturapi = [
@@ -1502,11 +1607,14 @@ app.post('/api/caja/cobrar', async (req, res) => {
             JSON.stringify(lineItemsFacturapi),
           );
 
+          if (descuento > 0 && !esConsumoGeneral) lineItemsFacturapi = ajustarImportesRecibo(lineItemsFacturapi, totalCuenta);
           const facturapi = obtenerInstanciaFacturapi(apiKeyActiva);
           const receipt = await facturapi.receipts.create({
             payment_form: paymentForm,
             items: lineItemsFacturapi,
           });
+          const diasVigencia = Math.max(1, Number(configFiscal?.dias_vigencia_ticket) || 7);
+          const expiracionLocal = new Date(Date.now() + diasVigencia * 86400000).toISOString();
 
           console.log(
             `[Cobro #${pagoId}] Recibo generado exitosamente en Factura`,
@@ -1522,20 +1630,19 @@ app.post('/api/caja/cobrar', async (req, res) => {
               receipt.key,
               receipt.self_invoice_url,
               totalCuenta,
-              receipt.expires_at,
+              expiracionLocal,
             ],
           );
 
           datosAutofactura = {
             codigo: receipt.key,
             url: receipt.self_invoice_url,
-            expiracion: receipt.expires_at,
+            expiracion: expiracionLocal,
           };
         } catch (fError: any) {
-          const errorDetails = fError.message || String(fError);
-          console.error(`❌ [Cobro #${pagoId}] Error generando recibo en Factura:`, fError);
+          console.error(`Error fiscal despues de confirmar pago #${pagoId}`);
           // console.error(`❌ [Cobro #${pagoId}] Error generando recibo en Facturapi:`, fError);
-          errorFacturapiMsg = `Error en servidor Facturapi: ${errorDetails}`;
+          errorFacturapiMsg = 'Pago confirmado; no se pudo completar la autofactura. Requiere conciliacion fiscal.';
         }
       } else {
         console.warn(
@@ -1547,6 +1654,8 @@ app.post('/api/caja/cobrar', async (req, res) => {
         // 'No hay una API Key de Facturapi activa configurada en el sistema (Ajustes -> Facturación).';
       }
     }
+
+    };
 
     const comandaInfo = await client.query(
       'SELECT cliente_id, mesa_id, tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen" FROM comandas WHERE id = $1',
@@ -1560,7 +1669,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
         'SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1',
       );
       const visitasRequeridas = negocioInfo.rows[0]?.visitas_requeridas_frecuente || 5;
-      const factorPuntos = negocioInfo.rows[0]?.puntos_por_cada_diez_pesos || 1;
+      const factorPuntos = negocioInfo.rows[0]?.puntos_por_cada_diez_pesos ?? 1;
       const pesosPorPunto = Number(negocioInfo.rows[0]?.pesos_por_punto) || 10.0;
 
       const puntosNuevos = Math.floor(Number(totalCuenta) / pesosPorPunto) * factorPuntos;
@@ -1595,6 +1704,7 @@ app.post('/api/caja/cobrar', async (req, res) => {
 
     let ticketTextoCobro: string | null = null;
     emitirCambioGlobal('actualizar_cocina');
+    await generarReciboFiscal();
     let impresionesPendientes: any[] = [];
     try {
       const resCobroPrinter = await PrinterService.imprimirTicketCobro(pagoId);
@@ -1701,30 +1811,57 @@ app.post('/api/caja/corte', async (req, res) => {
     diferencia,
     notas,
   } = req.body;
+  const client = await pool.connect();
   try {
+    if (!Number.isInteger(Number(usuarioId)) || Number(usuarioId) <= 0 ||
+        !Number.isFinite(Number(fondoApertura ?? 0)) || Number(fondoApertura ?? 0) < 0 ||
+        !Number.isFinite(Number(efectivoReal ?? 0)) || Number(efectivoReal ?? 0) < 0) {
+      return res.status(400).json({ error: 'Datos de corte invalidos' });
+    }
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1::int, $2::int)', [9012, Number(usuarioId)]);
+    const resumen = await client.query(`
+      SELECT COUNT(*)::int AS cantidad, MIN(p.fecha) AS apertura,
+        COALESCE(SUM(p.total_cuenta) FILTER (WHERE p.metodo_pago = 'EFECTIVO'), 0) AS efectivo,
+        COALESCE(SUM(p.total_cuenta) FILTER (WHERE p.metodo_pago = 'TARJETA'), 0) AS tarjeta,
+        COALESCE(SUM(p.total_cuenta) FILTER (WHERE p.metodo_pago = 'TRANSFERENCIA'), 0) AS transferencia,
+        COALESCE(SUM(p.total_cuenta), 0) AS ventas
+      FROM pagos p WHERE p.usuario_id = $1
+        AND p.fecha > COALESCE((SELECT MAX(fecha_cierre) FROM cortes_caja WHERE usuario_id = $1), '-infinity'::timestamp)
+        AND p.fecha <= CURRENT_TIMESTAMP
+    `, [usuarioId]);
+    const calculado = resumen.rows[0];
+    if (Number(calculado.cantidad) === 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'No hay pagos nuevos para realizar el corte' });
+    }
     const query = `
       INSERT INTO cortes_caja (usuario_id, fecha_apertura, fecha_cierre, fondo_apertura, efectivo_real, efectivo_calculado, tarjeta_calculado, transferencia_calculado, ventas_totales, diferencia, notas)
       VALUES ($1, COALESCE($2, CURRENT_TIMESTAMP - INTERVAL '1 day'), CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id;
     `;
-    const { rows } = await pool.query(query, [
+    const { rows } = await client.query(query, [
       usuarioId,
-      fechaApertura || null,
+      calculado.apertura,
       fondoApertura || 0.0,
       efectivoReal || 0.0,
-      efectivoCalculado || 0.0,
-      tarjetaCalculado || 0.0,
-      transferenciaCalculado || 0.0,
-      ventasTotales || 0.0,
-      diferencia || 0.0,
+      Number(calculado.efectivo),
+      Number(calculado.tarjeta),
+      Number(calculado.transferencia),
+      Number(calculado.ventas),
+      Number(efectivoReal ?? 0) - Number(fondoApertura ?? 0) - Number(calculado.efectivo),
       notas || '',
     ]);
 
+    await client.query('COMMIT');
     // Disparador del reporte síncronico/asíncrono de facturas al cerrarse la caja diaria
     enviarConteoAGoogleSheets().catch(() => {});
 
     res.json({ ok: true, corteId: rows[0].id });
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -2108,43 +2245,71 @@ app.get('/api/promociones', async (_req, res) => {
 
 app.post('/api/promociones', async (req, res) => {
   const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+    const { rows } = await client.query(
       `INSERT INTO promociones (nombre, codigo, tipo, valor, descripcion, activo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false],
     );
-    await sincronizarCombosComoProductos();
+    await sincronizarCombosComoProductos(client);
+    await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_productos');
     res.status(201).json(rows[0]);
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
 app.put('/api/promociones/:id', async (req, res) => {
   const { id } = req.params;
   const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+    const { rows } = await client.query(
       `UPDATE promociones SET nombre = $1, codigo = $2, tipo = $3, valor = $4, descripcion = $5, activo = $6 WHERE id = $7 RETURNING *`,
       [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false, id],
     );
-    if (rows.length === 0) return res.status(404).json({ error: 'Promoción no encontrada' });
-    await sincronizarCombosComoProductos();
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Promoción no encontrada' });
+    }
+    await sincronizarCombosComoProductos(client);
+    await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_productos');
     res.json(rows[0]);
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
 app.delete('/api/promociones/:id', async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query('DELETE FROM promociones WHERE id = $1 RETURNING *', [id]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Promoción no encontrada' });
-    await sincronizarCombosComoProductos();
+    await client.query('BEGIN');
+    await client.query('UPDATE productos SET disponible = FALSE, promocion_id = NULL WHERE promocion_id = $1', [id]);
+    const { rows } = await client.query('DELETE FROM promociones WHERE id = $1 RETURNING *', [id]);
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Promoción no encontrada' });
+    }
+    await sincronizarCombosComoProductos(client);
+    await client.query('COMMIT');
+    emitirCambioGlobal('actualizar_productos');
     res.json({ ok: true, mensaje: 'Promoción eliminada' });
   } catch (err: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -2217,15 +2382,16 @@ app.post(
       INSERT INTO configuracion_facturacion (id, api_key_test, api_key_live, modo_produccion, rfc_emisor, razon_social, regimen_fiscal, codigo_postal, email_notificaciones, dias_vigencia_ticket, tiene_csd, actualizado_en)
       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
       ON CONFLICT (id) DO UPDATE SET
-        api_key_test = EXCLUDED.api_key_test, api_key_live = EXCLUDED.api_key_live, modo_produccion = EXCLUDED.modo_produccion,
+        api_key_test = COALESCE(EXCLUDED.api_key_test, configuracion_facturacion.api_key_test),
+        api_key_live = COALESCE(EXCLUDED.api_key_live, configuracion_facturacion.api_key_live), modo_produccion = EXCLUDED.modo_produccion,
         rfc_emisor = EXCLUDED.rfc_emisor, razon_social = EXCLUDED.razon_social, regimen_fiscal = EXCLUDED.regimen_fiscal,
         codigo_postal = EXCLUDED.codigo_postal, email_notificaciones = EXCLUDED.email_notificaciones,
         dias_vigencia_ticket = EXCLUDED.dias_vigencia_ticket, tiene_csd = CASE WHEN EXCLUDED.tiene_csd THEN TRUE ELSE configuracion_facturacion.tiene_csd END,
         actualizado_en = CURRENT_TIMESTAMP RETURNING *;
     `;
       await pool.query(query, [
-        keyTest,
-        keyLive,
+        resolverApiKey(apiKeyTest, null),
+        resolverApiKey(apiKeyLive, null),
         modoProdBool,
         rfcEmisor?.toUpperCase(),
         razonSocial,
@@ -2447,9 +2613,10 @@ app.post('/api/dashboard/tickets/:pagoId/reprint', async (req, res) => {
       }
     }
 
+    if (!resCobroPrinter) return res.status(500).json({ error: 'No se pudo generar el ticket' });
     res.json({ ok: true, ticketId: pagoId, ticketTexto: ticketTextoCobro, impresionesPendientes });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Error al reimprimir ticket.' });
+    res.status(err instanceof PrecuentaError ? err.status : 500).json({ error: err.message || 'Error al reimprimir ticket.' });
   }
 });
 
@@ -2457,6 +2624,26 @@ if (frontendDistPath) {
   app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
     res.sendFile(path.join(frontendDistPath, 'index.html'));
   });
+}
+
+app.use('/api', (error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) return next(error);
+  const invalido = error instanceof Error && (error.name === 'MulterError' || error instanceof SyntaxError);
+  res.status(invalido ? 400 : 500).json({ error: invalido ? 'Solicitud o archivo invalido' : 'No se pudo procesar la solicitud' });
+});
+
+let tareaFiscalInicial: Promise<unknown> | undefined;
+let cierreServidor: Promise<void> | undefined;
+
+export function shutdownServer(): Promise<void> {
+  if (cierreServidor) return cierreServidor;
+  cierreServidor = (async () => {
+    await new Promise<void>(resolve => io.close(() => resolve()));
+    if (tareaFiscalInicial) await tareaFiscalInicial.catch(() => {});
+    await enviarConteoAGoogleSheets();
+    await pool.end();
+  })();
+  return cierreServidor;
 }
 
 // ─── FUNCION CONTROLADA DE ARRANQUE EXPORTADA (BLOQUEANTE) ─────────────────
@@ -2475,7 +2662,7 @@ export async function startServer() {
     }
 
     try {
-      realizarSincronizacionFacturas().then((r) => {
+      tareaFiscalInicial = realizarSincronizacionFacturas().then((r) => {
         if (r.ok) {
           console.log(
             `📡 [BACKEND] Sincronización automática de facturas completada.`,
@@ -2522,7 +2709,7 @@ async function apagarServidorGraciosamente(signal: string) {
   );
   try {
     // Esperar la resolución del envío a Google Sheets antes de cerrar
-    await enviarConteoAGoogleSheets();
+    await shutdownServer();
   } catch (err: any) {
     console.warn(
       '⚠️ [BACKEND] Error al realizar el reporte de apagado de Sheets:',
@@ -2530,11 +2717,8 @@ async function apagarServidorGraciosamente(signal: string) {
     );
   } finally {
     console.log('📦 [BACKEND] Liberando conexiones de base de datos...');
-    try {
-      await pool.end();
-    } catch {}
     console.log('👋 [BACKEND] Apagado completo del servidor backend.');
-    process.exit(0);
+    if (require.main === module) process.exit(0);
   }
 }
 

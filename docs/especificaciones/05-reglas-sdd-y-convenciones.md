@@ -156,7 +156,9 @@ flowchart TD
 
 Usar una tabla REQ -> AC -> archivos/simbolos -> TEST -> evidencia; registrar decisiones no resueltas antes de implementar. Marcar Verificado solo con resultados disponibles, y declarar pruebas no ejecutadas. Para builds usar los scripts existentes (build, build:server, dist); para tests evaluar `bunx ng test` y su target real antes de declarar un gate ejecutable. No introducir un comando inexistente `bun run test` como convencion actual.
 
-Ejemplo de necesidad futura, **no implementada**: impresion de precuenta real. Su especificacion tendria que decidir origen de los datos, destino de impresora, si modifica flags impreso, permisos, fallos y ausencia de pago. El estado actual permanece documentado como snackbar sin impresion.
+Ejemplo implementado: [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md) define precuenta real desde items persistidos, destino CAJA y fallback USB/texto; no registra pago ni cambia flags de produccion. [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md) agrega impresion de navegador aislada y estado contextual. Entrega fisica real no se presume por generar un trabajo USB.
+
+El cierre maestro SDD-099 registra implementacion por bloques y evidencia mediante mocks/tsc. No sustituir contratos pendientes de recuperacion fiscal o confirmacion durable por una declaracion de auditoria 100% cerrada; consultar la matriz actual antes de marcar todos los paquetes Implementado.
 
 ## Mantenimiento de estas especificaciones
 

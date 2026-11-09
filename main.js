@@ -10,6 +10,9 @@ const net = require('net');
 let mainWindow;
 let licenseWindow;
 let expressServer;
+let shutdownBackend;
+let cierreIniciado = false;
+let cierreCompletado = false;
 
 function escapeHtml(value = '') {
   return value
@@ -60,7 +63,7 @@ async function printTicketSilently({ printerName, content, title, anchoPapel }) 
     autoHideMenuBar: true,
     webPreferences: {
       sandbox: false,
-      contextIsolation: false,
+      contextIsolation: true,
       nodeIntegration: false,
     },
   });
@@ -127,10 +130,6 @@ const logPath = path.join(dataPath, 'logfile');
 // ─── RUTINAS DE POSTGRESQL PORTABLE ─────────────────────────────────────────
 function setupAndStartPostgres() {
   try {
-    try {
-      execSync('taskkill /F /IM postgres.exe /T', { stdio: 'ignore' });
-    } catch (e) {}
-
     if (!fs.existsSync(dataPath)) {
       fs.mkdirSync(dataPath, { recursive: true });
       const pwFile = path.join(basePath, 'pwfile.txt');
@@ -143,16 +142,10 @@ function setupAndStartPostgres() {
       if (fs.existsSync(pwFile)) fs.unlinkSync(pwFile);
     }
 
-    const pidPath = path.join(dataPath, 'postmaster.pid');
-    if (fs.existsSync(pidPath)) {
-      try {
-        fs.unlinkSync(pidPath);
-      } catch (e) {}
-    }
-
     const pgCtlPath = path.join(binPath, 'pg_ctl.exe');
     try {
-      execSync(`"${pgCtlPath}" -D "${dataPath}" stop -m fast`, { stdio: 'ignore' });
+      execSync(`"${pgCtlPath}" -D "${dataPath}" status`, { stdio: 'ignore' });
+      return;
     } catch (e) {}
 
     execSync(`"${pgCtlPath}" -D "${dataPath}" -l "${logPath}" -o "-p ${DB_PORT}" start`, {
@@ -198,7 +191,9 @@ async function startBackendServer() {
   if (!isDev) {
     try {
       const serverPath = path.join(__dirname, 'server.js');
+      process.env.BORBOTO_UPLOADS_DIR = path.join(app.getPath('userData'), 'uploads');
       const serverModule = require(serverPath);
+      shutdownBackend = serverModule.shutdownServer;
       expressServer =
         typeof serverModule.startServer === 'function'
           ? await serverModule.startServer()
@@ -259,6 +254,14 @@ function validarLicencia(keyString) {
     }
 
     const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+        typeof payload.vencimiento !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(payload.vencimiento)) {
+      return { valida: false, motivo: 'Fecha de licencia invalida' };
+    }
+    const fechaVencimiento = new Date(payload.vencimiento + 'T00:00:00Z');
+    if (Number.isNaN(fechaVencimiento.getTime()) || fechaVencimiento.toISOString().slice(0, 10) !== payload.vencimiento) {
+      return { valida: false, motivo: 'Fecha de licencia invalida' };
+    }
     if (
       payload.hardware_id &&
       payload.hardware_id.trim().toUpperCase() !== getHardwareId().toUpperCase()
@@ -442,7 +445,7 @@ function solicitarLicencia(mensajeError = '') {
     alwaysOnTop: true,
     title: 'Borboto POS - Licencia Requerida',
     icon: iconPath,
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') },
   });
 
   licenseWindow.setMenuBarVisibility(false);
@@ -484,8 +487,10 @@ function createMainWindow() {
     title: 'Borboto POS',
     icon: iconPath,
     webPreferences: {
-      contextIsolation: false,
-      nodeIntegration: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: [`--borboto-port=${Number(process.env.PORT) || 3000}`],
     },
   });
   mainWindow.setMenuBarVisibility(false);
@@ -494,8 +499,19 @@ function createMainWindow() {
   const loadApp = () => {
     if (isDev) {
       const url = 'http://127.0.0.1:4200';
+      const inicio = Date.now();
       const checkReady = () => {
-        http.get(url, () => mainWindow.loadURL(url)).on('error', () => setTimeout(checkReady, 500));
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        if (Date.now() - inicio >= 30000) {
+          mainWindow.loadURL('data:text/html,<h1>Servidor de desarrollo no disponible</h1>');
+          return;
+        }
+        const request = http.get(url, response => {
+          response.resume();
+          if (response.statusCode === 200) mainWindow.loadURL(url);
+          else setTimeout(checkReady, 500);
+        }).on('error', () => setTimeout(checkReady, 500));
+        request.setTimeout(1000, () => request.destroy());
       };
       checkReady();
     } else {
@@ -576,7 +592,25 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('will-quit', () => {
-  if (expressServer && typeof expressServer.close === 'function') expressServer.close();
-  stopPostgres();
+app.on('before-quit', async event => {
+  if (cierreCompletado) return;
+  event.preventDefault();
+  if (cierreIniciado) return;
+  cierreIniciado = true;
+  let timer;
+  try {
+    await Promise.race([
+      typeof shutdownBackend === 'function' ? shutdownBackend() : Promise.resolve(),
+      new Promise((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Timeout de cierre')), 30000); }),
+    ]);
+  } catch (error) {
+    console.warn('Cierre incompleto del backend:', error.message);
+  } finally {
+    clearTimeout(timer);
+    stopPostgres();
+    cierreCompletado = true;
+    app.quit();
+  }
 });
+process.on('SIGINT', () => app.quit());
+process.on('SIGTERM', () => app.quit());

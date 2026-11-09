@@ -110,7 +110,7 @@ export async function obtenerConteoFacturasLocales(): Promise<number> {
     return res.rows[0]?.count ?? 0;
   } catch (err: any) {
     console.error('❌ [ReporteSheets] Error al consultar conteo de facturas locales:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -127,23 +127,29 @@ export async function enviarConteoAGoogleSheets(): Promise<{ success: boolean; u
     data: null as any,
     error: undefined as string | undefined
   };
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let tokenSecreto = '';
 
   try {
     const GOOGLE_SHEET_URL = process.env.GOOGLE_SHEET_URL || 'https://script.google.com/macros/s/AKfycbwYP1-gaPlkLAJhqPKSPdO7DVeuK0ypEVapU8xWF5CscnPYRBSLlS75vze2DMLdA6pQdA/exec';
-    const TOKEN = process.env.GOOGLE_SHEET_TOKEN || 'BorbotoPOS_Secret_Key_2026_x89Z';
+    const TOKEN = process.env.GOOGLE_SHEET_TOKEN;
+    if (!TOKEN) throw new Error('GOOGLE_SHEET_TOKEN no configurado');
+    tokenSecreto = TOKEN;
 
     const totalFacturas = await obtenerConteoFacturasLocales();
     const hardwareId = obtenerHardwareId();
     const nombreCliente = await obtenerNombreCliente();
 
     const url = `${GOOGLE_SHEET_URL}?token=${TOKEN}&hardware_id=${hardwareId}&cliente=${encodeURIComponent(nombreCliente)}&total_facturas=${totalFacturas}`;
-    resultObj.url = url;
+    const urlPublica = new URL(url);
+    urlPublica.searchParams.set('token', '***');
+    resultObj.url = urlPublica.toString();
 
-    console.log('📡 Enviando conteo a Google Sheets:', url);
+    console.log('📡 Enviando conteo a Google Sheets:', resultObj.url);
 
     const controller = new AbortController();
     const signal = controller.signal;
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s maximum timeout
+    timeoutId = setTimeout(() => controller.abort(), 10000); // 10s maximum timeout
 
     const res = await fetch(url, {
       method: "GET",
@@ -154,11 +160,9 @@ export async function enviarConteoAGoogleSheets(): Promise<{ success: boolean; u
       signal
     });
 
-    clearTimeout(timeoutId);
-
     resultObj.status = res.status;
 
-    const responseText = await res.text();
+    const responseText = (await res.text()).replaceAll(tokenSecreto, '***');
     let responseData: any = responseText;
     try {
       responseData = JSON.parse(responseText);
@@ -167,7 +171,7 @@ export async function enviarConteoAGoogleSheets(): Promise<{ success: boolean; u
     }
     resultObj.data = responseData;
 
-    console.log('✅ Respuesta de Sheets:', responseData);
+    console.log('✅ Respuesta de Sheets:', res.status);
 
     if (res.ok) {
       resultObj.success = true;
@@ -178,9 +182,11 @@ export async function enviarConteoAGoogleSheets(): Promise<{ success: boolean; u
       console.warn(`⚠️ [ReporteSheets] Respuesta HTTP fallida de Sheets: ${res.status} ${res.statusText}`);
     }
   } catch (err: any) {
-    resultObj.error = err.message || String(err);
+    resultObj.error = tokenSecreto ? String(err.message || err).replaceAll(tokenSecreto, '***') : 'Error al consultar o enviar reporte';
     // Silently capture errors in console without throwing/crashing the process or disturbing the active flow
-    console.warn(`⚠️ [ReporteSheets] Sincronización Google Sheets omitida (error silencioso):`, err.message || err);
+    console.warn('Reporte Sheets fallido');
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 
   return resultObj;

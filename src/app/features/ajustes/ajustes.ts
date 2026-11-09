@@ -202,9 +202,9 @@ export class AjustesComponent implements OnInit {
 
   // 🔹 CONTROL Y RENOVACIÓN DE LICENCIA (IPC + NGZONE)
   async consultarEstadoLicencia() {
-    if (window.require) {
+    if (window.borbotoElectron || window.require) {
       try {
-        const { ipcRenderer } = window.require('electron');
+        const ipcRenderer = window.borbotoElectron || window.require('electron').ipcRenderer;
 
         // 1. Consultar Hardware ID y Estado
         const hwId = await ipcRenderer.invoke('get-hardware-id');
@@ -220,12 +220,10 @@ export class AjustesComponent implements OnInit {
       }
     } else {
       this.zone.run(() => {
-        this.hardwareIdLocal.set('4C4C4544-0035-3710-8031-B2C04F343033');
+        this.hardwareIdLocal.set('NO_DISPONIBLE');
         this.infoLicencia.set({
-          valida: true,
-          cliente: 'Restaurante Borboto Demo',
-          vencimiento: '2026-12-31',
-          diasRestantes: 120,
+          valida: false,
+          motivo: 'Consulte la licencia en la estacion principal',
         });
       });
     }
@@ -238,13 +236,13 @@ export class AjustesComponent implements OnInit {
       return;
     }
 
-    if (!window.require) {
+    if (!window.borbotoElectron && !window.require) {
       this.notifications.warning('Esta función requiere ejecutarse dentro de Electron.');
       return;
     }
 
     this.cargandoLicencia = true;
-    const { ipcRenderer } = window.require('electron');
+    const ipcRenderer = window.borbotoElectron || window.require('electron').ipcRenderer;
 
     ipcRenderer.once(
       'submit-license-key-response',
@@ -839,9 +837,9 @@ export class AjustesComponent implements OnInit {
   habilitarEdicionPromocion(p: Promocion) {
     this.promocionEditando.set({
       ...p,
-      aplica_a: p.aplica_a || 'TOTAL_ORDEN',
-      categoria_id: p.categoria_id || null,
-      producto_id: p.producto_id || null,
+      aplica_a: 'TOTAL_ORDEN',
+      categoria_id: null,
+      producto_id: null,
     });
   }
 

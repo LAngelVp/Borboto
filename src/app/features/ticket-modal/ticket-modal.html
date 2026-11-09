@@ -8,7 +8,7 @@
   <div class="ticket-papel-termico" [ngClass]="data.anchoPapel === '58mm' ? 'papel-58mm' : 'papel-80mm'">
     <div class="ticket-header">
       <h2>BORBOTO POS</h2>
-      <p>*** MODO SIMULACIÓN ***</p>
+      <p>{{ data.titulo || 'Ticket' }}</p>
     </div>
 
     <pre class="ticket-texto-monospaced">{{ data.contenidoTicket }}</pre>

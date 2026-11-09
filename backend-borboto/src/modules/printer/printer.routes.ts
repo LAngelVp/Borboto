@@ -133,6 +133,7 @@ router.post('/usb/raw-print', async (req, res) => {
       anchoPapel,
       corteTipo,
     });
+    if (!resultado?.ok) return res.status(502).json(resultado);
     res.json(resultado);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Error al imprimir por RAW USB.' });

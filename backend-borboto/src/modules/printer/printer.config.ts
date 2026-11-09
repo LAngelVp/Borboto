@@ -1,3 +1,4 @@
+/** @deprecated Sin consumidores productivos; la configuracion activa procede de la tabla impresoras. */
 // src/modules/printer/printer.config.ts
 
 export interface ConfigImpresora {

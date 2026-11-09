@@ -42,6 +42,8 @@ export class CorteCajaDialog implements OnInit {
   private readonly router = inject(Router);
 
   loading = signal<boolean>(true);
+  readonly errorCarga = signal(false);
+  readonly guardando = signal(false);
   usuarioId = signal<number>(1);
   usuarioNombre = signal<string>('');
 
@@ -87,6 +89,7 @@ export class CorteCajaDialog implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
+        this.errorCarga.set(true);
         console.error(err);
         this.notifications.error('Error al obtener datos del corte de caja');
         this.loading.set(false);
@@ -95,6 +98,8 @@ export class CorteCajaDialog implements OnInit {
   }
 
   confirmarCorte() {
+    if (this.loading() || this.errorCarga() || this.guardando()) return;
+    this.guardando.set(true);
     const payload = {
       usuarioId: this.usuarioId(),
       fechaApertura: this.fechaApertura(),
@@ -115,7 +120,10 @@ export class CorteCajaDialog implements OnInit {
         this.dialogRef.close(true);
         this.router.navigate(['/login']);
       },
-      error: () => this.notifications.error('Error al registrar corte de caja'),
+      error: () => {
+        this.guardando.set(false);
+        this.notifications.error('Error al registrar corte de caja');
+      },
     });
   }
 

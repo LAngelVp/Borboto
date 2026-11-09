@@ -90,7 +90,17 @@ export class TicketModal {
     }
     if (typeof window !== 'undefined' && typeof window.print === 'function') {
       try {
-        window.print();
+        const ticketWindow = window.open('', '_blank', 'width=420,height=600');
+        if (!ticketWindow) throw new Error('Ventana de impresion bloqueada');
+        const pre = ticketWindow.document.createElement('pre');
+        pre.textContent = this.data.contenidoTicket;
+        pre.style.fontFamily = 'monospace';
+        pre.style.whiteSpace = 'pre-wrap';
+        ticketWindow.document.title = this.data.titulo || 'Ticket';
+        ticketWindow.document.body.appendChild(pre);
+        ticketWindow.addEventListener('afterprint', () => ticketWindow.close(), { once: true });
+        ticketWindow.focus();
+        ticketWindow.print();
         this.notifications.info('Dialogo de impresion solicitado.');
         return;
       } catch {

@@ -107,7 +107,8 @@ export class DashboardComponent implements OnInit {
   }
 
   establecerRangoPredeterminado() {
-    const hoyStr = new Date().toISOString().split('T')[0];
+    const hoy = new Date();
+    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
     this.fechaInicio = hoyStr;
     this.fechaFin = hoyStr;
     this.cargarEstadisticas();
@@ -123,7 +124,7 @@ export class DashboardComponent implements OnInit {
     this.cargando.set(true);
     let paramsUrl = '';
 
-    if (this.filtroRango === 'PERSONALIZADO' && this.fechaInicio) {
+    if (this.fechaInicio) {
       paramsUrl += `?fechaInicio=${this.fechaInicio}`;
       if (this.fechaFin) {
         paramsUrl += `&fechaFin=${this.fechaFin}`;
@@ -133,7 +134,7 @@ export class DashboardComponent implements OnInit {
     this.http.get<DashboardData>(`${this.baseUrl}${paramsUrl}`).subscribe({
       next: (resp) => {
         this.data.set(resp);
-        this.tickets.set(resp.tickets || []);
+        if (!this.filtroFolio.trim() && !this.filtroCliente.trim()) this.tickets.set(resp.tickets || []);
         this.cargando.set(false);
       },
       error: (err) => {
@@ -150,8 +151,9 @@ export class DashboardComponent implements OnInit {
       if (this.fechaFin) {
         params.set('fechaFin', this.fechaFin);
       }
-    } else if (this.fechaInicio) {
+    } else if (this.fechaInicio && !this.filtroFolio.trim() && !this.filtroCliente.trim()) {
       params.set('fechaInicio', this.fechaInicio);
+      params.set('fechaFin', this.fechaFin || this.fechaInicio);
     }
 
     if (this.filtroFolio.trim()) {

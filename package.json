@@ -39,6 +39,7 @@
     ],
     "files": [
       "main.js",
+      "preload.js",
       "server.js",
       "license.html",
       "licencia_publica.pem",

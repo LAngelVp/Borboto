@@ -77,9 +77,9 @@
   <button class="btn-submit" onclick="activar()">Activar e Iniciar Sistema</button>
 
   <script>
-    const { ipcRenderer } = require('electron');
+    const ipcRenderer = window.borbotoElectron || (typeof require === 'function' ? require('electron').ipcRenderer : null);
 
-    ipcRenderer.on('init-license-view', (event, data) => {
+    ipcRenderer?.on('init-license-view', (event, data) => {
       document.getElementById('hwIdBox').innerText = data.hardwareId;
       if (data.error) {
         document.getElementById('errorBox').innerText = `⚠️ ${data.error}`;
@@ -87,6 +87,10 @@
     });
 
     function activar() {
+      if (!ipcRenderer) {
+        document.getElementById('errorBox').innerText = 'La activacion requiere la estacion principal.';
+        return;
+      }
       const input = document.getElementById('licenseInput').value.trim();
       if (!input) {
         document.getElementById('errorBox').innerText = '⚠️ Ingresa una clave válida.';
@@ -95,7 +99,7 @@
       ipcRenderer.send('submit-license-key', input);
     }
 
-    ipcRenderer.on('submit-license-key-response', (event, res) => {
+    ipcRenderer?.on('submit-license-key-response', (event, res) => {
       if (!res.success) {
         document.getElementById('errorBox').innerText = `❌ ${res.error}`;
       }

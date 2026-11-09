@@ -43,9 +43,11 @@ export class CajaService {
   readonly clienteEsFrecuente = signal<boolean>(false);
   readonly clienteVisitas = signal<number>(0);
   readonly puntosCanjeados = signal<number>(0);
+  readonly pesosPorPunto = signal(10);
+  readonly factorPuntos = signal(1);
 
   readonly puntosPorGanar = computed(() => {
-    return Math.floor(this.totalCuenta() / 10);
+    return Math.floor(this.totalCuenta() / this.pesosPorPunto()) * this.factorPuntos();
   });
 
   readonly metodoPago = signal<MetodoPago>('EFECTIVO');
@@ -58,7 +60,7 @@ export class CajaService {
   });
 
   readonly cambio = computed(() => {
-    const aPagar = this.numeroPartes() > 1 ? this.totalPorPersona() : this.totalCuenta();
+    const aPagar = this.totalCuenta();
     const diff = this.montoRecibido() - aPagar;
     return diff > 0 ? diff : 0;
   });
@@ -66,8 +68,9 @@ export class CajaService {
   readonly cambioCalculado = this.cambio;
 
   readonly pagoSuficiente = computed(() => {
-    const total = this.numeroPartes() > 1 ? this.totalPorPersona() : this.totalCuenta();
-    if (total <= 0) return false;
+    const total = this.totalCuenta();
+    if (total < 0 || !Number.isFinite(total)) return false;
+    if (total === 0) return this.totalCuentaOriginal() > 0;
 
     if (this.metodoPago() === 'EFECTIVO') {
       return this.montoRecibido() >= total;
@@ -96,6 +99,7 @@ export class CajaService {
   }
 
   cargarCuentaMesa(mesaId: number) {
+    this.cargarParametrosLealtad();
     this.mesaId.set(mesaId);
     this.descuentoAplicado.set(0);
     this.promocionIdAplicada.set(null);
@@ -152,6 +156,7 @@ export class CajaService {
   }
 
   cargarCuentaComanda(comandaId: number) {
+    this.cargarParametrosLealtad();
     this.limpiarSeleccion();
 
     this.http
@@ -287,7 +292,7 @@ export class CajaService {
     this.puntosCanjeados.set(puntos);
 
     // 1 punto = $1 peso de descuento
-    const descPuntos = puntos;
+    const descPuntos = Math.min(puntos, subtotalActual);
 
     this.descuentoAplicado.set(descPuntos);
     const nuevoTotal = subtotalActual - descPuntos > 0 ? subtotalActual - descPuntos : 0;
@@ -296,6 +301,18 @@ export class CajaService {
     this.montoRecibido.set(nuevoTotal);
     this.promocionIdAplicada.set(null);
     this.promocionNombreAplicada.set(`Canje de ${puntos} pts`);
+  }
+
+  private cargarParametrosLealtad() {
+    this.http.get<{ pesos_por_punto?: number; puntos_por_cada_diez_pesos?: number }>(`${this.apiUrl}/ajustes/negocio`).subscribe({
+      next: datos => {
+        const pesos = Number(datos.pesos_por_punto ?? 10);
+        const factor = Number(datos.puntos_por_cada_diez_pesos ?? 1);
+        if (Number.isFinite(pesos) && pesos > 0) this.pesosPorPunto.set(pesos);
+        if (Number.isFinite(factor) && factor >= 0) this.factorPuntos.set(factor);
+      },
+      error: () => {},
+    });
   }
 
   limpiarSeleccion() {

@@ -1,5 +1,6 @@
 // backend-borboto/src/db.ts
 import pkg from 'pg';
+import type { PoolClient } from 'pg';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -85,23 +86,30 @@ async function applySqlMigration(
 ) {
   const sqlContent = fs.readFileSync(filePath, 'utf-8');
 
-  await targetPool.query('BEGIN');
+  const client = await targetPool.connect();
   try {
-    await targetPool.query(sqlContent);
-    await targetPool.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
-    await targetPool.query('COMMIT');
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [9007]);
+    const existing = await client.query('SELECT id FROM schema_migrations WHERE version = $1', [version]);
+    if (existing.rows.length === 0) {
+      await client.query(sqlContent);
+      await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
+    }
+    await client.query('COMMIT');
     console.log(`✅ Migración aplicada: ${version}`);
   } catch (migrationError: any) {
-    await targetPool.query('ROLLBACK');
+    await client.query('ROLLBACK');
     console.error(`❌ Falló la migración ${version}:`, migrationError.message);
     throw migrationError;
+  } finally {
+    client.release();
   }
 }
 
-export async function sincronizarCombosComoProductos() {
-  const client = await pool.connect();
+export async function sincronizarCombosComoProductos(targetClient?: PoolClient) {
+  const client = targetClient ?? await pool.connect();
   try {
-    await client.query('BEGIN');
+    if (!targetClient) await client.query('BEGIN');
 
     const catRes = await client.query(
       `SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1`,
@@ -167,13 +175,14 @@ export async function sincronizarCombosComoProductos() {
       `);
     }
 
-    await client.query('COMMIT');
+    if (!targetClient) await client.query('COMMIT');
     console.log('🔄 Sincronización de Combos completada.');
   } catch (err: any) {
-    await client.query('ROLLBACK');
+    if (!targetClient) await client.query('ROLLBACK');
     console.error('❌ Error sincronizando combos:', err.message);
+    throw err;
   } finally {
-    client.release();
+    if (!targetClient) client.release();
   }
 }
 
@@ -233,21 +242,11 @@ export async function initDB(): Promise<void> {
     if (checkInit.rows.length === 0) {
       if (fs.existsSync(initPath)) {
         console.log(`🚀 Aplicando migración inicial desde: ${initPath}`);
-        const sqlContent = fs.readFileSync(initPath, 'utf-8');
-
-        await targetPool.query('BEGIN');
-        try {
-          await targetPool.query(sqlContent);
-          await targetPool.query('INSERT INTO schema_migrations (version) VALUES ($1)', [
-            '000_init.sql',
-          ]);
-          await targetPool.query('COMMIT');
-          console.log('✅ Estructura inicial creada exitosamente en borboto_pos.');
-          // console.log('✅ Estructura inicial (000_init.sql) creada exitosamente en borboto_pos.');
-        } catch (migrationError: any) {
-          await targetPool.query('ROLLBACK');
-          console.error('❌ Falló la migración 000_init.sql:', migrationError.message);
-          throw migrationError;
+        const operativas = await targetPool.query("SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('usuarios', 'comandas') LIMIT 1");
+        if (operativas.rows.length > 0) {
+          await targetPool.query('INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING', ['000_init.sql']);
+        } else {
+          await applySqlMigration(targetPool, '000_init.sql', initPath);
         }
       } else {
         console.warn(`⚠️ No se encontró el archivo inicial`);

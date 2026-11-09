@@ -26,9 +26,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to2, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to2, key) && key !== except)
-        __defProp(to2, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    for (let key2 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to2, key2) && key2 !== except)
+        __defProp(to2, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });
   }
   return to2;
 };
@@ -170,8 +170,8 @@ var require_common = __commonJS({
       createDebug.enabled = enabled;
       createDebug.humanize = require_ms();
       createDebug.destroy = destroy;
-      Object.keys(env2).forEach((key) => {
-        createDebug[key] = env2[key];
+      Object.keys(env2).forEach((key2) => {
+        createDebug[key2] = env2[key2];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -582,7 +582,7 @@ function _supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
     return 1;
   }
   if ("CI" in env) {
-    if (["GITHUB_ACTIONS", "GITEA_ACTIONS", "CIRCLECI"].some((key) => key in env)) {
+    if (["GITHUB_ACTIONS", "GITEA_ACTIONS", "CIRCLECI"].some((key2) => key2 in env)) {
       return 3;
     }
     if (["TRAVIS", "APPVEYOR", "GITLAB_CI", "BUILDKITE", "DRONE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
@@ -755,13 +755,13 @@ var require_node = __commonJS({
       }
     } catch (error) {
     }
-    exports2.inspectOpts = Object.keys(process.env).filter((key) => {
-      return /^debug_/i.test(key);
-    }).reduce((obj, key) => {
-      const prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k) => {
+    exports2.inspectOpts = Object.keys(process.env).filter((key2) => {
+      return /^debug_/i.test(key2);
+    }).reduce((obj, key2) => {
+      const prop = key2.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k) => {
         return k.toUpperCase();
       });
-      let val = process.env[key];
+      let val = process.env[key2];
       if (/^(yes|on|true|enabled)$/i.test(val)) {
         val = true;
       } else if (/^(no|off|false|disabled)$/i.test(val)) {
@@ -960,11 +960,11 @@ var require_depd = __commonJS({
           break;
         }
       }
-      var key = caller ? depSite.join(":") + "__" + caller.join(":") : void 0;
-      if (key !== void 0 && key in this._warned) {
+      var key2 = caller ? depSite.join(":") + "__" + caller.join(":") : void 0;
+      if (key2 !== void 0 && key2 in this._warned) {
         return;
       }
-      this._warned[key] = true;
+      this._warned[key2] = true;
       var msg = message;
       if (!msg) {
         msg = callSite === depSite || !callSite.name ? defaultMessage(depSite) : defaultMessage(callSite);
@@ -1418,9 +1418,9 @@ var require_http_errors = __commonJS({
         err.expose = status < 500;
         err.status = err.statusCode = status;
       }
-      for (var key in props) {
-        if (key !== "status" && key !== "statusCode") {
-          err[key] = props[key];
+      for (var key2 in props) {
+        if (key2 !== "status" && key2 !== "statusCode") {
+          err[key2] = props[key2];
         }
       }
       return err;
@@ -1626,17 +1626,17 @@ var require_safer = __commonJS({
     var buffer = require("buffer");
     var Buffer2 = buffer.Buffer;
     var safer = {};
-    var key;
-    for (key in buffer) {
-      if (!buffer.hasOwnProperty(key)) continue;
-      if (key === "SlowBuffer" || key === "Buffer") continue;
-      safer[key] = buffer[key];
+    var key2;
+    for (key2 in buffer) {
+      if (!buffer.hasOwnProperty(key2)) continue;
+      if (key2 === "SlowBuffer" || key2 === "Buffer") continue;
+      safer[key2] = buffer[key2];
     }
     var Safer = safer.Buffer = {};
-    for (key in Buffer2) {
-      if (!Buffer2.hasOwnProperty(key)) continue;
-      if (key === "allocUnsafe" || key === "allocUnsafeSlow") continue;
-      Safer[key] = Buffer2[key];
+    for (key2 in Buffer2) {
+      if (!Buffer2.hasOwnProperty(key2)) continue;
+      if (key2 === "allocUnsafe" || key2 === "allocUnsafeSlow") continue;
+      Safer[key2] = Buffer2[key2];
     }
     safer.Buffer.prototype = Buffer2.prototype;
     if (!Safer.from || Safer.from === Uint8Array.from) {
@@ -1739,9 +1739,9 @@ var require_merge_exports = __commonJS({
     "use strict";
     var hasOwn = typeof Object.hasOwn === "undefined" ? Function.call.bind(Object.prototype.hasOwnProperty) : Object.hasOwn;
     function mergeModules(target, module3) {
-      for (var key in module3) {
-        if (hasOwn(module3, key)) {
-          target[key] = module3[key];
+      for (var key2 in module3) {
+        if (hasOwn(module3, key2)) {
+          target[key2] = module3[key2];
         }
       }
     }
@@ -5335,8 +5335,8 @@ var require_lib = __commonJS({
             enc = codecDef;
             break;
           case "object":
-            for (var key in codecDef) {
-              codecOptions[key] = codecDef[key];
+            for (var key2 in codecDef) {
+              codecOptions[key2] = codecDef[key2];
             }
             if (!codecOptions.encodingName) {
               codecOptions.encodingName = enc;
@@ -5862,7 +5862,7 @@ var require_dist = __commonJS({
             continue parameter;
           if (code === EQ) {
             const keyEnd = trailingOWS(header, keyStart, index);
-            const key = header.slice(keyStart, keyEnd).toLowerCase();
+            const key2 = header.slice(keyStart, keyEnd).toLowerCase();
             index = skipOWS(header, index + 1, len);
             if (index < len && header.charCodeAt(index) === DQUOTE) {
               index++;
@@ -5871,8 +5871,8 @@ var require_dist = __commonJS({
                 const code2 = header.charCodeAt(index++);
                 if (code2 === DQUOTE) {
                   index = skipValue(header, index, len, stopChar);
-                  if (parameters[key] === void 0)
-                    parameters[key] = value;
+                  if (parameters[key2] === void 0)
+                    parameters[key2] = value;
                   break;
                 }
                 if (code2 === BSLASH && index < len) {
@@ -5885,9 +5885,9 @@ var require_dist = __commonJS({
             }
             const valueStart = index;
             index = skipValue(header, index, len, stopChar);
-            if (parameters[key] === void 0) {
+            if (parameters[key2] === void 0) {
               const valueEnd = trailingOWS(header, valueStart, index);
-              parameters[key] = header.slice(valueStart, valueEnd);
+              parameters[key2] = header.slice(valueStart, valueEnd);
             }
             continue parameter;
           }
@@ -15661,7 +15661,7 @@ var require_dist2 = __commonJS({
             continue parameter;
           if (code === EQ) {
             const keyEnd = trailingOWS(header, keyStart, index);
-            const key = header.slice(keyStart, keyEnd).toLowerCase();
+            const key2 = header.slice(keyStart, keyEnd).toLowerCase();
             index = skipOWS(header, index + 1, len);
             if (index < len && header.charCodeAt(index) === DQUOTE) {
               index++;
@@ -15670,8 +15670,8 @@ var require_dist2 = __commonJS({
                 const code2 = header.charCodeAt(index++);
                 if (code2 === DQUOTE) {
                   index = skipValue(header, index, len, stopChar);
-                  if (parameters[key] === void 0)
-                    parameters[key] = value;
+                  if (parameters[key2] === void 0)
+                    parameters[key2] = value;
                   break;
                 }
                 if (code2 === BSLASH && index < len) {
@@ -15684,9 +15684,9 @@ var require_dist2 = __commonJS({
             }
             const valueStart = index;
             index = skipValue(header, index, len, stopChar);
-            if (parameters[key] === void 0) {
+            if (parameters[key2] === void 0) {
               const valueEnd = trailingOWS(header, valueStart, index);
-              parameters[key] = header.slice(valueStart, valueEnd);
+              parameters[key2] = header.slice(valueStart, valueEnd);
             }
             continue parameter;
           }
@@ -16029,9 +16029,9 @@ var require_json = __commonJS({
     function normalizeJsonSyntaxError(error, obj) {
       const keys = Object.getOwnPropertyNames(error);
       for (let i2 = 0; i2 < keys.length; i2++) {
-        const key = keys[i2];
-        if (key !== "stack" && key !== "message") {
-          delete error[key];
+        const key2 = keys[i2];
+        if (key2 !== "stack" && key2 !== "message") {
+          delete error[key2];
         }
       }
       error.stack = obj.stack.replace(error.message, obj.message);
@@ -16285,8 +16285,8 @@ var require_object_inspect = __commonJS({
       if (isMap(obj)) {
         var mapParts = [];
         if (mapForEach) {
-          mapForEach.call(obj, function(value, key) {
-            mapParts.push(inspect(key, obj, true) + " => " + inspect(value, obj));
+          mapForEach.call(obj, function(value, key2) {
+            mapParts.push(inspect(key2, obj, true) + " => " + inspect(value, obj));
           });
         }
         return collectionOf("Map", mapSize.call(obj), mapParts, indent);
@@ -16404,11 +16404,11 @@ var require_object_inspect = __commonJS({
       }
       return false;
     }
-    var hasOwn = Object.prototype.hasOwnProperty || function(key) {
-      return key in this;
+    var hasOwn = Object.prototype.hasOwnProperty || function(key2) {
+      return key2 in this;
     };
-    function has(obj, key) {
-      return hasOwn.call(obj, key);
+    function has(obj, key2) {
+      return hasOwn.call(obj, key2);
     }
     function toStr(obj) {
       return objectToString.call(obj);
@@ -16599,19 +16599,19 @@ var require_object_inspect = __commonJS({
           symMap["$" + syms[k]] = syms[k];
         }
       }
-      for (var key in obj) {
-        if (!has(obj, key)) {
+      for (var key2 in obj) {
+        if (!has(obj, key2)) {
           continue;
         }
-        if (isArr && String(Number(key)) === key && key < obj.length) {
+        if (isArr && String(Number(key2)) === key2 && key2 < obj.length) {
           continue;
         }
-        if (hasShammedSymbols && symMap["$" + key] instanceof Symbol) {
+        if (hasShammedSymbols && symMap["$" + key2] instanceof Symbol) {
           continue;
-        } else if ($test.call(/[^\w$]/, key)) {
-          xs.push(inspect(key, obj) + ": " + inspect(obj[key], obj));
+        } else if ($test.call(/[^\w$]/, key2)) {
+          xs.push(inspect(key2, obj) + ": " + inspect(obj[key2], obj));
         } else {
-          xs.push(key + ": " + inspect(obj[key], obj));
+          xs.push(key2 + ": " + inspect(obj[key2], obj));
         }
       }
       if (typeof gOPS === "function") {
@@ -16632,11 +16632,11 @@ var require_side_channel_list = __commonJS({
     "use strict";
     var inspect = require_object_inspect();
     var $TypeError = require_type();
-    var listGetNode = function(list, key, isDelete) {
+    var listGetNode = function(list, key2, isDelete) {
       var prev = list;
       var curr;
       for (; (curr = prev.next) != null; prev = curr) {
-        if (curr.key === key) {
+        if (curr.key === key2) {
           prev.next = curr.next;
           if (!isDelete) {
             curr.next = /** @type {NonNullable<typeof list.next>} */
@@ -16647,60 +16647,60 @@ var require_side_channel_list = __commonJS({
         }
       }
     };
-    var listGet = function(objects, key) {
+    var listGet = function(objects, key2) {
       if (!objects) {
         return void 0;
       }
-      var node = listGetNode(objects, key);
+      var node = listGetNode(objects, key2);
       return node && node.value;
     };
-    var listSet = function(objects, key, value) {
-      var node = listGetNode(objects, key);
+    var listSet = function(objects, key2, value) {
+      var node = listGetNode(objects, key2);
       if (node) {
         node.value = value;
       } else {
         objects.next = /** @type {import('./list.d.ts').ListNode<typeof value, typeof key>} */
         {
           // eslint-disable-line no-param-reassign, no-extra-parens
-          key,
+          key: key2,
           next: objects.next,
           value
         };
       }
     };
-    var listHas = function(objects, key) {
+    var listHas = function(objects, key2) {
       if (!objects) {
         return false;
       }
-      return !!listGetNode(objects, key);
+      return !!listGetNode(objects, key2);
     };
-    var listDelete = function(objects, key) {
+    var listDelete = function(objects, key2) {
       if (objects) {
-        return listGetNode(objects, key, true);
+        return listGetNode(objects, key2, true);
       }
     };
     module2.exports = function getSideChannelList() {
       var $o;
       var channel = {
-        assert: function(key) {
-          if (!channel.has(key)) {
-            throw new $TypeError("Side channel does not contain " + inspect(key));
+        assert: function(key2) {
+          if (!channel.has(key2)) {
+            throw new $TypeError("Side channel does not contain " + inspect(key2));
           }
         },
-        "delete": function(key) {
-          var deletedNode = listDelete($o, key);
+        "delete": function(key2) {
+          var deletedNode = listDelete($o, key2);
           if (deletedNode && $o && !$o.next) {
             $o = void 0;
           }
           return !!deletedNode;
         },
-        get: function(key) {
-          return listGet($o, key);
+        get: function(key2) {
+          return listGet($o, key2);
         },
-        has: function(key) {
-          return listHas($o, key);
+        has: function(key2) {
+          return listHas($o, key2);
         },
-        set: function(key, value) {
+        set: function(key2, value) {
           if (!$o) {
             $o = {
               next: void 0
@@ -16709,7 +16709,7 @@ var require_side_channel_list = __commonJS({
           listSet(
             /** @type {NonNullable<typeof $o>} */
             $o,
-            key,
+            key2,
             value
           );
         }
@@ -17555,14 +17555,14 @@ var require_side_channel_map = __commonJS({
     function getSideChannelMap() {
       var $m;
       var channel = {
-        assert: function(key) {
-          if (!channel.has(key)) {
-            throw new $TypeError("Side channel does not contain " + inspect(key));
+        assert: function(key2) {
+          if (!channel.has(key2)) {
+            throw new $TypeError("Side channel does not contain " + inspect(key2));
           }
         },
-        "delete": function(key) {
+        "delete": function(key2) {
           if ($m) {
-            var result = $mapDelete($m, key);
+            var result = $mapDelete($m, key2);
             if ($mapSize($m) === 0) {
               $m = void 0;
             }
@@ -17570,22 +17570,22 @@ var require_side_channel_map = __commonJS({
           }
           return false;
         },
-        get: function(key) {
+        get: function(key2) {
           if ($m) {
-            return $mapGet($m, key);
+            return $mapGet($m, key2);
           }
         },
-        has: function(key) {
+        has: function(key2) {
           if ($m) {
-            return $mapHas($m, key);
+            return $mapHas($m, key2);
           }
           return false;
         },
-        set: function(key, value) {
+        set: function(key2, value) {
           if (!$m) {
             $m = new $Map();
           }
-          $mapSet($m, key, value);
+          $mapSet($m, key2, value);
         }
       };
       return channel;
@@ -17613,50 +17613,50 @@ var require_side_channel_weakmap = __commonJS({
         var $wm;
         var $m;
         var channel = {
-          assert: function(key) {
-            if (!channel.has(key)) {
-              throw new $TypeError("Side channel does not contain " + inspect(key));
+          assert: function(key2) {
+            if (!channel.has(key2)) {
+              throw new $TypeError("Side channel does not contain " + inspect(key2));
             }
           },
-          "delete": function(key) {
-            if ($WeakMap && key && (typeof key === "object" || typeof key === "function")) {
+          "delete": function(key2) {
+            if ($WeakMap && key2 && (typeof key2 === "object" || typeof key2 === "function")) {
               if ($wm) {
-                return $weakMapDelete($wm, key);
+                return $weakMapDelete($wm, key2);
               }
             } else if (getSideChannelMap) {
               if ($m) {
-                return $m["delete"](key);
+                return $m["delete"](key2);
               }
             }
             return false;
           },
-          get: function(key) {
-            if ($WeakMap && key && (typeof key === "object" || typeof key === "function")) {
+          get: function(key2) {
+            if ($WeakMap && key2 && (typeof key2 === "object" || typeof key2 === "function")) {
               if ($wm) {
-                return $weakMapGet($wm, key);
+                return $weakMapGet($wm, key2);
               }
             }
-            return $m && $m.get(key);
+            return $m && $m.get(key2);
           },
-          has: function(key) {
-            if ($WeakMap && key && (typeof key === "object" || typeof key === "function")) {
+          has: function(key2) {
+            if ($WeakMap && key2 && (typeof key2 === "object" || typeof key2 === "function")) {
               if ($wm) {
-                return $weakMapHas($wm, key);
+                return $weakMapHas($wm, key2);
               }
             }
-            return !!$m && $m.has(key);
+            return !!$m && $m.has(key2);
           },
-          set: function(key, value) {
-            if ($WeakMap && key && (typeof key === "object" || typeof key === "function")) {
+          set: function(key2, value) {
+            if ($WeakMap && key2 && (typeof key2 === "object" || typeof key2 === "function")) {
               if (!$wm) {
                 $wm = new $WeakMap();
               }
-              $weakMapSet($wm, key, value);
+              $weakMapSet($wm, key2, value);
             } else if (getSideChannelMap) {
               if (!$m) {
                 $m = getSideChannelMap();
               }
-              $m.set(key, value);
+              $m.set(key2, value);
             }
           }
         };
@@ -17679,26 +17679,26 @@ var require_side_channel = __commonJS({
     module2.exports = function getSideChannel() {
       var $channelData;
       var channel = {
-        assert: function(key) {
-          if (!channel.has(key)) {
-            var keyDesc = key && Object(key) === key ? "the given object key" : inspect(key);
+        assert: function(key2) {
+          if (!channel.has(key2)) {
+            var keyDesc = key2 && Object(key2) === key2 ? "the given object key" : inspect(key2);
             throw new $TypeError("Side channel does not contain " + keyDesc);
           }
         },
-        "delete": function(key) {
-          return !!$channelData && $channelData["delete"](key);
+        "delete": function(key2) {
+          return !!$channelData && $channelData["delete"](key2);
         },
-        get: function(key) {
-          return $channelData && $channelData.get(key);
+        get: function(key2) {
+          return $channelData && $channelData.get(key2);
         },
-        has: function(key) {
-          return !!$channelData && $channelData.has(key);
+        has: function(key2) {
+          return !!$channelData && $channelData.has(key2);
         },
-        set: function(key, value) {
+        set: function(key2, value) {
           if (!$channelData) {
             $channelData = makeChannel();
           }
-          $channelData.set(key, value);
+          $channelData.set(key2, value);
         }
       };
       return channel;
@@ -17786,16 +17786,16 @@ var require_utils2 = __commonJS({
       }
       return obj;
     };
-    var setProperty = function setProperty2(obj, key, value) {
-      if (key === "__proto__" && defineProperty) {
-        defineProperty(obj, key, {
+    var setProperty = function setProperty2(obj, key2, value) {
+      if (key2 === "__proto__" && defineProperty) {
+        defineProperty(obj, key2, {
           configurable: true,
           enumerable: true,
           value,
           writable: true
         });
       } else {
-        obj[key] = value;
+        obj[key2] = value;
       }
     };
     var merge = function merge2(target, source, options) {
@@ -17871,19 +17871,19 @@ var require_utils2 = __commonJS({
         }
         return target;
       }
-      return Object.keys(source).reduce(function(acc, key) {
-        var value = source[key];
-        if (has.call(acc, key)) {
-          setProperty(acc, key, merge2(acc[key], value, options));
+      return Object.keys(source).reduce(function(acc, key2) {
+        var value = source[key2];
+        if (has.call(acc, key2)) {
+          setProperty(acc, key2, merge2(acc[key2], value, options));
         } else {
-          setProperty(acc, key, value);
+          setProperty(acc, key2, value);
         }
         if (isOverflow(source) && !isOverflow(acc)) {
           markOverflow(acc, getMaxIndex(source));
         }
         if (isOverflow(acc)) {
-          var keyNum = parseInt(key, 10);
-          if (String(keyNum) === key && keyNum >= 0 && keyNum > getMaxIndex(acc)) {
+          var keyNum = parseInt(key2, 10);
+          if (String(keyNum) === key2 && keyNum >= 0 && keyNum > getMaxIndex(acc)) {
             setMaxIndex(acc, keyNum);
           }
         }
@@ -17891,8 +17891,8 @@ var require_utils2 = __commonJS({
       }, mergeTarget);
     };
     var assign = function assignSingleSource(target, source) {
-      return Object.keys(source).reduce(function(acc, key) {
-        setProperty(acc, key, source[key]);
+      return Object.keys(source).reduce(function(acc, key2) {
+        setProperty(acc, key2, source[key2]);
         return acc;
       }, target);
     };
@@ -17968,10 +17968,10 @@ var require_utils2 = __commonJS({
         var obj = item.obj[item.prop];
         var keys = Object.keys(obj);
         for (var j = 0; j < keys.length; ++j) {
-          var key = keys[j];
-          var val = obj[key];
+          var key2 = keys[j];
+          var val = obj[key2];
           if (typeof val === "object" && val !== null && !refs.has(val)) {
-            queue[queue.length] = { obj, prop: key };
+            queue[queue.length] = { obj, prop: key2 };
             refs.set(val, true);
           }
         }
@@ -18047,8 +18047,8 @@ var require_stringify = __commonJS({
         return prefix + "[]";
       },
       comma: "comma",
-      indices: function indices(prefix, key) {
-        return prefix + "[" + key + "]";
+      indices: function indices(prefix, key2) {
+        return prefix + "[" + key2 + "]";
       },
       repeat: function repeat(prefix) {
         return prefix;
@@ -18157,12 +18157,12 @@ var require_stringify = __commonJS({
         return adjustedPrefix + "[]";
       }
       for (var j = 0; j < objKeys.length; ++j) {
-        var key = objKeys[j];
-        var value = typeof key === "object" && key && typeof key.value !== "undefined" ? key.value : obj[key];
+        var key2 = objKeys[j];
+        var value = typeof key2 === "object" && key2 && typeof key2.value !== "undefined" ? key2.value : obj[key2];
         if (skipNulls && value === null) {
           continue;
         }
-        var encodedKey = allowDots && encodeDotInKeys ? String(key).replace(/\./g, "%2E") : String(key);
+        var encodedKey = allowDots && encodeDotInKeys ? String(key2).replace(/\./g, "%2E") : String(key2);
         var keyPrefix = isArray(obj) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjustedPrefix, encodedKey) : adjustedPrefix : adjustedPrefix + (allowDots ? "." + encodedKey : "[" + encodedKey + "]");
         sideChannel.set(object, step);
         var valueSideChannel = getSideChannel();
@@ -18279,17 +18279,17 @@ var require_stringify = __commonJS({
       }
       var sideChannel = getSideChannel();
       for (var i2 = 0; i2 < objKeys.length; ++i2) {
-        var key = objKeys[i2];
-        if (typeof key === "undefined" || key === null) {
+        var key2 = objKeys[i2];
+        if (typeof key2 === "undefined" || key2 === null) {
           continue;
         }
-        var value = obj[key];
+        var value = obj[key2];
         if (options.skipNulls && value === null) {
           continue;
         }
         pushToArray(keys, stringify(
           value,
-          key,
+          key2,
           generateArrayPrefix,
           commaRoundTrip,
           options.allowEmptyArrays,
@@ -18415,19 +18415,19 @@ var require_parse = __commonJS({
         var part = parts[i2];
         var bracketEqualsPos = part.indexOf("]=");
         var pos = bracketEqualsPos === -1 ? part.indexOf("=") : bracketEqualsPos + 1;
-        var key;
+        var key2;
         var val;
         if (pos === -1) {
-          key = options.decoder(part, defaults2.decoder, charset, "key");
+          key2 = options.decoder(part, defaults2.decoder, charset, "key");
           val = options.strictNullHandling ? null : "";
         } else {
-          key = options.decoder(part.slice(0, pos), defaults2.decoder, charset, "key");
-          if (key !== null) {
+          key2 = options.decoder(part.slice(0, pos), defaults2.decoder, charset, "key");
+          if (key2 !== null) {
             val = utils2.maybeMap(
               parseArrayValue(
                 part.slice(pos + 1),
                 options,
-                isArray(obj[key]) ? obj[key].length : 0,
+                isArray(obj[key2]) ? obj[key2].length : 0,
                 part.indexOf("[]=") === -1
               ),
               function(encodedVal) {
@@ -18445,18 +18445,18 @@ var require_parse = __commonJS({
         if (options.comma && isArray(val) && val.length > options.arrayLimit) {
           val = utils2.combine([], val, options.arrayLimit, options.plainObjects, options.throwOnLimitExceeded);
         }
-        if (key !== null) {
-          var existing = has.call(obj, key);
+        if (key2 !== null) {
+          var existing = has.call(obj, key2);
           if (existing && (options.duplicates === "combine" || part.indexOf("[]=") > -1)) {
-            obj[key] = utils2.combine(
-              obj[key],
+            obj[key2] = utils2.combine(
+              obj[key2],
               val,
               options.arrayLimit,
               options.plainObjects,
               options.throwOnLimitExceeded
             );
           } else if (!existing || options.duplicates === "last") {
-            obj[key] = val;
+            obj[key2] = val;
           }
         }
       }
@@ -18509,18 +18509,18 @@ var require_parse = __commonJS({
       return leaf;
     };
     var splitKeyIntoSegments = function splitKeyIntoSegments2(originalKey, options) {
-      var key = options.allowDots ? originalKey.replace(/\.([^.[]+)/g, "[$1]") : originalKey;
+      var key2 = options.allowDots ? originalKey.replace(/\.([^.[]+)/g, "[$1]") : originalKey;
       if (options.depth <= 0) {
-        if (!options.plainObjects && has.call(Object.prototype, key)) {
+        if (!options.plainObjects && has.call(Object.prototype, key2)) {
           if (!options.allowPrototypes) {
             return;
           }
         }
-        return [key];
+        return [key2];
       }
       var segments = [];
-      var first = key.indexOf("[");
-      var parent = first >= 0 ? key.slice(0, first) : key;
+      var first = key2.indexOf("[");
+      var parent = first >= 0 ? key2.slice(0, first) : key2;
       if (parent) {
         if (!options.plainObjects && has.call(Object.prototype, parent)) {
           if (!options.allowPrototypes) {
@@ -18529,7 +18529,7 @@ var require_parse = __commonJS({
         }
         segments[segments.length] = parent;
       }
-      var n2 = key.length;
+      var n2 = key2.length;
       var open = first;
       var collected = 0;
       while (open >= 0 && collected < options.depth) {
@@ -18537,7 +18537,7 @@ var require_parse = __commonJS({
         var i2 = open + 1;
         var close = -1;
         while (i2 < n2 && close < 0) {
-          var cu = key.charCodeAt(i2);
+          var cu = key2.charCodeAt(i2);
           if (cu === 91) {
             level += 1;
           } else if (cu === 93) {
@@ -18549,23 +18549,23 @@ var require_parse = __commonJS({
           i2 += 1;
         }
         if (close < 0) {
-          segments[segments.length] = "[" + key.slice(open) + "]";
+          segments[segments.length] = "[" + key2.slice(open) + "]";
           return segments;
         }
-        var seg = key.slice(open, close + 1);
+        var seg = key2.slice(open, close + 1);
         var content = seg.slice(1, -1);
         if (!options.plainObjects && has.call(Object.prototype, content) && !options.allowPrototypes) {
           return;
         }
         segments[segments.length] = seg;
         collected += 1;
-        open = key.indexOf("[", close + 1);
+        open = key2.indexOf("[", close + 1);
       }
       if (open >= 0) {
         if (options.strictDepth === true) {
           throw new RangeError("Input depth exceeded depth option of " + options.depth + " and strictDepth is true");
         }
-        segments[segments.length] = "[" + key.slice(open) + "]";
+        segments[segments.length] = "[" + key2.slice(open) + "]";
       }
       return segments;
     };
@@ -18639,8 +18639,8 @@ var require_parse = __commonJS({
       var obj = options.plainObjects ? { __proto__: null } : {};
       var keys = Object.keys(tempObj);
       for (var i2 = 0; i2 < keys.length; ++i2) {
-        var key = keys[i2];
-        var newObj = parseKeys(key, tempObj[key], options, typeof str === "string");
+        var key2 = keys[i2];
+        var newObj = parseKeys(key2, tempObj[key2], options, typeof str === "string");
         obj = utils2.merge(obj, newObj, options);
       }
       if (options.allowSparse === true) {
@@ -19039,8 +19039,8 @@ var require_finalhandler = __commonJS({
         res.removeHeader("Content-Encoding");
         res.removeHeader("Content-Language");
         res.removeHeader("Content-Range");
-        for (const [key, value] of Object.entries(headers ?? {})) {
-          res.setHeader(key, value);
+        for (const [key2, value] of Object.entries(headers ?? {})) {
+          res.setHeader(key2, value);
         }
         res.setHeader("Content-Security-Policy", "default-src 'none'");
         res.setHeader("X-Content-Type-Options", "nosniff");
@@ -19207,7 +19207,7 @@ var require_content_type = __commonJS({
       }
       var obj = new ContentType(type.toLowerCase());
       if (index !== -1) {
-        var key;
+        var key2;
         var match;
         var value;
         PARAM_REGEXP.lastIndex = index;
@@ -19216,7 +19216,7 @@ var require_content_type = __commonJS({
             throw new TypeError("invalid parameter format");
           }
           index += match[0].length;
-          key = match[1].toLowerCase();
+          key2 = match[1].toLowerCase();
           value = match[2];
           if (value.charCodeAt(0) === 34) {
             value = value.slice(1, -1);
@@ -19224,7 +19224,7 @@ var require_content_type = __commonJS({
               value = value.replace(QESC_REGEXP, "$1");
             }
           }
-          obj.parameters[key] = value;
+          obj.parameters[key2] = value;
         }
         if (index !== header.length) {
           throw new TypeError("invalid parameter format");
@@ -20166,12 +20166,12 @@ var require_utils3 = __commonJS({
           index = str.lastIndexOf(";", splitIndex - 1) + 1;
           continue;
         }
-        var key = str.slice(index, splitIndex).trim();
+        var key2 = str.slice(index, splitIndex).trim();
         var value = str.slice(splitIndex + 1, endIndex).trim();
-        if (key === "q") {
+        if (key2 === "q") {
           ret.quality = parseFloat(value);
         } else {
-          ret.params[key] = value;
+          ret.params[key2] = value;
         }
         index = endIndex + 1;
       }
@@ -20538,10 +20538,10 @@ var require_dist3 = __commonJS({
     function match(path6, options = {}) {
       const { decode: decode3 = decodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
       const { regexp, keys } = pathToRegexp(path6, options);
-      const decoders = keys.map((key) => {
+      const decoders = keys.map((key2) => {
         if (decode3 === false)
           return NOOP_VALUE;
-        if (key.type === "param")
+        if (key2.type === "param")
           return decode3;
         return (value) => value.split(delimiter).map(decode3);
       });
@@ -20554,9 +20554,9 @@ var require_dist3 = __commonJS({
         for (let i2 = 1; i2 < m.length; i2++) {
           if (m[i2] === void 0)
             continue;
-          const key = keys[i2 - 1];
+          const key2 = keys[i2 - 1];
           const decoder = decoders[i2 - 1];
-          params[key.name] = decoder(m[i2]);
+          params[key2.name] = decoder(m[i2]);
         }
         return { path: path7, params };
       };
@@ -20753,8 +20753,8 @@ var require_layer = __commonJS({
             }
             const params = {};
             for (let i2 = 1; i2 < match.length; i2++) {
-              const key = keys[i2 - 1];
-              const prop = key.name;
+              const key2 = keys[i2 - 1];
+              const prop = key2.name;
               const val = decodeParam(match[i2]);
               if (val !== void 0) {
                 params[prop] = val;
@@ -21279,7 +21279,7 @@ var require_router = __commonJS({
       }
       let i2 = 0;
       let paramIndex = 0;
-      let key;
+      let key2;
       let paramVal;
       let paramCallbacks;
       let paramCalled;
@@ -21291,18 +21291,18 @@ var require_router = __commonJS({
           return done();
         }
         paramIndex = 0;
-        key = keys[i2++];
-        paramVal = req.params[key];
-        paramCallbacks = params[key];
-        paramCalled = called[key];
+        key2 = keys[i2++];
+        paramVal = req.params[key2];
+        paramCallbacks = params[key2];
+        paramCalled = called[key2];
         if (paramVal === void 0 || !paramCallbacks) {
           return param();
         }
         if (paramCalled && (paramCalled.match === paramVal || paramCalled.error && paramCalled.error !== "route")) {
-          req.params[key] = paramCalled.value;
+          req.params[key2] = paramCalled.value;
           return param(paramCalled.error);
         }
-        called[key] = paramCalled = {
+        called[key2] = paramCalled = {
           error: null,
           match: paramVal,
           value: paramVal
@@ -21311,7 +21311,7 @@ var require_router = __commonJS({
       }
       function paramCallback(err) {
         const fn = paramCallbacks[paramIndex++];
-        paramCalled.value = req.params[key];
+        paramCalled.value = req.params[key2];
         if (err) {
           paramCalled.error = err;
           param(err);
@@ -21319,7 +21319,7 @@ var require_router = __commonJS({
         }
         if (!fn) return param();
         try {
-          const ret = fn(req, res, paramCallback, paramVal, key);
+          const ret = fn(req, res, paramCallback, paramVal, key2);
           if (isPromise(ret)) {
             if (!(ret instanceof Promise)) {
               deprecate("parameters that are Promise-like are deprecated, use a native Promise instead");
@@ -21709,7 +21709,7 @@ var require_dist4 = __commonJS({
             continue parameter;
           if (code === EQ) {
             const keyEnd = trailingOWS(header, keyStart, index);
-            const key = header.slice(keyStart, keyEnd).toLowerCase();
+            const key2 = header.slice(keyStart, keyEnd).toLowerCase();
             index = skipOWS(header, index + 1, len);
             if (index < len && header.charCodeAt(index) === DQUOTE) {
               index++;
@@ -21718,8 +21718,8 @@ var require_dist4 = __commonJS({
                 const code2 = header.charCodeAt(index++);
                 if (code2 === DQUOTE) {
                   index = skipValue(header, index, len, stopChar);
-                  if (parameters[key] === void 0)
-                    parameters[key] = value;
+                  if (parameters[key2] === void 0)
+                    parameters[key2] = value;
                   break;
                 }
                 if (code2 === BSLASH && index < len) {
@@ -21732,9 +21732,9 @@ var require_dist4 = __commonJS({
             }
             const valueStart = index;
             index = skipValue(header, index, len, stopChar);
-            if (parameters[key] === void 0) {
+            if (parameters[key2] === void 0) {
               const valueEnd = trailingOWS(header, valueStart, index);
-              parameters[key] = header.slice(valueStart, valueEnd);
+              parameters[key2] = header.slice(valueStart, valueEnd);
             }
             continue parameter;
           }
@@ -22721,7 +22721,7 @@ var require_content_disposition = __commonJS({
       }
       var index = match[0].length;
       var type = match[1].toLowerCase();
-      var key;
+      var key2;
       var names3 = [];
       var params = {};
       var value;
@@ -22731,25 +22731,25 @@ var require_content_disposition = __commonJS({
           throw new TypeError("invalid parameter format");
         }
         index += match[0].length;
-        key = match[1].toLowerCase();
+        key2 = match[1].toLowerCase();
         value = match[2];
-        if (names3.indexOf(key) !== -1) {
+        if (names3.indexOf(key2) !== -1) {
           throw new TypeError("invalid duplicate parameter");
         }
-        names3.push(key);
-        if (key.indexOf("*") + 1 === key.length) {
-          key = key.slice(0, -1);
+        names3.push(key2);
+        if (key2.indexOf("*") + 1 === key2.length) {
+          key2 = key2.slice(0, -1);
           value = decodefield(value);
-          params[key] = value;
+          params[key2] = value;
           continue;
         }
-        if (typeof params[key] === "string") {
+        if (typeof params[key2] === "string") {
           continue;
         }
         if (value[0] === '"') {
           value = value.slice(1, -1).replace(QESC_REGEXP, "$1");
         }
-        params[key] = value;
+        params[key2] = value;
       }
       if (index !== -1 && index !== string.length) {
         throw new TypeError("invalid parameter format");
@@ -22873,8 +22873,8 @@ var require_cookie = __commonJS({
         }
         var keyStartIdx = startIndex(str, index, eqIdx);
         var keyEndIdx = endIndex(str, eqIdx, keyStartIdx);
-        var key = str.slice(keyStartIdx, keyEndIdx);
-        if (!__hasOwnProperty.call(obj, key)) {
+        var key2 = str.slice(keyStartIdx, keyEndIdx);
+        if (!__hasOwnProperty.call(obj, key2)) {
           var valStartIdx = startIndex(str, eqIdx + 1, endIdx);
           var valEndIdx = endIndex(str, endIdx, valStartIdx);
           if (str.charCodeAt(valStartIdx) === 34 && str.charCodeAt(valEndIdx - 1) === 34) {
@@ -22882,7 +22882,7 @@ var require_cookie = __commonJS({
             valEndIdx--;
           }
           var val = str.slice(valStartIdx, valEndIdx);
-          obj[key] = tryDecode(val, dec);
+          obj[key2] = tryDecode(val, dec);
         }
         index = endIdx + 1;
       } while (index < len);
@@ -23480,8 +23480,8 @@ var require_send = __commonJS({
     function setHeaders(res, headers) {
       var keys = Object.keys(headers);
       for (var i2 = 0; i2 < keys.length; i2++) {
-        var key = keys[i2];
-        res.setHeader(key, headers[key]);
+        var key2 = keys[i2];
+        res.setHeader(key2, headers[key2]);
       }
     }
   }
@@ -23780,9 +23780,9 @@ var require_response = __commonJS({
       if (opts && opts.headers) {
         var keys = Object.keys(opts.headers);
         for (var i2 = 0; i2 < keys.length; i2++) {
-          var key = keys[i2];
-          if (key.toLowerCase() !== "content-disposition") {
-            headers[key] = opts.headers[key];
+          var key2 = keys[i2];
+          if (key2.toLowerCase() !== "content-disposition") {
+            headers[key2] = opts.headers[key2];
           }
         }
       }
@@ -23801,11 +23801,11 @@ var require_response = __commonJS({
       var keys = Object.keys(obj).filter(function(v) {
         return v !== "default";
       });
-      var key = keys.length > 0 ? req.accepts(keys) : false;
+      var key2 = keys.length > 0 ? req.accepts(keys) : false;
       this.vary("Accept");
-      if (key) {
-        this.set("Content-Type", normalizeType(key).value);
-        obj[key](req, this, next);
+      if (key2) {
+        this.set("Content-Type", normalizeType(key2).value);
+        obj[key2](req, this, next);
       } else if (obj.default) {
         obj.default(req, this, next);
       } else {
@@ -23843,8 +23843,8 @@ var require_response = __commonJS({
         }
         this.setHeader(field, value);
       } else {
-        for (var key in field) {
-          this.set(key, field[key]);
+        for (var key2 in field) {
+          this.set(key2, field[key2]);
         }
       }
       return this;
@@ -24233,9 +24233,9 @@ var require_object_assign = __commonJS({
       var symbols;
       for (var s2 = 1; s2 < arguments.length; s2++) {
         from = Object(arguments[s2]);
-        for (var key in from) {
-          if (hasOwnProperty.call(from, key)) {
-            to2[key] = from[key];
+        for (var key2 in from) {
+          if (hasOwnProperty.call(from, key2)) {
+            to2[key2] = from[key2];
           }
         }
         if (getOwnPropertySymbols) {
@@ -24499,7 +24499,7 @@ var require_main = __commonJS({
       lines = lines.replace(/\r\n?/mg, "\n");
       let match;
       while ((match = LINE.exec(lines)) != null) {
-        const key = match[1];
+        const key2 = match[1];
         let value = match[2] || "";
         value = value.trim();
         const maybeQuote = value[0];
@@ -24508,7 +24508,7 @@ var require_main = __commonJS({
           value = value.replace(/\\n/g, "\n");
           value = value.replace(/\\r/g, "\r");
         }
-        obj[key] = value;
+        obj[key2] = value;
       }
       return obj;
     }
@@ -24527,8 +24527,8 @@ var require_main = __commonJS({
       let decrypted;
       for (let i2 = 0; i2 < length; i2++) {
         try {
-          const key = keys[i2].trim();
-          const attrs = _instructions(result, key);
+          const key2 = keys[i2].trim();
+          const attrs = _instructions(result, key2);
           decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key);
           break;
         } catch (error) {
@@ -24569,8 +24569,8 @@ var require_main = __commonJS({
         }
         throw error;
       }
-      const key = uri.password;
-      if (!key) {
+      const key2 = uri.password;
+      if (!key2) {
         const err = new Error("INVALID_DOTENV_KEY: Missing key part");
         err.code = "INVALID_DOTENV_KEY";
         throw err;
@@ -24588,7 +24588,7 @@ var require_main = __commonJS({
         err.code = "NOT_FOUND_DOTENV_ENVIRONMENT";
         throw err;
       }
-      return { ciphertext, key };
+      return { ciphertext, key: key2 };
     }
     function _vaultPath(options) {
       let possibleVaultPath = null;
@@ -24704,13 +24704,13 @@ var require_main = __commonJS({
       return DotenvModule._configVault(options);
     }
     function decrypt(encrypted, keyStr) {
-      const key = Buffer.from(keyStr.slice(-64), "hex");
+      const key2 = Buffer.from(keyStr.slice(-64), "hex");
       let ciphertext = Buffer.from(encrypted, "base64");
       const nonce = ciphertext.subarray(0, 12);
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto2.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto2.createDecipheriv("aes-256-gcm", key2, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error) {
@@ -24739,22 +24739,22 @@ var require_main = __commonJS({
         err.code = "OBJECT_REQUIRED";
         throw err;
       }
-      for (const key of Object.keys(parsed)) {
-        if (Object.prototype.hasOwnProperty.call(processEnv, key)) {
+      for (const key2 of Object.keys(parsed)) {
+        if (Object.prototype.hasOwnProperty.call(processEnv, key2)) {
           if (override === true) {
-            processEnv[key] = parsed[key];
-            populated[key] = parsed[key];
+            processEnv[key2] = parsed[key2];
+            populated[key2] = parsed[key2];
           }
           if (debug2) {
             if (override === true) {
-              _debug(`"${key}" is already defined and WAS overwritten`);
+              _debug(`"${key2}" is already defined and WAS overwritten`);
             } else {
-              _debug(`"${key}" is already defined and was NOT overwritten`);
+              _debug(`"${key2}" is already defined and was NOT overwritten`);
             }
           }
         } else {
-          processEnv[key] = parsed[key];
-          populated[key] = parsed[key];
+          processEnv[key2] = parsed[key2];
+          populated[key2] = parsed[key2];
         }
       }
       return populated;
@@ -25088,14 +25088,14 @@ var require_mediaType2 = __commonJS({
         var kvps = splitParameters(match[3]).map(splitKeyValuePair);
         for (var j = 0; j < kvps.length; j++) {
           var pair = kvps[j];
-          var key = pair[0].toLowerCase();
+          var key2 = pair[0].toLowerCase();
           var val = pair[1];
           var value = val && val[0] === '"' && val[val.length - 1] === '"' ? val.substr(1, val.length - 2) : val;
-          if (key === "q") {
+          if (key2 === "q") {
             q = parseFloat(value);
             break;
           }
-          params[key] = value;
+          params[key2] = value;
         }
       }
       return {
@@ -25181,15 +25181,15 @@ var require_mediaType2 = __commonJS({
     }
     function splitKeyValuePair(str) {
       var index = str.indexOf("=");
-      var key;
+      var key2;
       var val;
       if (index === -1) {
-        key = str;
+        key2 = str;
       } else {
-        key = str.substr(0, index);
+        key2 = str.substr(0, index);
         val = str.substr(index + 1);
       }
-      return [key, val];
+      return [key2, val];
     }
     function splitMediaTypes(accept) {
       var accepts = accept.split(",");
@@ -34058,8 +34058,8 @@ var require_commons = __commonJS({
     PACKET_TYPES["noop"] = "6";
     var PACKET_TYPES_REVERSE = /* @__PURE__ */ Object.create(null);
     exports2.PACKET_TYPES_REVERSE = PACKET_TYPES_REVERSE;
-    Object.keys(PACKET_TYPES).forEach((key) => {
-      PACKET_TYPES_REVERSE[PACKET_TYPES[key]] = key;
+    Object.keys(PACKET_TYPES).forEach((key2) => {
+      PACKET_TYPES_REVERSE[PACKET_TYPES[key2]] = key2;
     });
     var ERROR_PACKET = { type: "error", data: "parser error" };
     exports2.ERROR_PACKET = ERROR_PACKET;
@@ -35203,14 +35203,14 @@ var require_mediaType3 = __commonJS({
         var kvps = splitParameters(match[3]).map(splitKeyValuePair);
         for (var j = 0; j < kvps.length; j++) {
           var pair = kvps[j];
-          var key = pair[0].toLowerCase();
+          var key2 = pair[0].toLowerCase();
           var val = pair[1];
           var value = val && val[0] === '"' && val[val.length - 1] === '"' ? val.substr(1, val.length - 2) : val;
-          if (key === "q") {
+          if (key2 === "q") {
             q = parseFloat(value);
             break;
           }
-          params[key] = value;
+          params[key2] = value;
         }
       }
       return {
@@ -35296,15 +35296,15 @@ var require_mediaType3 = __commonJS({
     }
     function splitKeyValuePair(str) {
       var index = str.indexOf("=");
-      var key;
+      var key2;
       var val;
       if (index === -1) {
-        key = str;
+        key2 = str;
       } else {
-        key = str.substr(0, index);
+        key2 = str.substr(0, index);
         val = str.substr(index + 1);
       }
-      return [key, val];
+      return [key2, val];
     }
     function splitMediaTypes(accept) {
       var accepts = accept.split(",");
@@ -45399,44 +45399,44 @@ var require_permessage_deflate = __commonJS({
        */
       normalizeParams(configurations) {
         configurations.forEach((params) => {
-          Object.keys(params).forEach((key) => {
-            let value = params[key];
+          Object.keys(params).forEach((key2) => {
+            let value = params[key2];
             if (value.length > 1) {
-              throw new Error(`Parameter "${key}" must have only a single value`);
+              throw new Error(`Parameter "${key2}" must have only a single value`);
             }
             value = value[0];
-            if (key === "client_max_window_bits") {
+            if (key2 === "client_max_window_bits") {
               if (value !== true) {
                 const num = +value;
                 if (!Number.isInteger(num) || num < 8 || num > 15) {
                   throw new TypeError(
-                    `Invalid value for parameter "${key}": ${value}`
+                    `Invalid value for parameter "${key2}": ${value}`
                   );
                 }
                 value = num;
               } else if (!this._isServer) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key}": ${value}`
+                  `Invalid value for parameter "${key2}": ${value}`
                 );
               }
-            } else if (key === "server_max_window_bits") {
+            } else if (key2 === "server_max_window_bits") {
               const num = +value;
               if (!Number.isInteger(num) || num < 8 || num > 15) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key}": ${value}`
+                  `Invalid value for parameter "${key2}": ${value}`
                 );
               }
               value = num;
-            } else if (key === "client_no_context_takeover" || key === "server_no_context_takeover") {
+            } else if (key2 === "client_no_context_takeover" || key2 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key}": ${value}`
+                  `Invalid value for parameter "${key2}": ${value}`
                 );
               }
             } else {
-              throw new Error(`Unknown parameter "${key}"`);
+              throw new Error(`Unknown parameter "${key2}"`);
             }
-            params[key] = value;
+            params[key2] = value;
           });
         });
         return configurations;
@@ -45484,8 +45484,8 @@ var require_permessage_deflate = __commonJS({
       _decompress(data, fin, callback) {
         const endpoint = this._isServer ? "client" : "server";
         if (!this._inflate) {
-          const key = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key];
+          const key2 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key2] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key2];
           this._inflate = zlib.createInflateRaw({
             ...this._options.zlibInflateOptions,
             windowBits
@@ -45535,8 +45535,8 @@ var require_permessage_deflate = __commonJS({
       _compress(data, fin, callback) {
         const endpoint = this._isServer ? "server" : "client";
         if (!this._deflate) {
-          const key = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key];
+          const key2 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key2] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key2];
           this._deflate = zlib.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
             windowBits
@@ -47305,7 +47305,7 @@ var require_websocket2 = __commonJS({
     var http = require("http");
     var net2 = require("net");
     var tls = require("tls");
-    var { randomBytes, createHash } = require("crypto");
+    var { randomBytes: randomBytes2, createHash } = require("crypto");
     var { Duplex, Readable: Readable2 } = require("stream");
     var { URL: URL2 } = require("url");
     var PerMessageDeflate = require_permessage_deflate();
@@ -47843,7 +47843,7 @@ var require_websocket2 = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes(16).toString("base64");
+      const key2 = randomBytes2(16).toString("base64");
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -47854,7 +47854,7 @@ var require_websocket2 = __commonJS({
       opts.headers = {
         ...opts.headers,
         "Sec-WebSocket-Version": opts.protocolVersion,
-        "Sec-WebSocket-Key": key,
+        "Sec-WebSocket-Key": key2,
         Connection: "Upgrade",
         Upgrade: "websocket"
       };
@@ -47905,8 +47905,8 @@ var require_websocket2 = __commonJS({
           const headers = options && options.headers;
           options = { ...options, headers: {} };
           if (headers) {
-            for (const [key2, value] of Object.entries(headers)) {
-              options.headers[key2.toLowerCase()] = value;
+            for (const [key3, value] of Object.entries(headers)) {
+              options.headers[key3.toLowerCase()] = value;
             }
           }
         } else if (websocket.listenerCount("redirect") === 0) {
@@ -47973,7 +47973,7 @@ var require_websocket2 = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash("sha1").update(key2 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -48541,7 +48541,7 @@ var require_websocket_server = __commonJS({
        */
       handleUpgrade(req, socket, head, cb) {
         socket.on("error", socketOnError);
-        const key = req.headers["sec-websocket-key"];
+        const key2 = req.headers["sec-websocket-key"];
         const upgrade = req.headers.upgrade;
         const version = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
@@ -48554,7 +48554,7 @@ var require_websocket_server = __commonJS({
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
           return;
         }
-        if (key === void 0 || !keyRegex.test(key)) {
+        if (key2 === void 0 || !keyRegex.test(key2)) {
           const message = "Missing or invalid Sec-WebSocket-Key header";
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
           return;
@@ -48614,7 +48614,7 @@ var require_websocket_server = __commonJS({
               }
               this.completeUpgrade(
                 extensions2,
-                key,
+                key2,
                 protocols,
                 req,
                 socket,
@@ -48626,7 +48626,7 @@ var require_websocket_server = __commonJS({
           }
           if (!this.options.verifyClient(info)) return abortHandshake(socket, 401);
         }
-        this.completeUpgrade(extensions2, key, protocols, req, socket, head, cb);
+        this.completeUpgrade(extensions2, key2, protocols, req, socket, head, cb);
       }
       /**
        * Upgrade the connection to WebSocket.
@@ -48641,7 +48641,7 @@ var require_websocket_server = __commonJS({
        * @throws {Error} If called more than once with the same socket
        * @private
        */
-      completeUpgrade(extensions2, key, protocols, req, socket, head, cb) {
+      completeUpgrade(extensions2, key2, protocols, req, socket, head, cb) {
         if (!socket.readable || !socket.writable) return socket.destroy();
         if (socket[kWebSocket]) {
           throw new Error(
@@ -48649,7 +48649,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key + GUID).digest("base64");
+        const digest = createHash("sha1").update(key2 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -48787,8 +48787,8 @@ var require_server = __commonJS({
       } catch (e2) {
       }
     }
-    function hasOwn(obj, key) {
-      return Object.prototype.hasOwnProperty.call(obj, key);
+    function hasOwn(obj, key2) {
+      return Object.prototype.hasOwnProperty.call(obj, key2);
     }
     var BaseServer = class extends events_1.EventEmitter {
       /**
@@ -49214,8 +49214,8 @@ var require_server = __commonJS({
             }
             this.emit("headers", additionalHeaders, req);
             debug2("writing headers: %j", additionalHeaders);
-            Object.keys(additionalHeaders).forEach((key) => {
-              headersArray.push(`${key}: ${additionalHeaders[key]}`);
+            Object.keys(additionalHeaders).forEach((key2) => {
+              headersArray.push(`${key2}: ${additionalHeaders[key2]}`);
             });
           });
         }
@@ -49843,8 +49843,8 @@ var require_polling2 = __commonJS({
           "Content-Type": "text/html"
         };
         this.headers(req, headers);
-        for (let key in headers) {
-          res.writeHeader(key, String(headers[key]));
+        for (let key2 in headers) {
+          res.writeHeader(key2, String(headers[key2]));
         }
         const onEnd = (buffer2) => {
           this.onData(buffer2.toString());
@@ -49980,8 +49980,8 @@ var require_polling2 = __commonJS({
         const respond = (data2) => {
           this.headers(this.req, headers);
           this.res.cork(() => {
-            Object.keys(headers).forEach((key) => {
-              this.res.writeHeader(key, String(headers[key]));
+            Object.keys(headers).forEach((key2) => {
+              this.res.writeHeader(key2, String(headers[key2]));
             });
             this.res.end(data2);
           });
@@ -50192,8 +50192,8 @@ var require_userver = __commonJS({
         const params = new URLSearchParams(req.getQuery());
         req._query = Object.fromEntries(params.entries());
         req.headers = {};
-        req.forEach((key, value) => {
-          req.headers[key] = value;
+        req.forEach((key2, value) => {
+          req.headers[key2] = value;
         });
         req.connection = {
           remoteAddress: Buffer.from(res.getRemoteAddressAsText()).toString()
@@ -50319,8 +50319,8 @@ var require_userver = __commonJS({
           }
           this.emit("headers", additionalHeaders, req);
           req.res.writeStatus("101 Switching Protocols");
-          Object.keys(additionalHeaders).forEach((key) => {
-            req.res.writeHeader(key, additionalHeaders[key]);
+          Object.keys(additionalHeaders).forEach((key2) => {
+            req.res.writeHeader(key2, additionalHeaders[key2]);
           });
           res.upgrade({
             transport
@@ -50362,13 +50362,13 @@ var require_userver = __commonJS({
       writeHead(status) {
         this.statusCode = status;
       }
-      setHeader(key, value) {
+      setHeader(key2, value) {
         if (Array.isArray(value)) {
           value.forEach((val) => {
-            this.writeHeader(key, val);
+            this.writeHeader(key2, val);
           });
         } else {
-          this.writeHeader(key, value);
+          this.writeHeader(key2, value);
         }
       }
       removeHeader() {
@@ -50384,21 +50384,21 @@ var require_userver = __commonJS({
         this.writeBufferedHeaders();
         return this;
       }
-      writeHeader(key, value) {
+      writeHeader(key2, value) {
         if (this.isAborted)
           return;
-        if (key === "Content-Length") {
+        if (key2 === "Content-Length") {
           return;
         }
         if (this.statusWritten) {
-          this.res.writeHeader(key, value);
+          this.res.writeHeader(key2, value);
         } else {
-          this.headers.push([key, value]);
+          this.headers.push([key2, value]);
         }
       }
       writeBufferedHeaders() {
-        this.headers.forEach(([key, value]) => {
-          this.res.writeHeader(key, value);
+        this.headers.forEach(([key2, value]) => {
+          this.res.writeHeader(key2, value);
         });
       }
       end(data) {
@@ -50493,8 +50493,8 @@ var require_cjs2 = __commonJS({
       if (obj) return mixin(obj);
     }
     function mixin(obj) {
-      for (var key in Emitter.prototype) {
-        obj[key] = Emitter.prototype[key];
+      for (var key2 in Emitter.prototype) {
+        obj[key2] = Emitter.prototype[key2];
       }
       return obj;
     }
@@ -50597,8 +50597,8 @@ var require_is_binary = __commonJS({
       if (obj.toJSON && typeof obj.toJSON === "function" && arguments.length === 1) {
         return hasBinary(obj.toJSON(), true);
       }
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key) && hasBinary(obj[key])) {
+      for (const key2 in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key2) && hasBinary(obj[key2])) {
           return true;
         }
       }
@@ -50641,9 +50641,9 @@ var require_binary = __commonJS({
           return _deconstructPacket(data.toJSON(), buffers, true);
         }
         const newData = {};
-        for (const key in data) {
-          if (Object.prototype.hasOwnProperty.call(data, key)) {
-            newData[key] = _deconstructPacket(data[key], buffers);
+        for (const key2 in data) {
+          if (Object.prototype.hasOwnProperty.call(data, key2)) {
+            newData[key2] = _deconstructPacket(data[key2], buffers);
           }
         }
         return newData;
@@ -50670,9 +50670,9 @@ var require_binary = __commonJS({
           data[i2] = _reconstructPacket(data[i2], buffers);
         }
       } else if (typeof data === "object") {
-        for (const key in data) {
-          if (Object.prototype.hasOwnProperty.call(data, key)) {
-            data[key] = _reconstructPacket(data[key], buffers);
+        for (const key2 in data) {
+          if (Object.prototype.hasOwnProperty.call(data, key2)) {
+            data[key2] = _reconstructPacket(data[key2], buffers);
           }
         }
       }
@@ -55336,8 +55336,8 @@ var require_dist6 = __commonJS({
       }
     };
     exports2.Server = Server2;
-    var emitterMethods = Object.keys(events_1.EventEmitter.prototype).filter(function(key) {
-      return typeof events_1.EventEmitter.prototype[key] === "function";
+    var emitterMethods = Object.keys(events_1.EventEmitter.prototype).filter(function(key2) {
+      return typeof events_1.EventEmitter.prototype[key2] === "function";
     });
     emitterMethods.forEach(function(fn) {
       Server2.prototype[fn] = function() {
@@ -55410,7 +55410,7 @@ var require_media_typer2 = __commonJS({
       }
       var index = string.indexOf(";");
       var type = index !== -1 ? string.substr(0, index) : string;
-      var key;
+      var key2;
       var match;
       var obj = splitType(type);
       var params = {};
@@ -55421,12 +55421,12 @@ var require_media_typer2 = __commonJS({
           throw new TypeError("invalid parameter format");
         }
         index += match[0].length;
-        key = match[1].toLowerCase();
+        key2 = match[1].toLowerCase();
         value = match[2];
         if (value[0] === '"') {
           value = value.substr(1, value.length - 2).replace(qescRegExp, "$1");
         }
-        params[key] = value;
+        params[key2] = value;
       }
       if (index !== -1 && index !== string.length) {
         throw new TypeError("invalid parameter format");
@@ -67938,25 +67938,25 @@ var require_parse_path = __commonJS({
     var reFirstKey = /^[^\[]*/;
     var reDigitPath = /^\[(\d+)\]/;
     var reNormalPath = /^\[([^\]]+)\]/;
-    function parsePath(key) {
+    function parsePath(key2) {
       function failure() {
-        return [{ type: "object", key, last: true }];
+        return [{ type: "object", key: key2, last: true }];
       }
-      var firstKey = reFirstKey.exec(key)[0];
+      var firstKey = reFirstKey.exec(key2)[0];
       if (!firstKey) return failure();
-      var len = key.length;
+      var len = key2.length;
       var pos = firstKey.length;
       var tail = { type: "object", key: firstKey };
       var steps = [tail];
       while (pos < len) {
         var m;
-        if (key[pos] === "[" && key[pos + 1] === "]") {
+        if (key2[pos] === "[" && key2[pos + 1] === "]") {
           pos += 2;
           tail.append = true;
           if (pos !== len) return failure();
           continue;
         }
-        m = reDigitPath.exec(key.substring(pos));
+        m = reDigitPath.exec(key2.substring(pos));
         if (m !== null) {
           pos += m[0].length;
           tail.nextType = "array";
@@ -67964,7 +67964,7 @@ var require_parse_path = __commonJS({
           steps.push(tail);
           continue;
         }
-        m = reNormalPath.exec(key.substring(pos));
+        m = reNormalPath.exec(key2.substring(pos));
         if (m !== null) {
           pos += m[0].length;
           tail.nextType = "object";
@@ -68049,8 +68049,8 @@ var require_append_field = __commonJS({
   "node_modules/append-field/index.js"(exports2, module2) {
     var parsePath = require_parse_path();
     var setValue = require_set_value();
-    function appendField(store, key, value) {
-      var steps = parsePath(key);
+    function appendField(store, key2, value) {
+      var steps = parsePath(key2);
       steps.reduce(function(context, step) {
         return setValue(context, step, context[step.key], value);
       }, store);
@@ -68227,11 +68227,11 @@ var require_remove_uploaded_files = __commonJS({
 var require_validate_limits = __commonJS({
   "node_modules/multer/lib/validate-limits.js"(exports2, module2) {
     function validateLimits(limits) {
-      Object.keys(limits).forEach(function(key) {
-        var value = limits[key];
+      Object.keys(limits).forEach(function(key2) {
+        var value = limits[key2];
         if (value == null) return;
         if (Number.isInteger(value) && value >= 0 || value === Infinity) return;
-        throw new TypeError("Expected limits." + key + " to be a non-negative integer or Infinity");
+        throw new TypeError("Expected limits." + key2 + " to be a non-negative integer or Infinity");
       });
     }
     module2.exports = validateLimits;
@@ -68301,9 +68301,9 @@ var require_make_middleware = __commonJS({
         var busboyLimits = limits;
         if (limits && (Object.prototype.hasOwnProperty.call(limits, "fileSize") || Object.prototype.hasOwnProperty.call(limits, "parts"))) {
           busboyLimits = {};
-          var key;
-          for (key in limits) {
-            busboyLimits[key] = limits[key];
+          var key2;
+          for (key2 in limits) {
+            busboyLimits[key2] = limits[key2];
           }
           if (typeof limits.fileSize === "number" && isFinite(limits.fileSize)) {
             busboyLimits.fileSize = limits.fileSize + 1;
@@ -69722,7 +69722,7 @@ var require_image_q = __commonJS({
     var __getOwnPropDesc2 = Object.getOwnPropertyDescriptor;
     var __getOwnPropNames2 = Object.getOwnPropertyNames;
     var __hasOwnProp2 = Object.prototype.hasOwnProperty;
-    var __defNormalProp2 = (obj, key, value) => key in obj ? __defProp3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+    var __defNormalProp2 = (obj, key2, value) => key2 in obj ? __defProp3(obj, key2, { enumerable: true, configurable: true, writable: true, value }) : obj[key2] = value;
     var __markAsModule = (target) => __defProp3(target, "__esModule", { value: true });
     var __export3 = (target, all) => {
       for (var name in all)
@@ -69730,9 +69730,9 @@ var require_image_q = __commonJS({
     };
     var __reExport = (target, module22, copyDefault, desc) => {
       if (module22 && typeof module22 === "object" || typeof module22 === "function") {
-        for (let key of __getOwnPropNames2(module22))
-          if (!__hasOwnProp2.call(target, key) && (copyDefault || key !== "default"))
-            __defProp3(target, key, { get: () => module22[key], enumerable: !(desc = __getOwnPropDesc2(module22, key)) || desc.enumerable });
+        for (let key2 of __getOwnPropNames2(module22))
+          if (!__hasOwnProp2.call(target, key2) && (copyDefault || key2 !== "default"))
+            __defProp3(target, key2, { get: () => module22[key2], enumerable: !(desc = __getOwnPropDesc2(module22, key2)) || desc.enumerable });
       }
       return target;
     };
@@ -69741,8 +69741,8 @@ var require_image_q = __commonJS({
         return cache && cache.get(module22) || (temp = __reExport(__markAsModule({}), module22, 1), cache && cache.set(module22, temp), temp);
       };
     })(typeof WeakMap !== "undefined" ? /* @__PURE__ */ new WeakMap() : 0);
-    var __publicField2 = (obj, key, value) => {
-      __defNormalProp2(obj, typeof key !== "symbol" ? key + "" : key, value);
+    var __publicField2 = (obj, key2, value) => {
+      __defNormalProp2(obj, typeof key2 !== "symbol" ? key2 + "" : key2, value);
       return value;
     };
     var src_exports = {};
@@ -70453,8 +70453,8 @@ var require_image_q = __commonJS({
       getPointContainer() {
         return this._pointContainer;
       }
-      _nearestPointFromCache(key) {
-        return typeof this._i32idx[key] === "number" ? this._i32idx[key] : -1;
+      _nearestPointFromCache(key2) {
+        return typeof this._i32idx[key2] === "number" ? this._i32idx[key2] : -1;
       }
       _getNearestIndex(colorDistanceCalculator, point) {
         let idx = this._nearestPointFromCache("" + point.uint32);
@@ -77430,8 +77430,8 @@ var require_common2 = __commonJS({
   "node_modules/pako/lib/utils/common.js"(exports2) {
     "use strict";
     var TYPED_OK = typeof Uint8Array !== "undefined" && typeof Uint16Array !== "undefined" && typeof Int32Array !== "undefined";
-    function _has(obj, key) {
-      return Object.prototype.hasOwnProperty.call(obj, key);
+    function _has(obj, key2) {
+      return Object.prototype.hasOwnProperty.call(obj, key2);
     }
     exports2.assign = function(obj) {
       var sources = Array.prototype.slice.call(arguments, 1);
@@ -84164,14 +84164,14 @@ var require_UTIF = __commonJS({
           offset += 2;
           var eoff = offset + knum * 12 + 4;
           for (var ki = 0; ki < keys.length; ki++) {
-            var key = keys[ki];
-            if (key == "t34665" || key == "t34853") continue;
-            if (key == "exifIFD") key = "t34665";
-            if (key == "gpsiIFD") key = "t34853";
-            var tag = parseInt(key.slice(1)), type = types2.main[tag];
+            var key2 = keys[ki];
+            if (key2 == "t34665" || key2 == "t34853") continue;
+            if (key2 == "exifIFD") key2 = "t34665";
+            if (key2 == "gpsiIFD") key2 = "t34853";
+            var tag = parseInt(key2.slice(1)), type = types2.main[tag];
             if (type == null) type = types2.rest[tag];
             if (type == null || type == 0) throw new Error("unknown type of tag: " + tag);
-            var val = ifd[key];
+            var val = ifd[key2];
             if (tag == 34665) {
               var outp = UTIF2._writeIFD(bin, types2, data, eoff, ifd["exifIFD"]);
               val = [eoff];
@@ -87843,8 +87843,8 @@ var require_common3 = __commonJS({
       createDebug.enabled = enabled;
       createDebug.humanize = require_ms2();
       createDebug.destroy = destroy;
-      Object.keys(env2).forEach((key) => {
-        createDebug[key] = env2[key];
+      Object.keys(env2).forEach((key2) => {
+        createDebug[key2] = env2[key2];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -88279,13 +88279,13 @@ var require_node2 = __commonJS({
       }
     } catch (error) {
     }
-    exports2.inspectOpts = Object.keys(process.env).filter((key) => {
-      return /^debug_/i.test(key);
-    }).reduce((obj, key) => {
-      const prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k) => {
+    exports2.inspectOpts = Object.keys(process.env).filter((key2) => {
+      return /^debug_/i.test(key2);
+    }).reduce((obj, key2) => {
+      const prop = key2.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k) => {
         return k.toUpperCase();
       });
-      let val = process.env[key];
+      let val = process.env[key2];
       if (/^(yes|on|true|enabled)$/i.test(val)) {
         val = true;
       } else if (/^(no|off|false|disabled)$/i.test(val)) {
@@ -91613,7 +91613,7 @@ var require_parse_bmfont_ascii = __commonJS({
       var space = line.indexOf(" ");
       if (space === -1)
         throw new Error("no named row at line " + idx);
-      var key = line.substring(0, space);
+      var key2 = line.substring(0, space);
       line = line.substring(space + 1);
       line = line.replace(/letter=[\'\"]\S+[\'\"]/gi, "");
       line = line.split("=");
@@ -91639,7 +91639,7 @@ var require_parse_bmfont_ascii = __commonJS({
         }
       }
       var out = {
-        key,
+        key: key2,
         data: {}
       };
       data.forEach(function(v) {
@@ -91746,7 +91746,7 @@ var require_Utility = __commonJS({
     (function() {
       var assign, getValue, isArray, isEmpty, isFunction, isObject, isPlainObject, slice = [].slice, hasProp = {}.hasOwnProperty;
       assign = function() {
-        var i2, key, len, source, sources, target;
+        var i2, key2, len, source, sources, target;
         target = arguments[0], sources = 2 <= arguments.length ? slice.call(arguments, 1) : [];
         if (isFunction(Object.assign)) {
           Object.assign.apply(null, arguments);
@@ -91754,9 +91754,9 @@ var require_Utility = __commonJS({
           for (i2 = 0, len = sources.length; i2 < len; i2++) {
             source = sources[i2];
             if (source != null) {
-              for (key in source) {
-                if (!hasProp.call(source, key)) continue;
-                target[key] = source[key];
+              for (key2 in source) {
+                if (!hasProp.call(source, key2)) continue;
+                target[key2] = source[key2];
               }
             }
           }
@@ -91778,12 +91778,12 @@ var require_Utility = __commonJS({
         }
       };
       isEmpty = function(val) {
-        var key;
+        var key2;
         if (isArray(val)) {
           return !val.length;
         } else {
-          for (key in val) {
-            if (!hasProp.call(val, key)) continue;
+          for (key2 in val) {
+            if (!hasProp.call(val, key2)) continue;
             return false;
           }
           return true;
@@ -92120,8 +92120,8 @@ var require_XMLElement = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLElement.js"(exports2, module2) {
     (function() {
       var NodeType, XMLAttribute, XMLElement, XMLNamedNodeMap, XMLNode, getValue, isFunction, isObject, ref, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92387,8 +92387,8 @@ var require_XMLCharacterData = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLCharacterData.js"(exports2, module2) {
     (function() {
       var XMLCharacterData, XMLNode, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92464,8 +92464,8 @@ var require_XMLCData = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLCData.js"(exports2, module2) {
     (function() {
       var NodeType, XMLCData, XMLCharacterData, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92505,8 +92505,8 @@ var require_XMLComment = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLComment.js"(exports2, module2) {
     (function() {
       var NodeType, XMLCharacterData, XMLComment, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92546,8 +92546,8 @@ var require_XMLDeclaration = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDeclaration.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDeclaration, XMLNode, isObject, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92594,8 +92594,8 @@ var require_XMLDTDAttList = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDTDAttList.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDTDAttList, XMLNode, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92655,8 +92655,8 @@ var require_XMLDTDEntity = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDTDEntity.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDTDEntity, XMLNode, isObject, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92751,8 +92751,8 @@ var require_XMLDTDElement = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDTDElement.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDTDElement, XMLNode, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92795,8 +92795,8 @@ var require_XMLDTDNotation = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDTDNotation.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDTDNotation, XMLNode, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -92851,8 +92851,8 @@ var require_XMLDocType = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDocType.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDTDAttList, XMLDTDElement, XMLDTDEntity, XMLDTDNotation, XMLDocType, XMLNamedNodeMap, XMLNode, isObject, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -93020,8 +93020,8 @@ var require_XMLRaw = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLRaw.js"(exports2, module2) {
     (function() {
       var NodeType, XMLNode, XMLRaw, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -93060,8 +93060,8 @@ var require_XMLText = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLText.js"(exports2, module2) {
     (function() {
       var NodeType, XMLCharacterData, XMLText, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -93130,8 +93130,8 @@ var require_XMLProcessingInstruction = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLProcessingInstruction.js"(exports2, module2) {
     (function() {
       var NodeType, XMLCharacterData, XMLProcessingInstruction, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -93183,8 +93183,8 @@ var require_XMLDummy = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDummy.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDummy, XMLNode, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -93395,7 +93395,7 @@ var require_XMLNode = __commonJS({
           return results;
         };
         XMLNode2.prototype.element = function(name, attributes, text) {
-          var childNode, item, j, k, key, lastChild, len, len1, ref2, ref3, val;
+          var childNode, item, j, k, key2, lastChild, len, len1, ref2, ref3, val;
           lastChild = null;
           if (attributes === null && text == null) {
             ref2 = [{}, null], attributes = ref2[0], text = ref2[1];
@@ -93418,36 +93418,36 @@ var require_XMLNode = __commonJS({
           } else if (isFunction(name)) {
             lastChild = this.element(name.apply());
           } else if (isObject(name)) {
-            for (key in name) {
-              if (!hasProp.call(name, key)) continue;
-              val = name[key];
+            for (key2 in name) {
+              if (!hasProp.call(name, key2)) continue;
+              val = name[key2];
               if (isFunction(val)) {
                 val = val.apply();
               }
-              if (!this.options.ignoreDecorators && this.stringify.convertAttKey && key.indexOf(this.stringify.convertAttKey) === 0) {
-                lastChild = this.attribute(key.substr(this.stringify.convertAttKey.length), val);
+              if (!this.options.ignoreDecorators && this.stringify.convertAttKey && key2.indexOf(this.stringify.convertAttKey) === 0) {
+                lastChild = this.attribute(key2.substr(this.stringify.convertAttKey.length), val);
               } else if (!this.options.separateArrayItems && Array.isArray(val) && isEmpty(val)) {
                 lastChild = this.dummy();
               } else if (isObject(val) && isEmpty(val)) {
-                lastChild = this.element(key);
+                lastChild = this.element(key2);
               } else if (!this.options.keepNullNodes && val == null) {
                 lastChild = this.dummy();
               } else if (!this.options.separateArrayItems && Array.isArray(val)) {
                 for (k = 0, len1 = val.length; k < len1; k++) {
                   item = val[k];
                   childNode = {};
-                  childNode[key] = item;
+                  childNode[key2] = item;
                   lastChild = this.element(childNode);
                 }
               } else if (isObject(val)) {
-                if (!this.options.ignoreDecorators && this.stringify.convertTextKey && key.indexOf(this.stringify.convertTextKey) === 0) {
+                if (!this.options.ignoreDecorators && this.stringify.convertTextKey && key2.indexOf(this.stringify.convertTextKey) === 0) {
                   lastChild = this.element(val);
                 } else {
-                  lastChild = this.element(key);
+                  lastChild = this.element(key2);
                   lastChild.element(val);
                 }
               } else {
-                lastChild = this.element(key, val);
+                lastChild = this.element(key2, val);
               }
             }
           } else if (!this.options.keepNullNodes && text === null) {
@@ -93861,10 +93861,10 @@ var require_XMLNode = __commonJS({
         XMLNode2.prototype.getFeature = function(feature, version) {
           throw new Error("This DOM method is not implemented." + this.debugInfo());
         };
-        XMLNode2.prototype.setUserData = function(key, data, handler) {
+        XMLNode2.prototype.setUserData = function(key2, data, handler) {
           throw new Error("This DOM method is not implemented." + this.debugInfo());
         };
-        XMLNode2.prototype.getUserData = function(key) {
+        XMLNode2.prototype.getUserData = function(key2) {
           throw new Error("This DOM method is not implemented." + this.debugInfo());
         };
         XMLNode2.prototype.contains = function(other) {
@@ -93962,17 +93962,17 @@ var require_XMLStringifier = __commonJS({
         function XMLStringifier2(options) {
           this.assertLegalName = bind(this.assertLegalName, this);
           this.assertLegalChar = bind(this.assertLegalChar, this);
-          var key, ref, value;
+          var key2, ref, value;
           options || (options = {});
           this.options = options;
           if (!this.options.version) {
             this.options.version = "1.0";
           }
           ref = options.stringify || {};
-          for (key in ref) {
-            if (!hasProp.call(ref, key)) continue;
-            value = ref[key];
-            this[key] = value;
+          for (key2 in ref) {
+            if (!hasProp.call(ref, key2)) continue;
+            value = ref[key2];
+            this[key2] = value;
           }
         }
         XMLStringifier2.prototype.name = function(val) {
@@ -94201,15 +94201,15 @@ var require_XMLWriterBase = __commonJS({
       WriterState = require_WriterState();
       module2.exports = XMLWriterBase = (function() {
         function XMLWriterBase2(options) {
-          var key, ref, value;
+          var key2, ref, value;
           options || (options = {});
           this.options = options;
           ref = options.writer || {};
-          for (key in ref) {
-            if (!hasProp.call(ref, key)) continue;
-            value = ref[key];
-            this["_" + key] = this[key];
-            this[key] = value;
+          for (key2 in ref) {
+            if (!hasProp.call(ref, key2)) continue;
+            value = ref[key2];
+            this["_" + key2] = this[key2];
+            this[key2] = value;
           }
         }
         XMLWriterBase2.prototype.filterOptions = function(options) {
@@ -94578,8 +94578,8 @@ var require_XMLStringWriter = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLStringWriter.js"(exports2, module2) {
     (function() {
       var XMLStringWriter, XMLWriterBase, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -94620,8 +94620,8 @@ var require_XMLDocument = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLDocument.js"(exports2, module2) {
     (function() {
       var NodeType, XMLDOMConfiguration, XMLDOMImplementation, XMLDocument, XMLNode, XMLStringWriter, XMLStringifier, isPlainObject, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -95293,8 +95293,8 @@ var require_XMLStreamWriter = __commonJS({
   "node_modules/xml2js/node_modules/xmlbuilder/lib/XMLStreamWriter.js"(exports2, module2) {
     (function() {
       var NodeType, WriterState, XMLStreamWriter, XMLWriterBase, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -95528,18 +95528,18 @@ var require_builder = __commonJS({
       };
       exports2.Builder = (function() {
         function Builder(opts) {
-          var key, ref, value;
+          var key2, ref, value;
           this.options = {};
           ref = defaults2["0.2"];
-          for (key in ref) {
-            if (!hasProp.call(ref, key)) continue;
-            value = ref[key];
-            this.options[key] = value;
+          for (key2 in ref) {
+            if (!hasProp.call(ref, key2)) continue;
+            value = ref[key2];
+            this.options[key2] = value;
           }
-          for (key in opts) {
-            if (!hasProp.call(opts, key)) continue;
-            value = opts[key];
-            this.options[key] = value;
+          for (key2 in opts) {
+            if (!hasProp.call(opts, key2)) continue;
+            value = opts[key2];
+            this.options[key2] = value;
           }
         }
         Builder.prototype.buildObject = function(rootObj) {
@@ -95554,7 +95554,7 @@ var require_builder = __commonJS({
           }
           render = /* @__PURE__ */ (function(_this) {
             return function(element, obj) {
-              var attr, child, entry, index, key, value;
+              var attr, child, entry, index, key2, value;
               if (typeof obj !== "object") {
                 if (_this.options.cdata && requiresCDATA(obj)) {
                   element.raw(wrapCDATA(obj));
@@ -95565,23 +95565,23 @@ var require_builder = __commonJS({
                 for (index in obj) {
                   if (!hasProp.call(obj, index)) continue;
                   child = obj[index];
-                  for (key in child) {
-                    entry = child[key];
-                    element = render(element.ele(key), entry).up();
+                  for (key2 in child) {
+                    entry = child[key2];
+                    element = render(element.ele(key2), entry).up();
                   }
                 }
               } else {
-                for (key in obj) {
-                  if (!hasProp.call(obj, key)) continue;
-                  child = obj[key];
-                  if (key === attrkey) {
+                for (key2 in obj) {
+                  if (!hasProp.call(obj, key2)) continue;
+                  child = obj[key2];
+                  if (key2 === attrkey) {
                     if (typeof child === "object") {
                       for (attr in child) {
                         value = child[attr];
                         element = element.att(attr, value);
                       }
                     }
-                  } else if (key === charkey) {
+                  } else if (key2 === charkey) {
                     if (_this.options.cdata && requiresCDATA(child)) {
                       element = element.raw(wrapCDATA(child));
                     } else {
@@ -95593,24 +95593,24 @@ var require_builder = __commonJS({
                       entry = child[index];
                       if (typeof entry === "string") {
                         if (_this.options.cdata && requiresCDATA(entry)) {
-                          element = element.ele(key).raw(wrapCDATA(entry)).up();
+                          element = element.ele(key2).raw(wrapCDATA(entry)).up();
                         } else {
-                          element = element.ele(key, entry).up();
+                          element = element.ele(key2, entry).up();
                         }
                       } else {
-                        element = render(element.ele(key), entry).up();
+                        element = render(element.ele(key2), entry).up();
                       }
                     }
                   } else if (typeof child === "object") {
-                    element = render(element.ele(key), child).up();
+                    element = render(element.ele(key2), child).up();
                   } else {
                     if (typeof child === "string" && _this.options.cdata && requiresCDATA(child)) {
-                      element = element.ele(key).raw(wrapCDATA(child)).up();
+                      element = element.ele(key2).raw(wrapCDATA(child)).up();
                     } else {
                       if (child == null) {
                         child = "";
                       }
-                      element = element.ele(key, child.toString()).up();
+                      element = element.ele(key2, child.toString()).up();
                     }
                   }
                 }
@@ -96287,10 +96287,10 @@ var require_sax = __commonJS({
         hearts: 9829,
         diams: 9830
       });
-      Object.keys(sax.ENTITIES).forEach(function(key) {
-        var e2 = sax.ENTITIES[key];
+      Object.keys(sax.ENTITIES).forEach(function(key2) {
+        var e2 = sax.ENTITIES[key2];
         var s3 = typeof e2 === "number" ? String.fromCharCode(e2) : e2;
-        sax.ENTITIES[key] = s3;
+        sax.ENTITIES[key2] = s3;
       });
       for (var s2 in sax.STATE) {
         sax.STATE[sax.STATE[s2]] = s2;
@@ -97282,8 +97282,8 @@ var require_parser3 = __commonJS({
           return fn.apply(me, arguments);
         };
       }, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -97302,11 +97302,11 @@ var require_parser3 = __commonJS({
       isEmpty = function(thing) {
         return typeof thing === "object" && thing != null && Object.keys(thing).length === 0;
       };
-      processItem = function(processors2, item, key) {
+      processItem = function(processors2, item, key2) {
         var i2, len, process3;
         for (i2 = 0, len = processors2.length; i2 < len; i2++) {
           process3 = processors2[i2];
-          item = process3(item, key);
+          item = process3(item, key2);
         }
         return item;
       };
@@ -97318,21 +97318,21 @@ var require_parser3 = __commonJS({
           this.reset = bind(this.reset, this);
           this.assignOrPush = bind(this.assignOrPush, this);
           this.processAsync = bind(this.processAsync, this);
-          var key, ref, value;
+          var key2, ref, value;
           if (!(this instanceof exports2.Parser)) {
             return new exports2.Parser(opts);
           }
           this.options = {};
           ref = defaults2["0.2"];
-          for (key in ref) {
-            if (!hasProp.call(ref, key)) continue;
-            value = ref[key];
-            this.options[key] = value;
+          for (key2 in ref) {
+            if (!hasProp.call(ref, key2)) continue;
+            value = ref[key2];
+            this.options[key2] = value;
           }
-          for (key in opts) {
-            if (!hasProp.call(opts, key)) continue;
-            value = opts[key];
-            this.options[key] = value;
+          for (key2 in opts) {
+            if (!hasProp.call(opts, key2)) continue;
+            value = opts[key2];
+            this.options[key2] = value;
           }
           if (this.options.xmlns) {
             this.options.xmlnskey = this.options.attrkey + "ns";
@@ -97367,18 +97367,18 @@ var require_parser3 = __commonJS({
             }
           }
         };
-        Parser.prototype.assignOrPush = function(obj, key, newValue) {
-          if (!(key in obj)) {
+        Parser.prototype.assignOrPush = function(obj, key2, newValue) {
+          if (!(key2 in obj)) {
             if (!this.options.explicitArray) {
-              return obj[key] = newValue;
+              return obj[key2] = newValue;
             } else {
-              return obj[key] = [newValue];
+              return obj[key2] = [newValue];
             }
           } else {
-            if (!(obj[key] instanceof Array)) {
-              obj[key] = [obj[key]];
+            if (!(obj[key2] instanceof Array)) {
+              obj[key2] = [obj[key2]];
             }
-            return obj[key].push(newValue);
+            return obj[key2].push(newValue);
           }
         };
         Parser.prototype.reset = function() {
@@ -97415,18 +97415,18 @@ var require_parser3 = __commonJS({
           charkey = this.options.charkey;
           this.saxParser.onopentag = /* @__PURE__ */ (function(_this) {
             return function(node) {
-              var key, newValue, obj, processedKey, ref;
+              var key2, newValue, obj, processedKey, ref;
               obj = /* @__PURE__ */ Object.create(null);
               obj[charkey] = "";
               if (!_this.options.ignoreAttrs) {
                 ref = node.attributes;
-                for (key in ref) {
-                  if (!hasProp.call(ref, key)) continue;
+                for (key2 in ref) {
+                  if (!hasProp.call(ref, key2)) continue;
                   if (!(attrkey in obj) && !_this.options.mergeAttrs) {
                     obj[attrkey] = /* @__PURE__ */ Object.create(null);
                   }
-                  newValue = _this.options.attrValueProcessors ? processItem(_this.options.attrValueProcessors, node.attributes[key], key) : node.attributes[key];
-                  processedKey = _this.options.attrNameProcessors ? processItem(_this.options.attrNameProcessors, key) : key;
+                  newValue = _this.options.attrValueProcessors ? processItem(_this.options.attrValueProcessors, node.attributes[key2], key2) : node.attributes[key2];
+                  processedKey = _this.options.attrNameProcessors ? processItem(_this.options.attrNameProcessors, key2) : key2;
                   if (_this.options.mergeAttrs) {
                     _this.assignOrPush(obj, processedKey, newValue);
                   } else {
@@ -97446,7 +97446,7 @@ var require_parser3 = __commonJS({
           })(this);
           this.saxParser.onclosetag = /* @__PURE__ */ (function(_this) {
             return function() {
-              var cdata, emptyStr, key, node, nodeName, obj, objClone, old, s2, xpath;
+              var cdata, emptyStr, key2, node, nodeName, obj, objClone, old, s2, xpath;
               obj = stack.pop();
               nodeName = obj["#name"];
               if (!_this.options.explicitChildren || !_this.options.preserveChildrenOrder) {
@@ -97517,9 +97517,9 @@ var require_parser3 = __commonJS({
                 } else if (s2) {
                   s2[_this.options.childkey] = s2[_this.options.childkey] || [];
                   objClone = /* @__PURE__ */ Object.create(null);
-                  for (key in obj) {
-                    if (!hasProp.call(obj, key)) continue;
-                    objClone[key] = obj[key];
+                  for (key2 in obj) {
+                    if (!hasProp.call(obj, key2)) continue;
+                    objClone[key2] = obj[key2];
                   }
                   s2[_this.options.childkey].push(objClone);
                   delete obj["#name"];
@@ -97660,8 +97660,8 @@ var require_xml2js = __commonJS({
     (function() {
       "use strict";
       var builder, defaults2, parser, processors, extend = function(child, parent) {
-        for (var key in parent) {
-          if (hasProp.call(parent, key)) child[key] = parent[key];
+        for (var key2 in parent) {
+          if (hasProp.call(parent, key2)) child[key2] = parent[key2];
         }
         function ctor() {
           this.constructor = child;
@@ -99120,9 +99120,9 @@ var require_mutable = __commonJS({
     function extend(target) {
       for (var i2 = 1; i2 < arguments.length; i2++) {
         var source = arguments[i2];
-        for (var key in source) {
-          if (hasOwnProperty.call(source, key)) {
-            target[key] = source[key];
+        for (var key2 in source) {
+          if (hasOwnProperty.call(source, key2)) {
+            target[key2] = source[key2];
           }
         }
       }
@@ -100070,7 +100070,7 @@ var require_utils6 = __commonJS({
     var nodeCrypto = require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
-      randomBytes,
+      randomBytes: randomBytes2,
       deriveKey,
       sha256,
       hashByName,
@@ -100080,7 +100080,7 @@ var require_utils6 = __commonJS({
     var webCrypto = nodeCrypto.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes(length) {
+    function randomBytes2(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string) {
@@ -100104,13 +100104,13 @@ var require_utils6 = __commonJS({
       return await subtleCrypto.digest(hashName, text);
     }
     async function hmacSha256(keyBuffer, msg) {
-      const key = await subtleCrypto.importKey("raw", keyBuffer, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-      return await subtleCrypto.sign("HMAC", key, textEncoder.encode(msg));
+      const key2 = await subtleCrypto.importKey("raw", keyBuffer, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      return await subtleCrypto.sign("HMAC", key2, textEncoder.encode(msg));
     }
     async function deriveKey(password, salt, iterations) {
-      const key = await subtleCrypto.importKey("raw", textEncoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+      const key2 = await subtleCrypto.importKey("raw", textEncoder.encode(password), "PBKDF2", false, ["deriveBits"]);
       const params = { name: "PBKDF2", hash: "SHA-256", salt, iterations };
-      return await subtleCrypto.deriveBits(params, key, 32 * 8, ["deriveBits"]);
+      return await subtleCrypto.deriveBits(params, key2, 32 * 8, ["deriveBits"]);
     }
   }
 });
@@ -100578,35 +100578,35 @@ var require_pg_connection_string = __commonJS({
       return config;
     }
     function toConnectionOptions(sslConfig) {
-      const connectionOptions = Object.entries(sslConfig).reduce((c3, [key, value]) => {
+      const connectionOptions = Object.entries(sslConfig).reduce((c3, [key2, value]) => {
         if (value !== void 0 && value !== null) {
-          c3[key] = value;
+          c3[key2] = value;
         }
         return c3;
       }, /* @__PURE__ */ Object.create(null));
       return connectionOptions;
     }
     function toClientConfig(config) {
-      const poolConfig = Object.entries(config).reduce((c3, [key, value]) => {
-        if (key === "ssl") {
+      const poolConfig = Object.entries(config).reduce((c3, [key2, value]) => {
+        if (key2 === "ssl") {
           const sslConfig = value;
           if (typeof sslConfig === "boolean") {
-            c3[key] = sslConfig;
+            c3[key2] = sslConfig;
           }
           if (typeof sslConfig === "object") {
-            c3[key] = toConnectionOptions(sslConfig);
+            c3[key2] = toConnectionOptions(sslConfig);
           }
         } else if (value !== void 0 && value !== null) {
-          if (key === "port") {
+          if (key2 === "port") {
             if (value !== "") {
               const v = parseInt(value, 10);
               if (isNaN(v)) {
-                throw new Error(`Invalid ${key}: ${value}`);
+                throw new Error(`Invalid ${key2}: ${value}`);
               }
-              c3[key] = v;
+              c3[key2] = v;
             }
           } else {
-            c3[key] = value;
+            c3[key2] = value;
           }
         }
         return c3;
@@ -100643,17 +100643,17 @@ var require_connection_parameters = __commonJS({
     var dns = require("dns");
     var defaults2 = require_defaults2();
     var parse = require_pg_connection_string().parse;
-    var val = function(key, config, envVar) {
-      if (config[key]) {
-        return config[key];
+    var val = function(key2, config, envVar) {
+      if (config[key2]) {
+        return config[key2];
       }
       if (envVar === void 0) {
-        envVar = process.env["PG" + key.toUpperCase()];
+        envVar = process.env["PG" + key2.toUpperCase()];
       } else if (envVar === false) {
       } else {
         envVar = process.env[envVar];
       }
-      return envVar || defaults2[key];
+      return envVar || defaults2[key2];
     };
     var readSSLConfigFromEnvironment = function() {
       switch (process.env.PGSSLMODE) {
@@ -101359,8 +101359,8 @@ var require_serializer = __commonJS({
     var writer = new buffer_writer_1.Writer();
     var startup = (opts) => {
       writer.addInt16(3).addInt16(0);
-      for (const key of Object.keys(opts)) {
-        writer.addCString(key).addCString(opts[key]);
+      for (const key2 of Object.keys(opts)) {
+        writer.addCString(key2).addCString(opts[key2]);
       }
       writer.addCString("client_encoding").addCString("UTF8");
       const bodyBuffer = writer.addCString("").flush();
@@ -103684,9 +103684,9 @@ var require_query2 = __commonJS({
     NativeQuery.prototype.handleError = function(err) {
       const fields = this.native && this.native.pq.resultErrorFields();
       if (fields) {
-        for (const key in fields) {
-          const normalizedFieldName = errorFieldMap[key] || key;
-          err[normalizedFieldName] = fields[key];
+        for (const key2 in fields) {
+          const normalizedFieldName = errorFieldMap[key2] || key2;
+          err[normalizedFieldName] = fields[key2];
         }
       }
       if (this.callback) {
@@ -104381,10 +104381,52 @@ var require_bundle = __commonJS({
 var index_exports = {};
 __export(index_exports, {
   emitirCambioGlobal: () => emitirCambioGlobal,
+  shutdownServer: () => shutdownServer,
   startServer: () => startServer
 });
 module.exports = __toCommonJS(index_exports);
 var import_express2 = __toESM(require_express2(), 1);
+
+// backend-borboto/src/session.ts
+var import_node_crypto = require("node:crypto");
+var key = (0, import_node_crypto.randomBytes)(32);
+var roles = /* @__PURE__ */ new Set(["ADMIN", "CAJERO", "MESERO", "COCINERO"]);
+function emitirSesion(id, rol) {
+  const payload = Buffer.from(JSON.stringify({ id, rol, exp: Date.now() + 12 * 36e5 })).toString("base64url");
+  return `${payload}.${(0, import_node_crypto.createHmac)("sha256", key).update(payload).digest("base64url")}`;
+}
+function verificarSesion(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 2) return null;
+    const [payload, signature] = parts;
+    if (!payload || !signature) return null;
+    const expected = (0, import_node_crypto.createHmac)("sha256", key).update(payload).digest();
+    const received = Buffer.from(signature, "base64url");
+    if (received.length !== expected.length || !(0, import_node_crypto.timingSafeEqual)(received, expected)) return null;
+    const value = JSON.parse(Buffer.from(payload, "base64url").toString());
+    return Number.isInteger(value.id) && value.id > 0 && roles.has(value.rol) && Number.isFinite(value.exp) && value.exp > Date.now() ? value : null;
+  } catch {
+    return null;
+  }
+}
+function hashPin(pin) {
+  const salt = (0, import_node_crypto.randomBytes)(16).toString("hex");
+  return `hash$${salt}$${(0, import_node_crypto.scryptSync)(pin, salt, 32).toString("hex")}`;
+}
+function verificarPin(pin, stored) {
+  if (!stored.startsWith("hash$")) {
+    const left = Buffer.from(pin);
+    const right = Buffer.from(stored);
+    return left.length === right.length && (0, import_node_crypto.timingSafeEqual)(left, right);
+  }
+  const [, salt, encoded] = stored.split("$");
+  if (!salt || !encoded || !/^[0-9a-f]{64}$/.test(encoded)) return false;
+  const expected = Buffer.from(encoded, "hex");
+  return (0, import_node_crypto.timingSafeEqual)((0, import_node_crypto.scryptSync)(pin, salt, 32), expected);
+}
+
+// backend-borboto/index.ts
 var import_cors = __toESM(require_lib3(), 1);
 var import_dotenv2 = __toESM(require_main(), 1);
 var import_http = require("http");
@@ -106446,9 +106488,9 @@ var util;
   };
   util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object) => {
     const keys = [];
-    for (const key in object) {
-      if (Object.prototype.hasOwnProperty.call(object, key)) {
-        keys.push(key);
+    for (const key2 in object) {
+      if (Object.prototype.hasOwnProperty.call(object, key2)) {
+        keys.push(key2);
       }
     }
     return keys;
@@ -106848,10 +106890,10 @@ var ParseStatus = class _ParseStatus {
   static async mergeObjectAsync(status, pairs) {
     const syncPairs = [];
     for (const pair of pairs) {
-      const key = await pair.key;
+      const key2 = await pair.key;
       const value = await pair.value;
       syncPairs.push({
-        key,
+        key: key2,
         value
       });
     }
@@ -106860,17 +106902,17 @@ var ParseStatus = class _ParseStatus {
   static mergeObjectSync(status, pairs) {
     const finalObject = {};
     for (const pair of pairs) {
-      const { key, value } = pair;
-      if (key.status === "aborted")
+      const { key: key2, value } = pair;
+      if (key2.status === "aborted")
         return INVALID;
       if (value.status === "aborted")
         return INVALID;
-      if (key.status === "dirty")
+      if (key2.status === "dirty")
         status.dirty();
       if (value.status === "dirty")
         status.dirty();
-      if (key.value !== "__proto__" && (typeof value.value !== "undefined" || pair.alwaysSet)) {
-        finalObject[key.value] = value.value;
+      if (key2.value !== "__proto__" && (typeof value.value !== "undefined" || pair.alwaysSet)) {
+        finalObject[key2.value] = value.value;
       }
     }
     return { status: status.value, value: finalObject };
@@ -106895,12 +106937,12 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path6, key) {
+  constructor(parent, value, path6, key2) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
     this._path = path6;
-    this._key = key;
+    this._key = key2;
   }
   get path() {
     if (!this._cachedPath.length) {
@@ -108645,9 +108687,9 @@ ZodArray.create = (schema, params) => {
 function deepPartialify(schema) {
   if (schema instanceof ZodObject) {
     const newShape = {};
-    for (const key in schema.shape) {
-      const fieldSchema = schema.shape[key];
-      newShape[key] = ZodOptional.create(deepPartialify(fieldSchema));
+    for (const key2 in schema.shape) {
+      const fieldSchema = schema.shape[key2];
+      newShape[key2] = ZodOptional.create(deepPartialify(fieldSchema));
     }
     return new ZodObject({
       ...schema._def,
@@ -108698,29 +108740,29 @@ var ZodObject = class _ZodObject extends ZodType {
     const { shape, keys: shapeKeys } = this._getCached();
     const extraKeys = [];
     if (!(this._def.catchall instanceof ZodNever && this._def.unknownKeys === "strip")) {
-      for (const key in ctx.data) {
-        if (!shapeKeys.includes(key)) {
-          extraKeys.push(key);
+      for (const key2 in ctx.data) {
+        if (!shapeKeys.includes(key2)) {
+          extraKeys.push(key2);
         }
       }
     }
     const pairs = [];
-    for (const key of shapeKeys) {
-      const keyValidator = shape[key];
-      const value = ctx.data[key];
+    for (const key2 of shapeKeys) {
+      const keyValidator = shape[key2];
+      const value = ctx.data[key2];
       pairs.push({
-        key: { status: "valid", value: key },
-        value: keyValidator._parse(new ParseInputLazyPath(ctx, value, ctx.path, key)),
-        alwaysSet: key in ctx.data
+        key: { status: "valid", value: key2 },
+        value: keyValidator._parse(new ParseInputLazyPath(ctx, value, ctx.path, key2)),
+        alwaysSet: key2 in ctx.data
       });
     }
     if (this._def.catchall instanceof ZodNever) {
       const unknownKeys = this._def.unknownKeys;
       if (unknownKeys === "passthrough") {
-        for (const key of extraKeys) {
+        for (const key2 of extraKeys) {
           pairs.push({
-            key: { status: "valid", value: key },
-            value: { status: "valid", value: ctx.data[key] }
+            key: { status: "valid", value: key2 },
+            value: { status: "valid", value: ctx.data[key2] }
           });
         }
       } else if (unknownKeys === "strict") {
@@ -108737,15 +108779,15 @@ var ZodObject = class _ZodObject extends ZodType {
       }
     } else {
       const catchall = this._def.catchall;
-      for (const key of extraKeys) {
-        const value = ctx.data[key];
+      for (const key2 of extraKeys) {
+        const value = ctx.data[key2];
         pairs.push({
-          key: { status: "valid", value: key },
+          key: { status: "valid", value: key2 },
           value: catchall._parse(
-            new ParseInputLazyPath(ctx, value, ctx.path, key)
+            new ParseInputLazyPath(ctx, value, ctx.path, key2)
             //, ctx.child(key), value, getParsedType(value)
           ),
-          alwaysSet: key in ctx.data
+          alwaysSet: key2 in ctx.data
         });
       }
     }
@@ -108753,10 +108795,10 @@ var ZodObject = class _ZodObject extends ZodType {
       return Promise.resolve().then(async () => {
         const syncPairs = [];
         for (const pair of pairs) {
-          const key = await pair.key;
+          const key2 = await pair.key;
           const value = await pair.value;
           syncPairs.push({
-            key,
+            key: key2,
             value,
             alwaysSet: pair.alwaysSet
           });
@@ -108881,8 +108923,8 @@ var ZodObject = class _ZodObject extends ZodType {
   //   }) as any;
   //   return merged;
   // }
-  setKey(key, schema) {
-    return this.augment({ [key]: schema });
+  setKey(key2, schema) {
+    return this.augment({ [key2]: schema });
   }
   // merge<Incoming extends AnyZodObject>(
   //   merging: Incoming
@@ -108913,9 +108955,9 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   pick(mask) {
     const shape = {};
-    for (const key of util.objectKeys(mask)) {
-      if (mask[key] && this.shape[key]) {
-        shape[key] = this.shape[key];
+    for (const key2 of util.objectKeys(mask)) {
+      if (mask[key2] && this.shape[key2]) {
+        shape[key2] = this.shape[key2];
       }
     }
     return new _ZodObject({
@@ -108925,9 +108967,9 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   omit(mask) {
     const shape = {};
-    for (const key of util.objectKeys(this.shape)) {
-      if (!mask[key]) {
-        shape[key] = this.shape[key];
+    for (const key2 of util.objectKeys(this.shape)) {
+      if (!mask[key2]) {
+        shape[key2] = this.shape[key2];
       }
     }
     return new _ZodObject({
@@ -108943,12 +108985,12 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   partial(mask) {
     const newShape = {};
-    for (const key of util.objectKeys(this.shape)) {
-      const fieldSchema = this.shape[key];
-      if (mask && !mask[key]) {
-        newShape[key] = fieldSchema;
+    for (const key2 of util.objectKeys(this.shape)) {
+      const fieldSchema = this.shape[key2];
+      if (mask && !mask[key2]) {
+        newShape[key2] = fieldSchema;
       } else {
-        newShape[key] = fieldSchema.optional();
+        newShape[key2] = fieldSchema.optional();
       }
     }
     return new _ZodObject({
@@ -108958,16 +109000,16 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   required(mask) {
     const newShape = {};
-    for (const key of util.objectKeys(this.shape)) {
-      if (mask && !mask[key]) {
-        newShape[key] = this.shape[key];
+    for (const key2 of util.objectKeys(this.shape)) {
+      if (mask && !mask[key2]) {
+        newShape[key2] = this.shape[key2];
       } else {
-        const fieldSchema = this.shape[key];
+        const fieldSchema = this.shape[key2];
         let newField = fieldSchema;
         while (newField instanceof ZodOptional) {
           newField = newField._def.innerType;
         }
-        newShape[key] = newField;
+        newShape[key2] = newField;
       }
     }
     return new _ZodObject({
@@ -109211,14 +109253,14 @@ function mergeValues(a2, b) {
     return { valid: true, data: a2 };
   } else if (aType === ZodParsedType.object && bType === ZodParsedType.object) {
     const bKeys = util.objectKeys(b);
-    const sharedKeys = util.objectKeys(a2).filter((key) => bKeys.indexOf(key) !== -1);
+    const sharedKeys = util.objectKeys(a2).filter((key2) => bKeys.indexOf(key2) !== -1);
     const newObj = { ...a2, ...b };
-    for (const key of sharedKeys) {
-      const sharedValue = mergeValues(a2[key], b[key]);
+    for (const key2 of sharedKeys) {
+      const sharedValue = mergeValues(a2[key2], b[key2]);
       if (!sharedValue.valid) {
         return { valid: false };
       }
-      newObj[key] = sharedValue.data;
+      newObj[key2] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   } else if (aType === ZodParsedType.array && bType === ZodParsedType.array) {
@@ -109382,11 +109424,11 @@ var ZodRecord = class _ZodRecord extends ZodType {
     const pairs = [];
     const keyType = this._def.keyType;
     const valueType = this._def.valueType;
-    for (const key in ctx.data) {
+    for (const key2 in ctx.data) {
       pairs.push({
-        key: keyType._parse(new ParseInputLazyPath(ctx, key, ctx.path, key)),
-        value: valueType._parse(new ParseInputLazyPath(ctx, ctx.data[key], ctx.path, key)),
-        alwaysSet: key in ctx.data
+        key: keyType._parse(new ParseInputLazyPath(ctx, key2, ctx.path, key2)),
+        value: valueType._parse(new ParseInputLazyPath(ctx, ctx.data[key2], ctx.path, key2)),
+        alwaysSet: key2 in ctx.data
       });
     }
     if (ctx.common.async) {
@@ -109434,9 +109476,9 @@ var ZodMap = class extends ZodType {
     }
     const keyType = this._def.keyType;
     const valueType = this._def.valueType;
-    const pairs = [...ctx.data.entries()].map(([key, value], index) => {
+    const pairs = [...ctx.data.entries()].map(([key2, value], index) => {
       return {
-        key: keyType._parse(new ParseInputLazyPath(ctx, key, ctx.path, [index, "key"])),
+        key: keyType._parse(new ParseInputLazyPath(ctx, key2, ctx.path, [index, "key"])),
         value: valueType._parse(new ParseInputLazyPath(ctx, value, ctx.path, [index, "value"]))
       };
     });
@@ -109444,30 +109486,30 @@ var ZodMap = class extends ZodType {
       const finalMap = /* @__PURE__ */ new Map();
       return Promise.resolve().then(async () => {
         for (const pair of pairs) {
-          const key = await pair.key;
+          const key2 = await pair.key;
           const value = await pair.value;
-          if (key.status === "aborted" || value.status === "aborted") {
+          if (key2.status === "aborted" || value.status === "aborted") {
             return INVALID;
           }
-          if (key.status === "dirty" || value.status === "dirty") {
+          if (key2.status === "dirty" || value.status === "dirty") {
             status.dirty();
           }
-          finalMap.set(key.value, value.value);
+          finalMap.set(key2.value, value.value);
         }
         return { status: status.value, value: finalMap };
       });
     } else {
       const finalMap = /* @__PURE__ */ new Map();
       for (const pair of pairs) {
-        const key = pair.key;
+        const key2 = pair.key;
         const value = pair.value;
-        if (key.status === "aborted" || value.status === "aborted") {
+        if (key2.status === "aborted" || value.status === "aborted") {
           return INVALID;
         }
-        if (key.status === "dirty" || value.status === "dirty") {
+        if (key2.status === "dirty" || value.status === "dirty") {
           status.dirty();
         }
-        finalMap.set(key.value, value.value);
+        finalMap.set(key2.value, value.value);
       }
       return { status: status.value, value: finalMap };
     }
@@ -112239,9 +112281,9 @@ function createJimp({ plugins: pluginsArg, formats: formatsArg } = {}) {
         }
       }
       for (const methods19 of plugins) {
-        for (const key in methods19) {
-          this[key] = (...args) => {
-            const result = methods19[key]?.(this, ...args);
+        for (const key2 in methods19) {
+          this[key2] = (...args) => {
+            const result = methods19[key2]?.(this, ...args);
             if (typeof result === "object" && "bitmap" in result) {
               this.bitmap = result.bitmap;
               return this;
@@ -114360,13 +114402,13 @@ var methods17 = {
 
 // node_modules/image-q/dist/esm/image-q.mjs
 var __defProp2 = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __defNormalProp = (obj, key2, value) => key2 in obj ? __defProp2(obj, key2, { enumerable: true, configurable: true, writable: true, value }) : obj[key2] = value;
 var __export2 = (target, all) => {
   for (var name in all)
     __defProp2(target, name, { get: all[name], enumerable: true });
 };
-var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __publicField = (obj, key2, value) => {
+  __defNormalProp(obj, typeof key2 !== "symbol" ? key2 + "" : key2, value);
   return value;
 };
 var constants_exports = {};
@@ -115063,8 +115105,8 @@ var Palette = class {
   getPointContainer() {
     return this._pointContainer;
   }
-  _nearestPointFromCache(key) {
-    return typeof this._i32idx[key] === "number" ? this._i32idx[key] : -1;
+  _nearestPointFromCache(key2) {
+    return typeof this._i32idx[key2] === "number" ? this._i32idx[key2] : -1;
   }
   _getNearestIndex(colorDistanceCalculator, point) {
     let idx = this._nearestPointFromCache("" + point.uint32);
@@ -117429,22 +117471,29 @@ function getSortedMigrationFiles(migrationsDir) {
 }
 async function applySqlMigration(targetPool, version, filePath) {
   const sqlContent = import_fs3.default.readFileSync(filePath, "utf-8");
-  await targetPool.query("BEGIN");
-  try {
-    await targetPool.query(sqlContent);
-    await targetPool.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
-    await targetPool.query("COMMIT");
-    console.log(`\u2705 Migraci\xF3n aplicada: ${version}`);
-  } catch (migrationError) {
-    await targetPool.query("ROLLBACK");
-    console.error(`\u274C Fall\xF3 la migraci\xF3n ${version}:`, migrationError.message);
-    throw migrationError;
-  }
-}
-async function sincronizarCombosComoProductos() {
-  const client = await pool.connect();
+  const client = await targetPool.connect();
   try {
     await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock($1)", [9007]);
+    const existing = await client.query("SELECT id FROM schema_migrations WHERE version = $1", [version]);
+    if (existing.rows.length === 0) {
+      await client.query(sqlContent);
+      await client.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
+    }
+    await client.query("COMMIT");
+    console.log(`\u2705 Migraci\xF3n aplicada: ${version}`);
+  } catch (migrationError) {
+    await client.query("ROLLBACK");
+    console.error(`\u274C Fall\xF3 la migraci\xF3n ${version}:`, migrationError.message);
+    throw migrationError;
+  } finally {
+    client.release();
+  }
+}
+async function sincronizarCombosComoProductos(targetClient) {
+  const client = targetClient ?? await pool.connect();
+  try {
+    if (!targetClient) await client.query("BEGIN");
     const catRes = await client.query(
       `SELECT id FROM categorias WHERE nombre = 'Combos y Promociones' LIMIT 1`
     );
@@ -117503,13 +117552,14 @@ async function sincronizarCombosComoProductos() {
         WHERE promocion_id IS NOT NULL
       `);
     }
-    await client.query("COMMIT");
+    if (!targetClient) await client.query("COMMIT");
     console.log("\u{1F504} Sincronizaci\xF3n de Combos completada.");
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (!targetClient) await client.query("ROLLBACK");
     console.error("\u274C Error sincronizando combos:", err.message);
+    throw err;
   } finally {
-    client.release();
+    if (!targetClient) client.release();
   }
 }
 async function initDB() {
@@ -117558,19 +117608,11 @@ async function initDB() {
     if (checkInit.rows.length === 0) {
       if (import_fs3.default.existsSync(initPath)) {
         console.log(`\u{1F680} Aplicando migraci\xF3n inicial desde: ${initPath}`);
-        const sqlContent = import_fs3.default.readFileSync(initPath, "utf-8");
-        await targetPool.query("BEGIN");
-        try {
-          await targetPool.query(sqlContent);
-          await targetPool.query("INSERT INTO schema_migrations (version) VALUES ($1)", [
-            "000_init.sql"
-          ]);
-          await targetPool.query("COMMIT");
-          console.log("\u2705 Estructura inicial creada exitosamente en borboto_pos.");
-        } catch (migrationError) {
-          await targetPool.query("ROLLBACK");
-          console.error("\u274C Fall\xF3 la migraci\xF3n 000_init.sql:", migrationError.message);
-          throw migrationError;
+        const operativas = await targetPool.query("SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('usuarios', 'comandas') LIMIT 1");
+        if (operativas.rows.length > 0) {
+          await targetPool.query("INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING", ["000_init.sql"]);
+        } else {
+          await applySqlMigration(targetPool, "000_init.sql", initPath);
         }
       } else {
         console.warn(`\u26A0\uFE0F No se encontr\xF3 el archivo inicial`);
@@ -117715,94 +117757,72 @@ async function realizarSincronizacionFacturas() {
         if (invoiceDate < fechaInicioValue || invoiceDate > fechaFin) {
           continue;
         }
-        let receiptId = null;
-        if (typeof invoice.receipt === "string") {
-          receiptId = invoice.receipt;
-        } else if (invoice.receipt && typeof invoice.receipt === "object") {
-          receiptId = invoice.receipt.id || invoice.receipt._id;
-        }
-        if (!receiptId) {
-          receiptId = invoice.receipt || invoice.items && invoice.items[0]?.receipt;
-        }
-        if (!receiptId && invoice.metadata) {
-          receiptId = invoice.metadata.receipt || invoice.metadata.receipt_id || invoice.metadata.receiptId;
-        }
-        let ticketId = null;
-        if (receiptId) {
-          const tRes = await pool.query("SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1", [receiptId]);
-          if (tRes.rows.length > 0) {
-            ticketId = tRes.rows[0].id;
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query("SELECT pg_advisory_xact_lock($1::int, hashtext($2))", [9018, invoice.id]);
+          let receiptId = null;
+          if (typeof invoice.receipt === "string") {
+            receiptId = invoice.receipt;
+          } else if (invoice.receipt && typeof invoice.receipt === "object") {
+            receiptId = invoice.receipt.id || invoice.receipt._id;
           }
-        }
-        if (!ticketId) {
-          const invoiceTotal = invoice.total || 0;
-          const tRes = await pool.query(
-            "SELECT id FROM tickets_autofactura WHERE total = $1 AND estado = 'PENDIENTE' ORDER BY id DESC LIMIT 1",
-            [invoiceTotal]
-          );
-          if (tRes.rows.length > 0) {
-            ticketId = tRes.rows[0].id;
+          if (!receiptId) {
+            receiptId = invoice.receipt || invoice.items && invoice.items[0]?.receipt;
           }
-        }
-        if (!ticketId) {
-          const extId = invoice.external_id;
-          if (extId) {
-            ticketId = parseInt(extId, 10);
-            if (isNaN(ticketId)) {
-              ticketId = null;
-            }
+          if (!receiptId && invoice.metadata) {
+            receiptId = invoice.metadata.receipt || invoice.metadata.receipt_id || invoice.metadata.receiptId;
           }
-        }
-        if (!ticketId) {
-          const queryConditions = [];
-          const queryParams = [];
-          const possibleTicketCodes = /* @__PURE__ */ new Set();
-          const invExternalId = invoice.external_id;
-          const invFolio = invoice.folio;
-          if (invExternalId) possibleTicketCodes.add(String(invExternalId));
-          if (invFolio) possibleTicketCodes.add(String(invFolio));
-          if (invoice.metadata) {
-            const m = invoice.metadata;
-            if (m.codigo_ticket) possibleTicketCodes.add(String(m.codigo_ticket));
-            if (m.codigo) possibleTicketCodes.add(String(m.codigo));
-            if (m.folio) possibleTicketCodes.add(String(m.folio));
-            if (m.ticket_code) possibleTicketCodes.add(String(m.ticket_code));
-            if (m.key) possibleTicketCodes.add(String(m.key));
-            if (m.external_id) possibleTicketCodes.add(String(m.external_id));
-          }
-          const possiblePagoIds = /* @__PURE__ */ new Set();
-          if (invExternalId && !isNaN(Number(invExternalId))) {
-            possiblePagoIds.add(Number(invExternalId));
-          }
-          if (invoice.metadata) {
-            const m = invoice.metadata;
-            if (m.pago_id && !isNaN(Number(m.pago_id))) possiblePagoIds.add(Number(m.pago_id));
-            if (m.pagoId && !isNaN(Number(m.pagoId))) possiblePagoIds.add(Number(m.pagoId));
-            if (m.payment_id && !isNaN(Number(m.payment_id))) possiblePagoIds.add(Number(m.payment_id));
-          }
-          if (possibleTicketCodes.size > 0) {
-            queryParams.push(Array.from(possibleTicketCodes));
-            queryConditions.push(`codigo_ticket = ANY($${queryParams.length})`);
-          }
-          if (possiblePagoIds.size > 0) {
-            queryParams.push(Array.from(possiblePagoIds));
-            queryConditions.push(`pago_id = ANY($${queryParams.length})`);
-          }
-          if (queryConditions.length > 0) {
-            const selectQuery = `SELECT id FROM tickets_autofactura WHERE ${queryConditions.join(" OR ")} LIMIT 1`;
-            const tRes = await pool.query(selectQuery, queryParams);
+          let ticketId = null;
+          if (receiptId) {
+            const tRes = await client.query("SELECT id FROM tickets_autofactura WHERE facturapi_receipt_id = $1 LIMIT 1", [receiptId]);
             if (tRes.rows.length > 0) {
               ticketId = tRes.rows[0].id;
             }
           }
-        }
-        const uuidSat = invoice.uuid || `DRAFT_${invoice.id}`;
-        const zipReceptor = invoice.customer?.address?.zip || invoice.customer?.zip || "00000";
-        const regimenReceptor = invoice.customer?.tax_system || "616";
-        const orgId = invoice.organization || process.env.FACTURAPI_ORGANIZATION_ID || "default";
-        const url_pdf = `https://dashboard.facturapi.io/downloads/organization/${orgId}/invoices/${invoice.id}/pdf`;
-        const url_xml = `https://dashboard.facturapi.io/downloads/organization/${orgId}/invoices/${invoice.id}/xml`;
-        const queryUpsert = `
+          if (!ticketId) {
+            const extId = invoice.external_id;
+            if (extId) {
+              const candidato = Number(extId);
+              if (Number.isInteger(candidato) && candidato > 0) {
+                const existente = await client.query("SELECT id FROM tickets_autofactura WHERE id = $1", [candidato]);
+                ticketId = existente.rows[0]?.id ?? null;
+              }
+            }
+          }
+          if (!ticketId) {
+            const queryConditions = [];
+            const queryParams = [];
+            const possibleTicketCodes = /* @__PURE__ */ new Set();
+            const invExternalId = invoice.external_id;
+            if (invExternalId) possibleTicketCodes.add(String(invExternalId));
+            if (invoice.metadata) {
+              const m = invoice.metadata;
+              if (m.codigo_ticket) possibleTicketCodes.add(String(m.codigo_ticket));
+              if (m.codigo) possibleTicketCodes.add(String(m.codigo));
+              if (m.ticket_code) possibleTicketCodes.add(String(m.ticket_code));
+              if (m.key) possibleTicketCodes.add(String(m.key));
+              if (m.external_id) possibleTicketCodes.add(String(m.external_id));
+            }
+            if (possibleTicketCodes.size > 0) {
+              queryParams.push(Array.from(possibleTicketCodes));
+              queryConditions.push(`codigo_ticket = ANY($${queryParams.length})`);
+            }
+            if (queryConditions.length > 0) {
+              const selectQuery = `SELECT id FROM tickets_autofactura WHERE ${queryConditions.join(" OR ")} LIMIT 1`;
+              const tRes = await client.query(selectQuery, queryParams);
+              if (tRes.rows.length > 0) {
+                ticketId = tRes.rows[0].id;
+              }
+            }
+          }
+          const uuidSat = invoice.uuid || `DRAFT_${invoice.id}`;
+          const zipReceptor = invoice.customer?.address?.zip || invoice.customer?.zip || "00000";
+          const regimenReceptor = invoice.customer?.tax_system || "616";
+          const orgId = invoice.organization || process.env.FACTURAPI_ORGANIZATION_ID || "default";
+          const url_pdf = `https://dashboard.facturapi.io/downloads/organization/${orgId}/invoices/${invoice.id}/pdf`;
+          const url_xml = `https://dashboard.facturapi.io/downloads/organization/${orgId}/invoices/${invoice.id}/xml`;
+          const queryUpsert = `
           INSERT INTO facturas (
             ticket_id,
             facturapi_invoice_id,
@@ -117833,26 +117853,34 @@ async function realizarSincronizacionFacturas() {
             fecha_timbrado = EXCLUDED.fecha_timbrado
           RETURNING id;
         `;
-        await pool.query(queryUpsert, [
-          ticketId,
-          invoice.id,
-          uuidSat,
-          invoice.customer?.tax_id || "XAXX010101000",
-          invoice.customer?.legal_name || "PUBLICO EN GENERAL",
-          regimenReceptor,
-          zipReceptor,
-          invoice.use || "S01",
-          invoice.total || 0,
-          invoice.status || "active",
-          url_pdf,
-          url_xml,
-          invoiceDate
-        ]);
-        if (ticketId) {
-          const nuevoEstadoTicket = invoice.status === "canceled" ? "CANCELADA" : "TIMBRADA";
-          await pool.query("UPDATE tickets_autofactura SET estado = $1 WHERE id = $2", [nuevoEstadoTicket, ticketId]);
+          await client.query("UPDATE facturas SET uuid_sat = $1 WHERE facturapi_invoice_id = $2", [uuidSat, invoice.id]);
+          await client.query(queryUpsert, [
+            ticketId,
+            invoice.id,
+            uuidSat,
+            invoice.customer?.tax_id || "XAXX010101000",
+            invoice.customer?.legal_name || "PUBLICO EN GENERAL",
+            regimenReceptor,
+            zipReceptor,
+            invoice.use || "S01",
+            invoice.total || 0,
+            invoice.status || "active",
+            url_pdf,
+            url_xml,
+            invoiceDate
+          ]);
+          if (ticketId) {
+            const nuevoEstadoTicket = invoice.status === "canceled" ? "CANCELADA" : "TIMBRADA";
+            await client.query("UPDATE tickets_autofactura SET estado = $1 WHERE id = $2", [nuevoEstadoTicket, ticketId]);
+          }
+          await client.query("COMMIT");
+          totalSincronizadas++;
+        } catch (error) {
+          await client.query("ROLLBACK");
+          throw error;
+        } finally {
+          client.release();
         }
-        totalSincronizadas++;
       }
       if (currentPage >= response.total_pages) {
         hasMore = false;
@@ -117952,7 +117980,7 @@ async function obtenerConteoFacturasLocales() {
     return res.rows[0]?.count ?? 0;
   } catch (err) {
     console.error("\u274C [ReporteSheets] Error al consultar conteo de facturas locales:", err.message);
-    return 0;
+    throw err;
   }
 }
 async function enviarConteoAGoogleSheets() {
@@ -117963,18 +117991,24 @@ async function enviarConteoAGoogleSheets() {
     data: null,
     error: void 0
   };
+  let timeoutId;
+  let tokenSecreto = "";
   try {
     const GOOGLE_SHEET_URL = process.env.GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbwYP1-gaPlkLAJhqPKSPdO7DVeuK0ypEVapU8xWF5CscnPYRBSLlS75vze2DMLdA6pQdA/exec";
-    const TOKEN = process.env.GOOGLE_SHEET_TOKEN || "BorbotoPOS_Secret_Key_2026_x89Z";
+    const TOKEN = process.env.GOOGLE_SHEET_TOKEN;
+    if (!TOKEN) throw new Error("GOOGLE_SHEET_TOKEN no configurado");
+    tokenSecreto = TOKEN;
     const totalFacturas = await obtenerConteoFacturasLocales();
     const hardwareId = obtenerHardwareId();
     const nombreCliente = await obtenerNombreCliente();
     const url = `${GOOGLE_SHEET_URL}?token=${TOKEN}&hardware_id=${hardwareId}&cliente=${encodeURIComponent(nombreCliente)}&total_facturas=${totalFacturas}`;
-    resultObj.url = url;
-    console.log("\u{1F4E1} Enviando conteo a Google Sheets:", url);
+    const urlPublica = new URL(url);
+    urlPublica.searchParams.set("token", "***");
+    resultObj.url = urlPublica.toString();
+    console.log("\u{1F4E1} Enviando conteo a Google Sheets:", resultObj.url);
     const controller = new AbortController();
     const signal = controller.signal;
-    const timeoutId = setTimeout(() => controller.abort(), 1e4);
+    timeoutId = setTimeout(() => controller.abort(), 1e4);
     const res = await fetch(url, {
       method: "GET",
       headers: {
@@ -117984,16 +118018,15 @@ async function enviarConteoAGoogleSheets() {
       // Sigue las redirecciones 302 automáticamente en Node/Bun
       signal
     });
-    clearTimeout(timeoutId);
     resultObj.status = res.status;
-    const responseText = await res.text();
+    const responseText = (await res.text()).replaceAll(tokenSecreto, "***");
     let responseData = responseText;
     try {
       responseData = JSON.parse(responseText);
     } catch (e2) {
     }
     resultObj.data = responseData;
-    console.log("\u2705 Respuesta de Sheets:", responseData);
+    console.log("\u2705 Respuesta de Sheets:", res.status);
     if (res.ok) {
       resultObj.success = true;
       if (responseData && (responseData.status === "ok" || responseData.status === "success")) {
@@ -118003,8 +118036,10 @@ async function enviarConteoAGoogleSheets() {
       console.warn(`\u26A0\uFE0F [ReporteSheets] Respuesta HTTP fallida de Sheets: ${res.status} ${res.statusText}`);
     }
   } catch (err) {
-    resultObj.error = err.message || String(err);
-    console.warn(`\u26A0\uFE0F [ReporteSheets] Sincronizaci\xF3n Google Sheets omitida (error silencioso):`, err.message || err);
+    resultObj.error = tokenSecreto ? String(err.message || err).replaceAll(tokenSecreto, "***") : "Error al consultar o enviar reporte";
+    console.warn("Reporte Sheets fallido");
+  } finally {
+    if (timeoutId !== void 0) clearTimeout(timeoutId);
   }
   return resultObj;
 }
@@ -118164,7 +118199,12 @@ function generarTemplateCobro(datos, anchoPapel = "80mm") {
     }
   });
   lineas.push(separadorSuave);
+  if (datos.subtotal !== void 0) lineas.push(padLine("SUBTOTAL:", `$${datos.subtotal.toFixed(2)}`, maxW));
+  if ((datos.descuento ?? 0) > 0) lineas.push(padLine("DESCUENTO:", `$${datos.descuento.toFixed(2)}`, maxW));
   lineas.push(padLine("TOTAL:", `$${datos.totalCuenta.toFixed(2)}`, maxW));
+  if (datos.dividirCuenta && (datos.partesIguales ?? 0) > 1) {
+    lineas.push(padLine("CUOTA INFORMATIVA:", `$${(datos.totalCuenta / datos.partesIguales).toFixed(2)}`, maxW));
+  }
   lineas.push(padLine(`PAGO (${datos.metodoPago}):`, `$${datos.montoRecibido.toFixed(2)}`, maxW));
   lineas.push(padLine("CAMBIO:", `$${datos.cambio.toFixed(2)}`, maxW));
   if (datos.codigoAutofactura && datos.urlAutofactura) {
@@ -118643,6 +118683,7 @@ public static class RawPrinterHelper {
         JOIN productos p ON ci.producto_id = p.id
         JOIN categorias cat ON p.categoria_id = cat.id
         WHERE ci.comanda_id = $1 AND ci.impreso = FALSE
+        FOR UPDATE OF ci SKIP LOCKED
       `,
         [comandaId]
       );
@@ -118653,8 +118694,8 @@ public static class RawPrinterHelper {
       const itemsCocina = [];
       const itemsBarra = [];
       const itemIdsAActualizar = [];
+      const destinosEnviados = /* @__PURE__ */ new Set();
       itemsRes.rows.forEach((row) => {
-        itemIdsAActualizar.push(row.id);
         const item = {
           cantidad: row.cantidad,
           nombre: row.nombre,
@@ -118687,11 +118728,14 @@ public static class RawPrinterHelper {
             impresionesPendientes.push(
               this.crearTrabajoElectron(imp, ticketText, "Comanda Cocina")
             );
+            destinosEnviados.add("COCINA");
             continue;
           }
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + "\n\n";
+          else if (imp.tipo === "RED") destinosEnviados.add("COCINA");
         }
+        if (impresorasCocina.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosCocina, "COCINA", "80mm");
       }
       if (itemsBarra.length > 0) {
         const impresorasBarra = await this.obtenerImpresorasPorDestino("BARRA");
@@ -118710,11 +118754,17 @@ public static class RawPrinterHelper {
           const ticketText = generarTemplateProduccion(datosBarra, "BARRA", anchoConfigurado);
           if (imp.tipo === "USB") {
             impresionesPendientes.push(this.crearTrabajoElectron(imp, ticketText, "Comanda Barra"));
+            destinosEnviados.add("BARRA");
             continue;
           }
           const resText = await this.enviarDirectoAImpresora(imp, ticketText);
           if (resText) textoTicketsAcumulado += resText + "\n\n";
+          else if (imp.tipo === "RED") destinosEnviados.add("BARRA");
         }
+        if (impresorasBarra.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosBarra, "BARRA", "80mm");
+      }
+      for (const row of itemsRes.rows) {
+        if (destinosEnviados.has(row.destino_impresion)) itemIdsAActualizar.push(row.id);
       }
       await client.query(
         `
@@ -118757,6 +118807,7 @@ public static class RawPrinterHelper {
           TO_CHAR(p.fecha, 'DD/MM/YYYY HH24:MI') AS fecha,
           p.metodo_pago,
           p.total_cuenta,
+          p.descuento, p.dividir_cuenta, p.partes_iguales,
           p.monto_recibido,
           p.cambio,
           ta.codigo_ticket,
@@ -118773,7 +118824,7 @@ public static class RawPrinterHelper {
         [pagoId]
       );
       if (pagoRes.rows.length === 0) {
-        throw new Error(`Pago #${pagoId} no encontrado.`);
+        throw new PrecuentaError("Pago no encontrado", 404);
       }
       const infoPago = pagoRes.rows[0];
       const itemsRes = await pool.query(
@@ -118810,6 +118861,10 @@ public static class RawPrinterHelper {
         fecha: infoPago.fecha,
         metodoPago: infoPago.metodo_pago,
         totalCuenta: parseFloat(infoPago.total_cuenta),
+        subtotal: items.reduce((total, item) => total + Number(item.subtotal ?? 0), 0),
+        descuento: Number(infoPago.descuento ?? 0),
+        dividirCuenta: infoPago.dividir_cuenta === true,
+        partesIguales: Number(infoPago.partes_iguales ?? 1),
         montoRecibido: parseFloat(infoPago.monto_recibido),
         cambio: parseFloat(infoPago.cambio),
         items,
@@ -118845,6 +118900,7 @@ public static class RawPrinterHelper {
         impresionesPendientes: impresionesPendientes.length > 0 ? impresionesPendientes : void 0
       };
     } catch (error) {
+      if (error instanceof PrecuentaError) throw error;
       console.error("Error procesando ticket de cobro:", error.message);
       return null;
     }
@@ -118968,6 +119024,7 @@ router.post("/usb/raw-print", async (req, res) => {
       anchoPapel,
       corteTipo
     });
+    if (!resultado?.ok) return res.status(502).json(resultado);
     res.json(resultado);
   } catch (err) {
     res.status(500).json({ error: err.message || "Error al imprimir por RAW USB." });
@@ -118993,6 +119050,24 @@ function obtenerInstanciaFacturapi2(apiKey) {
   }
   return new FacturapiClass(apiKey);
 }
+function ajustarImportesRecibo(items, total) {
+  const subtotal = items.reduce((suma, item) => suma + item.quantity * item.product.price, 0);
+  const centavos = Math.round(total * 100);
+  let pesoAcumulado = 0;
+  let asignado = 0;
+  return items.flatMap((item) => {
+    pesoAcumulado += item.quantity * item.product.price;
+    const acumulado = subtotal > 0 ? Math.round(centavos * pesoAcumulado / subtotal) : 0;
+    const importe = acumulado - asignado;
+    asignado = acumulado;
+    const base = Math.floor(importe / item.quantity);
+    const extra = importe % item.quantity;
+    const lineas = [];
+    if (item.quantity > extra) lineas.push({ ...item, quantity: item.quantity - extra, product: { ...item.product, price: base / 100 } });
+    if (extra > 0) lineas.push({ ...item, quantity: extra, product: { ...item.product, price: (base + 1) / 100 } });
+    return lineas;
+  });
+}
 function enmascararApiKey(value) {
   if (!value) return "";
   return `********${value.length > 4 ? value.slice(-4) : ""}`;
@@ -119017,7 +119092,8 @@ function resolveFrontendDistPath() {
   return possiblePaths.find((candidate) => import_fs7.default.existsSync(import_path5.default.join(candidate, "index.html"))) || null;
 }
 var frontendDistPath = resolveFrontendDistPath();
-var uploadsDir = import_path5.default.join(process.cwd(), "uploads", "productos");
+var uploadsRoot = process.env.BORBOTO_UPLOADS_DIR || import_path5.default.join(process.cwd(), "uploads");
+var uploadsDir = import_path5.default.join(uploadsRoot, "productos");
 if (!import_fs7.default.existsSync(uploadsDir)) {
   import_fs7.default.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -119228,8 +119304,33 @@ io2.on("connection", (socket) => {
 });
 app.use((0, import_cors.default)());
 app.use(import_express2.default.json());
+app.use("/api", async (req, res, next) => {
+  if (req.method === "OPTIONS" || req.method === "HEAD") return next();
+  const lecturaSensible = /^\/(usuarios|admin|caja|dashboard|ajustes\/facturacion|licencia\/test-sheets)(\/|$)/.test(req.path);
+  if (req.method === "GET" && !lecturaSensible) return next();
+  if (req.path === "/auth/login" || req.path === "/auth/register-first-admin") return next();
+  const session = verificarSesion((req.headers.authorization || "").replace(/^Bearer /, ""));
+  if (!session) return res.status(401).json({ error: "Sesion requerida o expirada" });
+  const corte = req.path.startsWith("/caja/corte");
+  const caja = req.path.startsWith("/caja") || req.path.startsWith("/dashboard");
+  const cocina = req.path.startsWith("/cocina");
+  const administrativo = /^\/(usuarios|admin|ajustes|productos|categorias|promociones|zonas)(\/|$)/.test(req.path) || req.path.startsWith("/impresoras") && req.path !== "/impresoras/usb/raw-print" || /^\/mesas(?:\/\d+)?$/.test(req.path) && req.method !== "GET";
+  const negocio = !administrativo && !caja && !cocina;
+  if (session.rol !== "ADMIN" && !(caja && session.rol === "CAJERO") && !(cocina && session.rol === "COCINERO") && !(negocio && (session.rol === "MESERO" || session.rol === "CAJERO" || req.path === "/impresoras/usb/raw-print"))) {
+    return res.status(403).json({ error: "Permisos insuficientes" });
+  }
+  try {
+    const { rows } = await pool.query("SELECT rol, activo FROM usuarios WHERE id = $1", [session.id]);
+    if (!rows[0]?.activo || rows[0].rol !== session.rol) return res.status(401).json({ error: "Sesion invalida" });
+    if (corte && req.method !== "GET" && Number(req.body.usuarioId) !== session.id) return res.status(403).json({ error: "Usuario de corte invalido" });
+    if (req.method !== "GET" && req.body && typeof req.body === "object" && "usuarioId" in req.body) req.body.usuarioId = session.id;
+    next();
+  } catch {
+    res.status(503).json({ error: "No se pudo verificar la sesion" });
+  }
+});
 app.use("/api/impresoras", printer_routes_default);
-app.use("/uploads", import_express2.default.static(import_path5.default.join(process.cwd(), "uploads")));
+app.use("/uploads", import_express2.default.static(uploadsRoot), import_express2.default.static(import_path5.default.join(process.cwd(), "uploads")));
 if (frontendDistPath) {
   app.use(import_express2.default.static(frontendDistPath));
 }
@@ -119404,6 +119505,11 @@ app.post("/api/productos/importar-lote", async (req, res) => {
   if (!Array.isArray(productos) || productos.length === 0) {
     return res.status(400).json({ error: "No se enviaron productos v\xE1lidos." });
   }
+  const errores = productos.flatMap((producto, index) => {
+    const valido = producto && typeof producto === "object" && typeof producto.nombre === "string" && producto.nombre.trim() && producto.precio !== null && producto.precio !== "" && Number.isFinite(Number(producto.precio)) && Number(producto.precio) >= 0 && (producto.categoria === void 0 || typeof producto.categoria === "string");
+    return valido ? [] : [{ fila: index + 1, error: "Nombre, precio o categoria invalidos" }];
+  });
+  if (errores.length) return res.status(400).json({ error: "Lote invalido", errores });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -119568,25 +119674,49 @@ app.get("/api/usuarios", async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.post("/api/auth/register-first-admin", async (req, res) => {
-  const { nombre, pin } = req.body;
-  if (!nombre || !pin) {
-    return res.status(400).json({ error: "Faltan par\xE1metros: nombre y pin son requeridos." });
-  }
+app.get("/api/auth/has-users", async (_req, res) => {
   try {
-    const checkCount = await pool.query("SELECT COUNT(*) FROM usuarios");
-    if (parseInt(checkCount.rows[0].count) > 0) {
-      return res.status(403).json({ error: "Ya existen usuarios registrados en el sistema." });
-    }
-    const { rows } = await pool.query(
-      "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, 'ADMIN', TRUE) RETURNING id, nombre, rol",
-      [nombre, pin]
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const { rows } = await pool.query("SELECT COUNT(*)::int AS count FROM usuarios");
+    res.json({ hasUsers: Number(rows[0].count) > 0 });
+  } catch {
+    res.status(503).json({ error: "No se pudo consultar el sistema" });
   }
 });
+app.post("/api/auth/register-first-admin", async (req, res) => {
+  const { nombre, pin } = req.body;
+  if (!nombre || typeof pin !== "string" || !/^\d{4,6}$/.test(pin)) {
+    return res.status(400).json({ error: "Faltan par\xE1metros: nombre y pin son requeridos." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("LOCK TABLE usuarios IN EXCLUSIVE MODE");
+    const checkCount = await client.query("SELECT COUNT(*) FROM usuarios");
+    if (parseInt(checkCount.rows[0].count) > 0) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Ya existen usuarios registrados en el sistema." });
+    }
+    const { rows } = await client.query(
+      "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, 'ADMIN', TRUE) RETURNING id, nombre, rol",
+      [nombre, hashPin(pin)]
+    );
+    await client.query("COMMIT");
+    const token = emitirSesion(rows[0].id, rows[0].rol);
+    res.status(201).json({ ...rows[0], token, sessionToken: token });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+async function asegurarPinUnico(client, pin, usuarioId) {
+  await client.query("SELECT pg_advisory_xact_lock($1)", [9026]);
+  const { rows } = await client.query("SELECT id, pin FROM usuarios");
+  if (rows.some((usuario) => String(usuario.id) !== usuarioId && verificarPin(pin, usuario.pin))) {
+    throw Object.assign(new Error("PIN ya utilizado"), { code: "23505" });
+  }
+}
 app.post("/api/usuarios", async (req, res) => {
   const { nombre, pin, rol, activo } = req.body;
   if (!nombre || !pin || !rol) {
@@ -119595,14 +119725,21 @@ app.post("/api/usuarios", async (req, res) => {
   if (typeof pin !== "string" || !/^\d{4,6}$/.test(pin)) {
     return res.status(400).json({ error: "El PIN debe contener de 4 a 6 digitos" });
   }
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query("BEGIN");
+    await asegurarPinUnico(client, pin);
+    const { rows } = await client.query(
       "INSERT INTO usuarios (nombre, pin, rol, activo) VALUES ($1, $2, $3, $4) RETURNING id, nombre, rol, activo",
-      [nombre, pin, rol, activo !== false]
+      [nombre, hashPin(pin), rol, activo !== false]
     );
+    await client.query("COMMIT");
     res.status(201).json(rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(err.code === "23505" ? 409 : 500).json({ error: err.code === "23505" ? "PIN ya utilizado por otro usuario" : "Error al guardar empleado" });
+  } finally {
+    client.release();
   }
 });
 app.put("/api/usuarios/:id", async (req, res) => {
@@ -119612,15 +119749,25 @@ app.put("/api/usuarios/:id", async (req, res) => {
   if (nuevoPin != null && nuevoPin !== "" && (typeof nuevoPin !== "string" || !/^\d{4,6}$/.test(nuevoPin))) {
     return res.status(400).json({ error: "El PIN debe contener de 4 a 6 digitos" });
   }
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query("BEGIN");
+    if (nuevoPin) await asegurarPinUnico(client, nuevoPin, id);
+    const { rows } = await client.query(
       "UPDATE usuarios SET nombre = $1, pin = COALESCE($2, pin), rol = $3, activo = $4 WHERE id = $5 RETURNING id, nombre, rol, activo",
-      [nombre, nuevoPin || null, rol, activo !== false, id]
+      [nombre, nuevoPin ? hashPin(nuevoPin) : null, rol, activo !== false, id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Empleado no encontrado" });
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Empleado no encontrado" });
+    }
+    await client.query("COMMIT");
     res.json(rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(err.code === "23505" ? 409 : 500).json({ error: err.code === "23505" ? "PIN ya utilizado por otro usuario" : "Error al guardar empleado" });
+  } finally {
+    client.release();
   }
 });
 app.delete("/api/usuarios/:id", async (req, res) => {
@@ -119643,17 +119790,28 @@ app.delete("/api/usuarios/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+var intentosLogin = /* @__PURE__ */ new Map();
 app.post("/api/auth/login", async (req, res) => {
   const { pin } = req.body;
+  if (typeof pin !== "string" || !/^\d{4,6}$/.test(pin)) return res.status(400).json({ error: "PIN invalido" });
+  const ip = req.ip || "local";
+  const anterior = intentosLogin.get(ip);
+  if (anterior && anterior.hasta > Date.now() && anterior.count >= 10) return res.status(429).json({ error: "Demasiados intentos. Reintente en un minuto" });
+  for (const [address, item] of intentosLogin) if (item.hasta <= Date.now()) intentosLogin.delete(address);
+  if (intentosLogin.size >= 1e3 && !intentosLogin.has(ip)) return res.status(429).json({ error: "Reintente mas tarde" });
+  intentosLogin.set(ip, { count: anterior && anterior.hasta > Date.now() ? anterior.count + 1 : 1, hasta: Date.now() + 6e4 });
   try {
     const { rows } = await pool.query(
-      "SELECT id, nombre, rol FROM usuarios WHERE pin = $1 AND activo = TRUE",
-      [pin]
+      "SELECT id, nombre, rol, pin FROM usuarios WHERE activo = TRUE"
     );
-    if (rows.length === 0) {
+    const usuario = rows.find((user) => verificarPin(pin, user.pin));
+    if (!usuario) {
       return res.status(401).json({ error: "PIN incorrecto o usuario inactivo" });
     }
-    res.json(rows[0]);
+    if (!usuario.pin.startsWith("hash$")) await pool.query("UPDATE usuarios SET pin = $1 WHERE id = $2 AND pin = $3", [hashPin(pin), usuario.id, usuario.pin]);
+    intentosLogin.delete(ip);
+    const token = emitirSesion(usuario.id, usuario.rol);
+    res.json({ id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, token, sessionToken: token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -120200,7 +120358,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
     const puntos = Number(puntosCanjeados ?? 0);
     const partes = dividirCuenta === true ? Number(partesIguales ?? 1) : 1;
     const montoRecibido = Number(montoSolicitado);
-    if (!Number.isFinite(subtotalServidor) || subtotalServidor < 0 || !Number.isFinite(descuento) || descuento < 0 || descuento > subtotalServidor || !Number.isInteger(puntos) || puntos < 0 || !Number.isInteger(partes) || partes < 1 || !Number.isFinite(montoRecibido) || montoRecibido < 0 || promocionId && puntos > 0) {
+    if (!Number.isFinite(subtotalServidor) || subtotalServidor < 0 || !Number.isFinite(descuento) || descuento < 0 || descuento > subtotalServidor && puntos === 0 || !Number.isInteger(puntos) || puntos < 0 || !Number.isInteger(partes) || partes < 1 || !Number.isFinite(montoRecibido) || montoRecibido < 0 || promocionId && puntos > 0) {
       await client.query("ROLLBACK");
       transactionOpen = false;
       return res.status(400).json({ error: "Importes, descuento o division de cuenta invalidos" });
@@ -120228,7 +120386,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
     }
     descuento = Math.round(descuento * 100) / 100;
     const totalCuenta = Math.max(0, Math.round((subtotalServidor - descuento) * 100) / 100);
-    const totalExigible = Math.round(totalCuenta / partes * 100) / 100;
+    const totalExigible = totalCuenta;
     if (metodoPago === "EFECTIVO" && montoRecibido < totalExigible) {
       await client.query("ROLLBACK");
       transactionOpen = false;
@@ -120239,7 +120397,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
       await client.query("UPDATE comandas SET total = $1 WHERE id = $2", [subtotalServidor, comandaId]);
     }
     const configRes = await client.query(
-      `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto FROM configuracion_facturacion WHERE id = 1`
+      `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto, dias_vigencia_ticket FROM configuracion_facturacion WHERE id = 1`
     );
     const configFiscal = configRes.rows[0];
     const apiKeyActiva = configFiscal?.modo_produccion ? configFiscal.api_key_live : configFiscal?.api_key_test;
@@ -120270,98 +120428,102 @@ app.post("/api/caja/cobrar", async (req, res) => {
     console.log(
       `[Cobro #${pagoId}] Iniciando proceso. solicitaFactura: ${solicitaFacturaActual}, apiKeyActiva: ${apiKeyActiva ? "S\xED (Configurada)" : "No (Vac\xEDa)"}`
     );
-    if (solicitaFacturaActual) {
-      if (apiKeyActiva) {
-        try {
-          const itemsRes = await client.query(
-            `SELECT ci.cantidad, ci.precio_unitario, p.nombre, p.clave_sat AS prod_clave, cat.clave_sat AS cat_clave
+    const generarReciboFiscal = async () => {
+      if (solicitaFacturaActual) {
+        if (apiKeyActiva) {
+          try {
+            const itemsRes = await client.query(
+              `SELECT ci.cantidad, ci.precio_unitario, p.nombre, p.clave_sat AS prod_clave, cat.clave_sat AS cat_clave
              FROM comanda_items ci JOIN productos p ON ci.producto_id = p.id JOIN categorias cat ON p.categoria_id = cat.id
              WHERE ci.comanda_id = $1`,
-            [comandaId]
-          );
-          console.log(
-            `[Cobro #${pagoId}] Productos obtenidos para Facturapi:`,
-            itemsRes.rows.length
-          );
-          let paymentForm = "01";
-          if (metodoPago === "TARJETA") paymentForm = "04";
-          if (metodoPago === "TRANSFERENCIA") paymentForm = "03";
-          const esConsumoGeneral = agruparConsumo === true || agruparConsumo === "true";
-          let lineItemsFacturapi = [];
-          if (esConsumoGeneral) {
-            lineItemsFacturapi = [
-              {
-                quantity: 1,
-                product: {
-                  description: "CONSUMO DE ALIMENTOS Y BEBIDAS",
-                  product_key: "90101501",
-                  unit_key: "E48",
-                  price: Number(totalCuenta),
-                  tax_included: true
+              [comandaId]
+            );
+            console.log(
+              `[Cobro #${pagoId}] Productos obtenidos para Facturapi:`,
+              itemsRes.rows.length
+            );
+            let paymentForm = "01";
+            if (metodoPago === "TARJETA") paymentForm = "04";
+            if (metodoPago === "TRANSFERENCIA") paymentForm = "03";
+            const esConsumoGeneral = agruparConsumo === true || agruparConsumo === "true";
+            let lineItemsFacturapi = [];
+            if (esConsumoGeneral) {
+              lineItemsFacturapi = [
+                {
+                  quantity: 1,
+                  product: {
+                    description: "CONSUMO DE ALIMENTOS Y BEBIDAS",
+                    product_key: "90101501",
+                    unit_key: "E48",
+                    price: Number(totalCuenta),
+                    tax_included: true
+                  }
                 }
-              }
-            ];
-          } else {
-            lineItemsFacturapi = itemsRes.rows.map((row) => {
-              let itemKey = (row.prod_clave || row.cat_clave || "").toString().trim();
-              if (!itemKey || itemKey.length < 8 || isNaN(Number(itemKey))) {
-                itemKey = claveSatDefecto;
-              }
-              return {
-                quantity: Number(row.cantidad),
-                product: {
-                  description: row.nombre,
-                  product_key: itemKey,
-                  price: Number(row.precio_unitario),
-                  tax_included: true
+              ];
+            } else {
+              lineItemsFacturapi = itemsRes.rows.map((row) => {
+                let itemKey = (row.prod_clave || row.cat_clave || "").toString().trim();
+                if (!itemKey || itemKey.length < 8 || isNaN(Number(itemKey))) {
+                  itemKey = claveSatDefecto;
                 }
-              };
+                return {
+                  quantity: Number(row.cantidad),
+                  product: {
+                    description: row.nombre,
+                    product_key: itemKey,
+                    price: Number(row.precio_unitario),
+                    tax_included: true
+                  }
+                };
+              });
+            }
+            console.log(
+              `[Cobro #${pagoId}] Payload que se env\xEDa a Factura`,
+              // `[Cobro #${pagoId}] Payload que se envía a Facturapi (esConsumoGeneral: ${esConsumoGeneral}):`,
+              JSON.stringify(lineItemsFacturapi)
+            );
+            if (descuento > 0 && !esConsumoGeneral) lineItemsFacturapi = ajustarImportesRecibo(lineItemsFacturapi, totalCuenta);
+            const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
+            const receipt = await facturapi.receipts.create({
+              payment_form: paymentForm,
+              items: lineItemsFacturapi
             });
-          }
-          console.log(
-            `[Cobro #${pagoId}] Payload que se env\xEDa a Factura`,
-            // `[Cobro #${pagoId}] Payload que se envía a Facturapi (esConsumoGeneral: ${esConsumoGeneral}):`,
-            JSON.stringify(lineItemsFacturapi)
-          );
-          const facturapi = obtenerInstanciaFacturapi2(apiKeyActiva);
-          const receipt = await facturapi.receipts.create({
-            payment_form: paymentForm,
-            items: lineItemsFacturapi
-          });
-          console.log(
-            `[Cobro #${pagoId}] Recibo generado exitosamente en Factura`
-            // `[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, Código: ${receipt.key}`,
-          );
-          await client.query(
-            `INSERT INTO tickets_autofactura (pago_id, facturapi_receipt_id, codigo_ticket, url_autofactura, total, fecha_expiracion)
+            const diasVigencia = Math.max(1, Number(configFiscal?.dias_vigencia_ticket) || 7);
+            const expiracionLocal = new Date(Date.now() + diasVigencia * 864e5).toISOString();
+            console.log(
+              `[Cobro #${pagoId}] Recibo generado exitosamente en Factura`
+              // `[Cobro #${pagoId}] Recibo generado exitosamente en Facturapi. ID: ${receipt.id}, Código: ${receipt.key}`,
+            );
+            await client.query(
+              `INSERT INTO tickets_autofactura (pago_id, facturapi_receipt_id, codigo_ticket, url_autofactura, total, fecha_expiracion)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              pagoId,
-              receipt.id,
-              receipt.key,
-              receipt.self_invoice_url,
-              totalCuenta,
-              receipt.expires_at
-            ]
+              [
+                pagoId,
+                receipt.id,
+                receipt.key,
+                receipt.self_invoice_url,
+                totalCuenta,
+                expiracionLocal
+              ]
+            );
+            datosAutofactura = {
+              codigo: receipt.key,
+              url: receipt.self_invoice_url,
+              expiracion: expiracionLocal
+            };
+          } catch (fError) {
+            console.error(`Error fiscal despues de confirmar pago #${pagoId}`);
+            errorFacturapiMsg = "Pago confirmado; no se pudo completar la autofactura. Requiere conciliacion fiscal.";
+          }
+        } else {
+          console.warn(
+            `\u26A0\uFE0F [Cobro #${pagoId}] Se solicit\xF3 autofactura pero no hay ninguna API Key de Factura activa configurada.`
+            // `⚠️ [Cobro #${pagoId}] Se solicitó autofactura pero no hay ninguna API Key de Facturapi activa configurada.`,
           );
-          datosAutofactura = {
-            codigo: receipt.key,
-            url: receipt.self_invoice_url,
-            expiracion: receipt.expires_at
-          };
-        } catch (fError) {
-          const errorDetails = fError.message || String(fError);
-          console.error(`\u274C [Cobro #${pagoId}] Error generando recibo en Factura:`, fError);
-          errorFacturapiMsg = `Error en servidor Facturapi: ${errorDetails}`;
+          errorFacturapiMsg = "No hay una API Key de Factura activa configurada en el sistema (Ajustes -> Facturaci\xF3n).";
         }
-      } else {
-        console.warn(
-          `\u26A0\uFE0F [Cobro #${pagoId}] Se solicit\xF3 autofactura pero no hay ninguna API Key de Factura activa configurada.`
-          // `⚠️ [Cobro #${pagoId}] Se solicitó autofactura pero no hay ninguna API Key de Facturapi activa configurada.`,
-        );
-        errorFacturapiMsg = "No hay una API Key de Factura activa configurada en el sistema (Ajustes -> Facturaci\xF3n).";
       }
-    }
+    };
     const comandaInfo = await client.query(
       'SELECT cliente_id, mesa_id, tipo_origen AS "tipoOrigen", folio_origen AS "folioOrigen" FROM comandas WHERE id = $1',
       [comandaId]
@@ -120374,7 +120536,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
         "SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1"
       );
       const visitasRequeridas = negocioInfo.rows[0]?.visitas_requeridas_frecuente || 5;
-      const factorPuntos = negocioInfo.rows[0]?.puntos_por_cada_diez_pesos || 1;
+      const factorPuntos = negocioInfo.rows[0]?.puntos_por_cada_diez_pesos ?? 1;
       const pesosPorPunto = Number(negocioInfo.rows[0]?.pesos_por_punto) || 10;
       const puntosNuevos = Math.floor(Number(totalCuenta) / pesosPorPunto) * factorPuntos;
       const ptsCanjeados = Number(puntosCanjeados) || 0;
@@ -120405,6 +120567,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
     emitirCambioGlobal("actualizar_mesas");
     let ticketTextoCobro = null;
     emitirCambioGlobal("actualizar_cocina");
+    await generarReciboFiscal();
     let impresionesPendientes = [];
     try {
       const resCobroPrinter = await PrinterService.imprimirTicketCobro(pagoId);
@@ -120500,28 +120663,53 @@ app.post("/api/caja/corte", async (req, res) => {
     diferencia,
     notas
   } = req.body;
+  const client = await pool.connect();
   try {
+    if (!Number.isInteger(Number(usuarioId)) || Number(usuarioId) <= 0 || !Number.isFinite(Number(fondoApertura ?? 0)) || Number(fondoApertura ?? 0) < 0 || !Number.isFinite(Number(efectivoReal ?? 0)) || Number(efectivoReal ?? 0) < 0) {
+      return res.status(400).json({ error: "Datos de corte invalidos" });
+    }
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock($1::int, $2::int)", [9012, Number(usuarioId)]);
+    const resumen = await client.query(`
+      SELECT COUNT(*)::int AS cantidad, MIN(p.fecha) AS apertura,
+        COALESCE(SUM(p.total_cuenta) FILTER (WHERE p.metodo_pago = 'EFECTIVO'), 0) AS efectivo,
+        COALESCE(SUM(p.total_cuenta) FILTER (WHERE p.metodo_pago = 'TARJETA'), 0) AS tarjeta,
+        COALESCE(SUM(p.total_cuenta) FILTER (WHERE p.metodo_pago = 'TRANSFERENCIA'), 0) AS transferencia,
+        COALESCE(SUM(p.total_cuenta), 0) AS ventas
+      FROM pagos p WHERE p.usuario_id = $1
+        AND p.fecha > COALESCE((SELECT MAX(fecha_cierre) FROM cortes_caja WHERE usuario_id = $1), '-infinity'::timestamp)
+        AND p.fecha <= CURRENT_TIMESTAMP
+    `, [usuarioId]);
+    const calculado = resumen.rows[0];
+    if (Number(calculado.cantidad) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "No hay pagos nuevos para realizar el corte" });
+    }
     const query = `
       INSERT INTO cortes_caja (usuario_id, fecha_apertura, fecha_cierre, fondo_apertura, efectivo_real, efectivo_calculado, tarjeta_calculado, transferencia_calculado, ventas_totales, diferencia, notas)
       VALUES ($1, COALESCE($2, CURRENT_TIMESTAMP - INTERVAL '1 day'), CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id;
     `;
-    const { rows } = await pool.query(query, [
+    const { rows } = await client.query(query, [
       usuarioId,
-      fechaApertura || null,
+      calculado.apertura,
       fondoApertura || 0,
       efectivoReal || 0,
-      efectivoCalculado || 0,
-      tarjetaCalculado || 0,
-      transferenciaCalculado || 0,
-      ventasTotales || 0,
-      diferencia || 0,
+      Number(calculado.efectivo),
+      Number(calculado.tarjeta),
+      Number(calculado.transferencia),
+      Number(calculado.ventas),
+      Number(efectivoReal ?? 0) - Number(fondoApertura ?? 0) - Number(calculado.efectivo),
       notas || ""
     ]);
+    await client.query("COMMIT");
     enviarConteoAGoogleSheets().catch(() => {
     });
     res.json({ ok: true, corteId: rows[0].id });
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 app.get("/api/caja/cortes/historial", async (_req, res) => {
@@ -120871,41 +121059,69 @@ app.get("/api/promociones", async (_req, res) => {
 });
 app.post("/api/promociones", async (req, res) => {
   const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query("BEGIN");
+    const { rows } = await client.query(
       `INSERT INTO promociones (nombre, codigo, tipo, valor, descripcion, activo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false]
     );
-    await sincronizarCombosComoProductos();
+    await sincronizarCombosComoProductos(client);
+    await client.query("COMMIT");
+    emitirCambioGlobal("actualizar_productos");
     res.status(201).json(rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 app.put("/api/promociones/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, codigo, tipo, valor, descripcion, activo } = req.body;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query("BEGIN");
+    const { rows } = await client.query(
       `UPDATE promociones SET nombre = $1, codigo = $2, tipo = $3, valor = $4, descripcion = $5, activo = $6 WHERE id = $7 RETURNING *`,
       [nombre, codigo, tipo, Number(valor) || 0, descripcion, activo !== false, id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Promoci\xF3n no encontrada" });
-    await sincronizarCombosComoProductos();
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Promoci\xF3n no encontrada" });
+    }
+    await sincronizarCombosComoProductos(client);
+    await client.query("COMMIT");
+    emitirCambioGlobal("actualizar_productos");
     res.json(rows[0]);
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 app.delete("/api/promociones/:id", async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query("DELETE FROM promociones WHERE id = $1 RETURNING *", [id]);
-    if (rows.length === 0) return res.status(404).json({ error: "Promoci\xF3n no encontrada" });
-    await sincronizarCombosComoProductos();
+    await client.query("BEGIN");
+    await client.query("UPDATE productos SET disponible = FALSE, promocion_id = NULL WHERE promocion_id = $1", [id]);
+    const { rows } = await client.query("DELETE FROM promociones WHERE id = $1 RETURNING *", [id]);
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Promoci\xF3n no encontrada" });
+    }
+    await sincronizarCombosComoProductos(client);
+    await client.query("COMMIT");
+    emitirCambioGlobal("actualizar_productos");
     res.json({ ok: true, mensaje: "Promoci\xF3n eliminada" });
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 app.get("/api/ajustes/facturacion", async (_req, res) => {
@@ -120973,15 +121189,16 @@ app.post(
       INSERT INTO configuracion_facturacion (id, api_key_test, api_key_live, modo_produccion, rfc_emisor, razon_social, regimen_fiscal, codigo_postal, email_notificaciones, dias_vigencia_ticket, tiene_csd, actualizado_en)
       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
       ON CONFLICT (id) DO UPDATE SET
-        api_key_test = EXCLUDED.api_key_test, api_key_live = EXCLUDED.api_key_live, modo_produccion = EXCLUDED.modo_produccion,
+        api_key_test = COALESCE(EXCLUDED.api_key_test, configuracion_facturacion.api_key_test),
+        api_key_live = COALESCE(EXCLUDED.api_key_live, configuracion_facturacion.api_key_live), modo_produccion = EXCLUDED.modo_produccion,
         rfc_emisor = EXCLUDED.rfc_emisor, razon_social = EXCLUDED.razon_social, regimen_fiscal = EXCLUDED.regimen_fiscal,
         codigo_postal = EXCLUDED.codigo_postal, email_notificaciones = EXCLUDED.email_notificaciones,
         dias_vigencia_ticket = EXCLUDED.dias_vigencia_ticket, tiene_csd = CASE WHEN EXCLUDED.tiene_csd THEN TRUE ELSE configuracion_facturacion.tiene_csd END,
         actualizado_en = CURRENT_TIMESTAMP RETURNING *;
     `;
       await pool.query(query, [
-        keyTest,
-        keyLive,
+        resolverApiKey(apiKeyTest, null),
+        resolverApiKey(apiKeyLive, null),
         modoProdBool,
         rfcEmisor?.toUpperCase(),
         razonSocial,
@@ -121003,9 +121220,9 @@ app.post("/api/ajustes/facturacion/test", async (req, res) => {
     const configRes = await pool.query("SELECT api_key_test, api_key_live, modo_produccion FROM configuracion_facturacion WHERE id = 1");
     const config = configRes.rows[0];
     const modoLive = isLive === void 0 ? config?.modo_produccion === true : isLive === true || isLive === "true";
-    const key = resolverApiKey(apiKey, modoLive ? config?.api_key_live : config?.api_key_test);
-    if (!key) return res.status(400).json({ error: "No hay una API Key configurada para el modo seleccionado" });
-    const facturapi = obtenerInstanciaFacturapi2(key);
+    const key2 = resolverApiKey(apiKey, modoLive ? config?.api_key_live : config?.api_key_test);
+    if (!key2) return res.status(400).json({ error: "No hay una API Key configurada para el modo seleccionado" });
+    const facturapi = obtenerInstanciaFacturapi2(key2);
     await facturapi.customers.list({ limit: 1 });
     res.json({ ok: true, mensaje: "Conexi\xF3n con Facturapi v2 autenticada correctamente." });
   } catch (err) {
@@ -121179,15 +121396,34 @@ app.post("/api/dashboard/tickets/:pagoId/reprint", async (req, res) => {
         impresionesPendientes = resCobroPrinter.impresionesPendientes;
       }
     }
+    if (!resCobroPrinter) return res.status(500).json({ error: "No se pudo generar el ticket" });
     res.json({ ok: true, ticketId: pagoId, ticketTexto: ticketTextoCobro, impresionesPendientes });
   } catch (err) {
-    res.status(500).json({ error: err.message || "Error al reimprimir ticket." });
+    res.status(err instanceof PrecuentaError ? err.status : 500).json({ error: err.message || "Error al reimprimir ticket." });
   }
 });
 if (frontendDistPath) {
   app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
     res.sendFile(import_path5.default.join(frontendDistPath, "index.html"));
   });
+}
+app.use("/api", (error, _req, res, next) => {
+  if (res.headersSent) return next(error);
+  const invalido = error instanceof Error && (error.name === "MulterError" || error instanceof SyntaxError);
+  res.status(invalido ? 400 : 500).json({ error: invalido ? "Solicitud o archivo invalido" : "No se pudo procesar la solicitud" });
+});
+var tareaFiscalInicial;
+var cierreServidor;
+function shutdownServer() {
+  if (cierreServidor) return cierreServidor;
+  cierreServidor = (async () => {
+    await new Promise((resolve) => io2.close(() => resolve()));
+    if (tareaFiscalInicial) await tareaFiscalInicial.catch(() => {
+    });
+    await enviarConteoAGoogleSheets();
+    await pool.end();
+  })();
+  return cierreServidor;
 }
 async function startServer() {
   try {
@@ -121199,7 +121435,7 @@ async function startServer() {
       console.warn("\u26A0\uFE0F Sincronizaci\xF3n de combos omitida:", syncErr.message);
     }
     try {
-      realizarSincronizacionFacturas().then((r2) => {
+      tareaFiscalInicial = realizarSincronizacionFacturas().then((r2) => {
         if (r2.ok) {
           console.log(
             `\u{1F4E1} [BACKEND] Sincronizaci\xF3n autom\xE1tica de facturas completada.`
@@ -121240,7 +121476,7 @@ async function apagarServidorGraciosamente(signal) {
     `\u{1F50C} [BACKEND] Se\xF1al de terminaci\xF3n recibida (${signal}). Sincronizando \xFAltimo conteo de facturas locales...`
   );
   try {
-    await enviarConteoAGoogleSheets();
+    await shutdownServer();
   } catch (err) {
     console.warn(
       "\u26A0\uFE0F [BACKEND] Error al realizar el reporte de apagado de Sheets:",
@@ -121248,12 +121484,8 @@ async function apagarServidorGraciosamente(signal) {
     );
   } finally {
     console.log("\u{1F4E6} [BACKEND] Liberando conexiones de base de datos...");
-    try {
-      await pool.end();
-    } catch {
-    }
     console.log("\u{1F44B} [BACKEND] Apagado completo del servidor backend.");
-    process.exit(0);
+    if (require.main === module) process.exit(0);
   }
 }
 process.on("SIGINT", () => apagarServidorGraciosamente("SIGINT"));
@@ -121264,6 +121496,7 @@ if (require.main === module) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   emitirCambioGlobal,
+  shutdownServer,
   startServer
 });
 /*! Bundled license information:
