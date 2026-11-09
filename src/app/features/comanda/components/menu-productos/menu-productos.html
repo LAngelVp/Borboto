@@ -1,11 +1,12 @@
 <div class="menu-container">
   <mat-chip-listbox
     [value]="comandaService.categoriaSeleccionada()"
-    (selectionChange)="onCategoriaChange($event)"
+    (change)="onCategoriaChange($event)"
+    aria-label="Categorias de productos"
     class="categorias-bar">
     @for (cat of comandaService.categoriasDisponibles(); track cat) {
       <mat-chip-option [value]="cat">
-        {{ cat }}
+        {{ cat === 'TODOS' ? 'Todas' : cat }}
       </mat-chip-option>
     }
   </mat-chip-listbox>

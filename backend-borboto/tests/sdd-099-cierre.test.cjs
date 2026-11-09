@@ -9,6 +9,98 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const compile = text => transformSync(text, { loader: 'ts', format: 'cjs', target: 'node18' }).code;
 const backend = read('backend-borboto/index.ts');
 
+test('SDD-023: categorias importadas normalizadas, dinamicas y evento Material change filtran productos', () => {
+  const service = frontend('src/app/core/services/comanda.ts', 'ComandaService', {});
+  service.productos.set([
+    { id: 1, nombre: 'Agua', precio: 10, categoria: ' Bebidas ' },
+    { id: 2, nombre: 'Cafe', precio: 20, categoria: '\u00a0bebidas\u00a0' },
+    { id: 3, nombre: 'Pan', precio: 5, categoria: { nombre: ' Panaderia ' } },
+    { id: 4, nombre: 'Sin categoria', precio: 0, categoria: null },
+  ]);
+  assert.deepEqual(Array.from(service.categoriasDisponibles()), ['TODOS', 'Bebidas', 'Panaderia']);
+  const component = frontend('src/app/features/comanda/components/menu-productos/menu-productos.ts', 'MenuProductosComponent', { ComandaService: service });
+  component.onCategoriaChange({ value: ' BEBIDAS ' });
+  assert.equal(service.categoriaSeleccionada(), 'Bebidas');
+  assert.deepEqual(Array.from(service.productosFiltrados(), product => product.id), [1, 2]);
+  component.onCategoriaChange({ value: 'Panaderia' });
+  assert.deepEqual(Array.from(service.productosFiltrados(), product => product.id), [3]);
+  component.onCategoriaChange({ value: undefined });
+  assert.equal(service.productosFiltrados().length, 4);
+  service.productos.set([...service.productos(), { id: 5, categoria: 'Postres', nombre: 'Flan', precio: 15 }]);
+  component.onCategoriaChange({ value: ' postres ' });
+  assert.deepEqual(Array.from(service.productosFiltrados(), product => product.id), [5]);
+  const html = read('src/app/features/comanda/components/menu-productos/menu-productos.html');
+  assert.ok(html.includes('(change)="onCategoriaChange($event)"'));
+  assert.ok(html.includes('comandaService.productosFiltrados()'));
+  assert.ok(html.includes('(selectionChange)') === false);
+});
+
+test('SDD-023: importacion busca categoria trim y usa General cuando nombre esta vacio', async () => {
+  for (const [categoria, expected] of [[' Bebidas ', 'Bebidas'], ['   ', 'General']]) {
+    const result = await run('/api/productos/importar-lote', { productos: [{ nombre: 'Cafe', precio: 10, categoria }] }, sql => ({ rows: sql.includes('SELECT id FROM categorias') ? [{ id: 1 }] : [] }));
+    assert.equal(result.res.code, 201);
+    const lookup = result.log.find(entry => entry.sql.includes('FROM categorias'));
+    assert.ok(lookup.sql.includes('LOWER(BTRIM(nombre))'));
+    assert.equal(lookup.params[0], expected);
+  }
+});
+
+test('SDD-023: ultimo check permanece en PREPARANDO/PENDIENTE y LISTO hasta despacho confirmado', () => {
+  for (const filtro of ['PREPARANDO', 'PENDIENTE']) {
+    const writes = [];
+    const service = frontend('src/app/core/services/cocina.ts', 'CocinaService', {
+      HttpClient: {
+        patch() { return { subscribe(observer) { writes.push(observer); } }; },
+        post() { return { subscribe(observer) { writes.push(observer); } }; },
+      }, RuntimeConfigService: { apiBaseUrl: '/api' },
+    });
+    service.filtroEstado.set(filtro);
+    service.tickets.set([{ id: 1, estado: 'PREPARANDO', items: [{ id: 3, completado: true }, { id: 4, completado: false }] }]);
+    service.toggleItemCompletado(1, 4);
+    assert.equal(service.tickets()[0].estado, 'LISTO');
+    assert.equal(service.ticketsFiltrados().length, 1);
+    assert.equal(service.contadores().listos, 1);
+    writes[0].error(new Error('offline'));
+    assert.equal(service.ticketsFiltrados().length, 1);
+    assert.equal(service.tickets()[0].estado, 'PREPARANDO');
+    service.toggleItemCompletado(1, 4);
+    writes[1].next({ ok: true });
+    service.filtroEstado.set('LISTO');
+    assert.equal(service.ticketsFiltrados().length, 1);
+    service.marcarTicketListo(1);
+    assert.equal(service.ticketsFiltrados().length, 1);
+    writes[2].next({ ok: true });
+    assert.equal(service.ticketsFiltrados().length, 0);
+    assert.equal(service.contadores().listos, 0);
+  }
+});
+
+test('SDD-023: vistas compactas y contadores de activos no dependen de listas filtradas', () => {
+  const rows = [
+    { id: 1, estado: 'EN COCINA' }, { id: 2, estado: 'DISPONIBLE' },
+    { id: -3, tipoOrigen: 'MOSTRADOR', estado: 'LISTO PARA SERVIR' },
+    { id: -4, tipoOrigen: 'MOSTRADOR', estado: 'DISPONIBLE' },
+    { id: -5, tipoOrigen: 'ENVIO', estado: 'SERVIDO' },
+  ];
+  const component = frontend('src/app/features/mesas/mesas.ts', 'MesasComponent', { MesaService: { mesas: () => rows } });
+  assert.equal(component.contadoresActivos().MESAS, 1);
+  assert.equal(component.contadoresActivos().MOSTRADOR, 1);
+  assert.equal(component.contadoresActivos().DOMICILIO, 1);
+  component.seleccionarVista('DOMICILIO');
+  assert.equal(component.vistaCompacta(), 'DOMICILIO');
+  assert.equal(component.vistaEspecial(), 'DOMICILIO');
+  component.seleccionarVista('MESAS');
+  assert.equal(component.vistaCompacta(), 'MESAS');
+  const css = read('src/app/features/mesas/mesas.scss');
+  assert.ok(css.includes('@media (width < 1200px)'));
+  assert.ok(css.includes(".mesas-page:not([data-vista='MESAS']) .mesas-sec"));
+  assert.ok(css.includes('minmax(min(300px, 100%), 1fr)'));
+  const card = read('src/app/features/mesas/components/mesa-card/mesa-card.scss');
+  assert.ok(card.includes('grid-template-columns: repeat(auto-fit'));
+  assert.ok(card.includes('height: 240px') === false);
+  assert.ok(card.includes('max-width: 100%'));
+});
+
 test('PostgreSQL portable initializes outside the installation directory and retries an empty cluster', () => {
   const main = read('main.js');
   const start = main.indexOf('function setupAndStartPostgres()');

@@ -16,30 +16,24 @@ export class CocinaService {
 
   readonly tickets = signal<TicketCocina[]>([]);
   readonly itemsPendientes = signal<ReadonlySet<number>>(new Set());
-  // 🔹 Iniciar en 'PENDIENTE' como filtro predeterminado
   readonly filtroEstado = signal<string>('PENDIENTE');
 
-  // Cómputo dinámico corregido para evaluar por ítems pendientes/en preparación
+  readonly contadores = computed(() => ({
+    pendientes: this.tickets().length,
+    preparando: this.tickets().filter(ticket => ticket.estado === 'PREPARANDO' || ticket.estado === 'LISTO').length,
+    listos: this.tickets().filter(ticket => ticket.estado === 'LISTO').length,
+  }));
+
   readonly ticketsFiltrados = computed(() => {
     const filtro = this.filtroEstado();
     const listaTickets = this.tickets();
 
-    if (filtro === 'TODOS') return listaTickets;
-
-    if (filtro === 'PENDIENTE') {
-      // Muestra tickets que tengan al menos 1 platillo SIN tachar (pendiente por preparar)
-      return listaTickets.filter(
-        (ticket) => ticket.estado === 'PENDIENTE',
-      );
-    }
+    if (filtro === 'TODOS' || filtro === 'PENDIENTE') return listaTickets;
 
     if (filtro === 'PREPARANDO') {
-      // Muestra tickets que ya tienen algunos ítems listos pero faltan otros
       return listaTickets.filter(
         (ticket) =>
-          ticket.items &&
-          ticket.items.some((item) => item.completado) &&
-          ticket.items.some((item) => !item.completado),
+          ticket.estado === 'PREPARANDO' || ticket.estado === 'LISTO',
       );
     }
 

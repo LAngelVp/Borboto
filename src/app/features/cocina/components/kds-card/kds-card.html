@@ -1,4 +1,4 @@
-<mat-card class="kds-card" [class]="getUrgenciaClass(ticket().minutosTranscurridos)">
+<mat-card class="kds-card" [class]="getUrgenciaClass(ticket().minutosTranscurridos)" [class.lista-despacho]="todosCompletados()">
   <!-- Encabezado de la Comanda -->
   <mat-card-header class="kds-header">
     <div class="header-left">
@@ -31,15 +31,19 @@
   </mat-card-content>
 
   <mat-card-actions class="kds-actions">
+    @if (todosCompletados()) {
+      <span class="aviso-listo" role="status">Listo para servir</span>
+    }
     <button
       mat-flat-button
       color="accent"
       class="btn-listo"
+      [class.destacado]="todosCompletados()"
       (click)="ticketListo.emit()"
       [disabled]="ticket().items.length === 0 || tieneItemsPendientes()"
     >
       <mat-icon>check_circle</mat-icon>
-      DESPACHAR
+      {{ todosCompletados() ? 'Despachar pedido (listo para servir)' : 'Despachar pedido' }}
     </button>
   </mat-card-actions>
 </mat-card>

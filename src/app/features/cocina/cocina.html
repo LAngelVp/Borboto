@@ -6,11 +6,11 @@
       <h2>Monitor de Cocina (KDS)</h2>
     </div>
 
-    <mat-chip-listbox [value]="cocinaService.filtroEstado()" (change)="cocinaService.filtroEstado.set($event.value)">
-      <mat-chip-option value="PENDIENTE">Pendientes</mat-chip-option>
-      <mat-chip-option value="PREPARANDO">En Preparación</mat-chip-option>
-      <mat-chip-option value="LISTO">Listos</mat-chip-option>
-      <mat-chip-option value="TODOS">Todas</mat-chip-option>
+    <mat-chip-listbox aria-label="Estado de preparacion" [value]="cocinaService.filtroEstado()" (change)="cocinaService.filtroEstado.set($event.value || 'PENDIENTE')">
+      <mat-chip-option value="PENDIENTE">Pendientes de despacho ({{ cocinaService.contadores().pendientes }})</mat-chip-option>
+      <mat-chip-option value="PREPARANDO">En Preparación ({{ cocinaService.contadores().preparando }})</mat-chip-option>
+      <mat-chip-option value="LISTO">Listos por Despachar ({{ cocinaService.contadores().listos }})</mat-chip-option>
+      <mat-chip-option value="TODOS">Todas ({{ cocinaService.tickets().length }})</mat-chip-option>
     </mat-chip-listbox>
   </header>
 

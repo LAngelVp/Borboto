@@ -257,6 +257,8 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 
 ### Mesas, comandas y cocina
 
+SDD-023 no cambia DTO ni estados SQL. Importacion normaliza categoria con String(...).trim() y fallback General; lookup usa LOWER(BTRIM(nombre)) frente al nombre normalizado para reutilizar categorias existentes. En UI, los estados de ticket siguen PENDIENTE/PREPARANDO/LISTO; el filtro PENDIENTE significa pendientes de despacho (incluye las tres etapas), PREPARANDO incluye PREPARANDO y LISTO. Solo POST despachar cambia estado operativo a LISTO PARA SERVIR. Contadores de Mesas provienen de pedidos activos sin depender de filtros del listado.
+
 | Metodo y ruta | Entrada | Salida / comportamiento |
 | --- | --- | --- |
 | GET /api/mesas | Ninguna | Union de mesas fisicas, externas ABIERTA y CERRADA del dia servidor por fecha_cierre; cerradas DISPONIBLE, minutos 0, creadoEn=fecha_cierre; abiertas minutos desde fecha_apertura minimo 1; fisica sin abierta 0 |

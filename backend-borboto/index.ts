@@ -560,8 +560,8 @@ app.post('/api/productos/importar-lote', async (req, res) => {
     let insertadosCount = 0;
 
     for (const prod of productos) {
-      const nombreCategoria = (prod.categoria || 'General').trim();
-      let catRes = await client.query('SELECT id FROM categorias WHERE LOWER(nombre) = LOWER($1)', [
+      const nombreCategoria = String(prod.categoria ?? '').trim() || 'General';
+      let catRes = await client.query('SELECT id FROM categorias WHERE LOWER(BTRIM(nombre)) = LOWER($1) ORDER BY id LIMIT 1', [
         nombreCategoria,
       ]);
       let categoriaId: number;

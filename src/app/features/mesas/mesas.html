@@ -1,4 +1,18 @@
-<div class="mesas-page">
+<div class="mesas-page" [attr.data-vista]="vistaCompacta()">
+  <nav class="vistas-compactas" aria-label="Vista de mesas y pedidos">
+    <button mat-button type="button" [class.activa]="vistaCompacta() === 'MESAS'"
+      [attr.aria-pressed]="vistaCompacta() === 'MESAS'" (click)="seleccionarVista('MESAS')">
+      <mat-icon>table_restaurant</mat-icon><span>Mesas Físicas <strong>{{ contadoresActivos().MESAS }}</strong></span>
+    </button>
+    <button mat-button type="button" [class.activa]="vistaCompacta() === 'MOSTRADOR'"
+      [attr.aria-pressed]="vistaCompacta() === 'MOSTRADOR'" (click)="seleccionarVista('MOSTRADOR')">
+      <mat-icon>storefront</mat-icon><span>Mostrador <strong>{{ contadoresActivos().MOSTRADOR }}</strong></span>
+    </button>
+    <button mat-button type="button" [class.activa]="vistaCompacta() === 'DOMICILIO'"
+      [attr.aria-pressed]="vistaCompacta() === 'DOMICILIO'" (click)="seleccionarVista('DOMICILIO')">
+      <mat-icon>local_shipping</mat-icon><span>Domicilio <strong>{{ contadoresActivos().DOMICILIO }}</strong></span>
+    </button>
+  </nav>
   <div class="top-row">
     <!-- Filtros de Estado -->
     <app-mesa-filtros class="filtros-flex"></app-mesa-filtros>
@@ -22,9 +36,9 @@
       <h2 class="sec-title">
         <mat-icon>table_restaurant</mat-icon>
         Listado de Mesas
-        <span class="zona-tag" *ngIf="mesaService.filtroZona() !== 'TODAS'">
-          ({{ mesaService.filtroZona() }})
-        </span>
+        @if (mesaService.filtroZona() !== 'TODAS') {
+          <span class="zona-tag">({{ mesaService.filtroZona() }})</span>
+        }
       </h2>
 
       <div class="grid-mesas">
@@ -46,14 +60,16 @@
         <button
           mat-button
           [class.tab-active]="vistaEspecial() === 'MOSTRADOR'"
-          (click)="vistaEspecial.set('MOSTRADOR')">
-          <mat-icon>storefront</mat-icon> Mostrador ({{ mesaService.pedidosMostrador().length }})
+          [attr.aria-pressed]="vistaEspecial() === 'MOSTRADOR'"
+          (click)="seleccionarVista('MOSTRADOR')">
+          <mat-icon>storefront</mat-icon> Mostrador ({{ contadoresActivos().MOSTRADOR }})
         </button>
         <button
           mat-button
           [class.tab-active]="vistaEspecial() === 'DOMICILIO'"
-          (click)="vistaEspecial.set('DOMICILIO')">
-          <mat-icon>local_shipping</mat-icon> Domicilio ({{ mesaService.enviosDomicilio().length }})
+          [attr.aria-pressed]="vistaEspecial() === 'DOMICILIO'"
+          (click)="seleccionarVista('DOMICILIO')">
+          <mat-icon>local_shipping</mat-icon> Domicilio ({{ contadoresActivos().DOMICILIO }})
         </button>
       </div>
 

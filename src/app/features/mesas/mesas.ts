@@ -5,6 +5,7 @@ import {
   OnInit,
   OnDestroy,
   signal,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -62,6 +63,22 @@ export class MesasComponent implements OnInit, OnDestroy {
 
   // Controla la pestaña activa del panel derecho ('MOSTRADOR' o 'DOMICILIO')
   readonly vistaEspecial = signal<'MOSTRADOR' | 'DOMICILIO'>('MOSTRADOR');
+  readonly vistaCompacta = signal<'MESAS' | 'MOSTRADOR' | 'DOMICILIO'>('MESAS');
+  readonly contadoresActivos = computed(() => {
+    const contadores = { MESAS: 0, MOSTRADOR: 0, DOMICILIO: 0 };
+    for (const mesa of this.mesaService.mesas()) {
+      if (['DISPONIBLE', 'LIBRE'].includes(String(mesa.estado).trim().toUpperCase())) continue;
+      if (mesa.id > 0) contadores.MESAS++;
+      else if (mesa.tipoOrigen === 'MOSTRADOR') contadores.MOSTRADOR++;
+      else if (mesa.tipoOrigen === 'ENVIO') contadores.DOMICILIO++;
+    }
+    return contadores;
+  });
+
+  seleccionarVista(vista: 'MESAS' | 'MOSTRADOR' | 'DOMICILIO') {
+    this.vistaCompacta.set(vista);
+    if (vista !== 'MESAS') this.vistaEspecial.set(vista);
+  }
 
   private socketSub!: Subscription;
 

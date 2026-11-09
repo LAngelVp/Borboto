@@ -7,7 +7,6 @@ import { Producto } from '../../../../core/models/producto';
 
 @Component({
   selector: 'app-menu-productos',
-  standalone: true,
   imports: [CommonModule, MatChipsModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './menu-productos.html',
@@ -19,10 +18,8 @@ export class MenuProductosComponent {
   // URL base del backend Express
   private readonly API_URL = 'http://127.0.01:3000';
 
-  // Se permite 'any' o 'MatChipListboxChange' para evitar el error de asignación de $event desde la plantilla
-  onCategoriaChange(event: MatChipListboxChange | any) {
-    const seleccion = event?.value ?? 'TODOS';
-    this.comandaService.categoriaSeleccionada.set(seleccion);
+  onCategoriaChange(event: MatChipListboxChange) {
+    this.comandaService.seleccionarCategoria(event.value);
   }
 
   obtenerUrlImagen(url?: string): string {

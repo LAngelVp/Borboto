@@ -63,35 +63,36 @@ export class ComandaService {
     return totalViejos + this.totalNuevosItems();
   });
 
-  // METODO EXTRA RESILIENTE PARA EXTRACTAR EL NOMBRE DE LA CATEGORIA
-  private obtenerNombreCategoria(producto: any): string {
-    if (!producto) return '';
-
-    // 1. Revisa si viene en la propiedad directa 'categoria' (objeto o string)
-    const cat = producto.categoria;
+  private obtenerNombreCategoria(producto: unknown): string {
+    if (!producto || typeof producto !== 'object') return '';
+    const datos = producto as Record<string, unknown>;
+    const cat = datos['categoria'];
     if (typeof cat === 'string' && cat.trim()) return cat.trim();
-    if (typeof cat === 'object' && cat?.nombre) return cat.nombre.toString().trim();
-
-    // 2. Revisa propiedades alternativas comunes del backend
-    if (producto.categoriaNombre) return producto.categoriaNombre.toString().trim();
-    if (producto.categoria_nombre) return producto.categoria_nombre.toString().trim();
-
-    // 3. Si sólo tiene el ID, retorna como fallback
-    if (producto.categoria_id) return `Categoría ${producto.categoria_id}`;
-
+    if (cat && typeof cat === 'object' && 'nombre' in cat) return String(cat.nombre ?? '').trim();
+    const alternativo = datos['categoriaNombre'] ?? datos['categoria_nombre'];
+    if (alternativo != null) return String(alternativo).trim();
+    if (datos['categoria_id']) return `Categoría ${datos['categoria_id']}`;
     return '';
   }
 
   readonly categoriasDisponibles = computed(() => {
-    const nombres = this.productos()
-      .map((p) => this.obtenerNombreCategoria(p))
-      .filter((n) => n.length > 0);
-    return ['TODOS', ...Array.from(new Set(nombres))];
+    const categorias = new Map<string, string>();
+    for (const producto of this.productos()) {
+      const nombre = this.obtenerNombreCategoria(producto);
+      const clave = nombre.toLowerCase();
+      if (nombre && !['todos', 'todas'].includes(clave) && !categorias.has(clave)) categorias.set(clave, nombre);
+    }
+    return ['TODOS', ...categorias.values()];
   });
 
+  seleccionarCategoria(categoria: unknown) {
+    const clave = String(categoria ?? 'TODOS').trim().toLowerCase();
+    this.categoriaSeleccionada.set(this.categoriasDisponibles().find(nombre => nombre.trim().toLowerCase() === clave) ?? 'TODOS');
+  }
+
   readonly productosFiltrados = computed(() => {
-    const seleccion = this.categoriaSeleccionada().trim().toLowerCase();
-    if (!seleccion || seleccion === 'todos') return this.productos();
+    const seleccion = String(this.categoriaSeleccionada() ?? '').trim().toLowerCase();
+    if (!seleccion || seleccion === 'todos' || seleccion === 'todas') return this.productos();
 
     return this.productos().filter((p) => {
       const cat = this.obtenerNombreCategoria(p).toLowerCase();

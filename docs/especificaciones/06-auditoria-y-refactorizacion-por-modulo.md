@@ -4,6 +4,8 @@ Fecha: 2026-11-09. Estado: Implementado (SDD-001..SDD-022; cierre global SDD-099
 
 ## Alcance y metodo
 
+Revision UX posterior [SDD-023](SDD-023-filtros-menu-mesas-responsive-y-kds.md): corregido evento de categorias Material, normalizacion de categorias importadas, layout de cards/acciones y selector compacto de Mesas. Completados KDS permanecen visibles hasta despacho explicito. Ajuste responsive de cabecera global autorizado y comprobado sin overflow con fixtures a 390/1024/1440px. Esta revision no modifica los contratos financieros/fiscales ni requiere PostgreSQL/Electron activos.
+
 Revision de implementacion [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): cierre global Implementado, incluidos los dos contratos durables finales. Las tablas de evidencia original que siguen son una fotografia previa; la matriz maestra registra el estado vigente. SDD-013 confirma USB por itemIds solo tras exito RAW/IPC y mantiene pendientes ante fallo; SDD-017 registra intento por pago antes de HTTP y recupera recibos remotos por external_id sin duplicar create. Una emision ambigua no visible queda bloqueada para conciliacion, no se reemite a ciegas. No se ejecutaron PostgreSQL, Electron, hardware, Facturapi o AXE reales; migracion 006 escrita, no aplicada aqui. Un ack perdido no equivale a garantia de impresion fisica exactamente una vez.
 
 Evidencia final: 56 pruebas aprobadas, 0 fallos; tres typechecks sin errores; server.js regenerado mediante script y sintaxis valida; enlaces Markdown y git diff --check PASS. Estado Implementado corresponde al alcance contractual de los paquetes y validacion en memoria, no a certificacion de despliegue/hardware/proveedor real.

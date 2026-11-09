@@ -1,4 +1,7 @@
 .kds-card {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   background-color: #1e242b;
   color: #ffffff;
   border-radius: 12px;
@@ -15,6 +18,11 @@
     border-top: 8px solid #f44336;
     animation: pulse-red 2s infinite;
   }
+}
+
+.kds-card.lista-despacho {
+  border-color: #81c784;
+  animation: none;
 }
 
 @keyframes pulse-red {
@@ -139,19 +147,41 @@
 }
 
 .kds-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   padding: 12px 16px;
   background-color: #14181d;
   border-top: 1px solid #2c3540;
 
+  .aviso-listo {
+    color: #b9f6ca;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
   .btn-listo {
     width: 100%;
-    height: 48px;
+    height: auto;
+    min-height: 56px;
+    padding: 10px 12px;
+    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
     font-size: 16px;
     font-weight: 800;
     letter-spacing: 0;
     border-radius: 8px;
-    background-color: #4caf50 !important;
+    background-color: #2e7d32 !important;
     color: #ffffff !important;
+
+    &.destacado {
+      background-color: #1b5e20 !important;
+      outline: 2px solid #81c784;
+      outline-offset: -2px;
+    }
 
     &:disabled {
       background-color: #2c3540 !important;
