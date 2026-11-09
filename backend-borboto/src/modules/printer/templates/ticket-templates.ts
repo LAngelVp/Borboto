@@ -54,6 +54,42 @@ export interface ItemComandaImpresion {
   notas?: string;
 }
 
+export interface DatosPrecuenta extends DatosComandaProduccion {
+  datosEmpresa: DatosEmpresaTicket;
+  total: number;
+}
+
+export function generarTemplatePrecuenta(datos: DatosPrecuenta, anchoPapel: AnchoPapel = '80mm'): string {
+  const width = anchoPapel === '58mm' ? 30 : 42;
+  const lineas: string[] = [];
+  const agregar = (texto: string) => {
+    for (let offset = 0; offset < texto.length; offset += width) {
+      lineas.push(texto.slice(offset, offset + width));
+    }
+  };
+  agregar(datos.datosEmpresa.nombre || 'BORBOTO POS');
+  for (const valor of [datos.datosEmpresa.rfc, datos.datosEmpresa.direccion, datos.datosEmpresa.telefono]) {
+    if (valor) agregar(valor);
+  }
+  agregar('*** PRECUENTA / NO ES COMPROBANTE DE PAGO ***');
+  agregar(`COMANDA: #${datos.folioComanda}`);
+  agregar(`ORIGEN: ${datos.tipoOrigen || 'MESA'} ${datos.folioOrigen || ''}`);
+  if (datos.mesa) agregar(`MESA: ${datos.mesa}`);
+  agregar(`ZONA: ${datos.zona}`);
+  agregar(`MESERO: ${datos.atendidoPor}`);
+  agregar(`FECHA: ${datos.fecha}`);
+  lineas.push('-'.repeat(width));
+  for (const item of datos.items) {
+    agregar(`${item.cantidad}x ${item.nombre}`);
+    agregar(`UNITARIO: $${Number(item.precio_unitario || 0).toFixed(2)}`);
+    agregar(`SUBTOTAL: $${Number(item.subtotal || 0).toFixed(2)}`);
+  }
+  lineas.push('-'.repeat(width));
+  agregar(`TOTAL: $${datos.total.toFixed(2)}`);
+  agregarRemateFinal(lineas, width);
+  return lineas.join('\n');
+}
+
 const MARGEN_INFERIOR_LINEAS = 4;
 
 function obtenerEtiquetaOrigen(

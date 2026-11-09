@@ -14,7 +14,7 @@ import * as FacturapiModule from 'facturapi';
 import { pool, initDB, sincronizarCombosComoProductos } from './src/db';
 import { realizarSincronizacionFacturas } from './src/sincronizarFacturas';
 import { enviarConteoAGoogleSheets } from './src/services/reporteFacturas.service';
-import { PrinterService } from './src/modules/printer/printer.service';
+import { PrinterService, PrecuentaError } from './src/modules/printer/printer.service';
 import printerRoutes from './src/modules/printer/printer.routes';
 
 dotenv.config();
@@ -841,12 +841,63 @@ app.post('/api/envios/crear', async (req, res) => {
 
 app.post('/api/mesas/:mesaId/servir', async (req, res) => {
   const { mesaId } = req.params;
+  const client = await pool.connect();
+  let transactionOpen = true;
+  let releaseError: Error | undefined;
   try {
-    await pool.query(`UPDATE mesas SET estado = 'SERVIDO' WHERE id = $1`, [mesaId]);
+    await client.query('BEGIN');
+    const mesaRes = await client.query('SELECT id FROM mesas WHERE id = $1 FOR UPDATE', [mesaId]);
+    if (!mesaRes.rows.length) {
+      await client.query('ROLLBACK');
+      transactionOpen = false;
+      return res.status(404).json({ error: 'Mesa no encontrada' });
+    }
+    await client.query(`UPDATE mesas SET estado = 'SERVIDO' WHERE id = $1`, [mesaId]);
+    await client.query(`UPDATE comandas SET estado_operativo = 'SERVIDO' WHERE mesa_id = $1 AND estado = 'ABIERTA'`, [mesaId]);
+    await client.query('COMMIT');
+    transactionOpen = false;
     emitirCambioGlobal('actualizar_mesas');
+    emitirCambioGlobal('actualizar_cocina');
     res.json({ ok: true, mensaje: 'Mesa marcada como servida' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    if (transactionOpen) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError: unknown) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+      }
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } finally {
+    client.release(releaseError);
+  }
+});
+
+app.post('/api/comandas/:comandaId/precuenta', async (req, res) => {
+  const comandaId = Number(req.params.comandaId);
+  if (!Number.isInteger(comandaId) || comandaId <= 0) {
+    return res.status(400).json({ error: 'ID de comanda invalido' });
+  }
+  try {
+    res.json(await PrinterService.imprimirPrecuenta(comandaId));
+  } catch (error: unknown) {
+    res.status(error instanceof PrecuentaError ? error.status : 500)
+      .json({ error: error instanceof Error ? error.message : 'Error al generar precuenta' });
+  }
+});
+
+app.post('/api/mesas/:mesaId/precuenta', async (req, res) => {
+  const mesaId = Number(req.params.mesaId);
+  if (!Number.isInteger(mesaId) || mesaId <= 0) {
+    return res.status(400).json({ error: 'ID de mesa invalido' });
+  }
+  try {
+    const comanda = await obtenerComandaAbiertaPorMesa(pool, mesaId);
+    if (!comanda) return res.status(404).json({ error: 'Mesa sin comanda abierta' });
+    res.json(await PrinterService.imprimirPrecuenta(Number(comanda.id)));
+  } catch (error: unknown) {
+    res.status(error instanceof PrecuentaError ? error.status : 500)
+      .json({ error: error instanceof Error ? error.message : 'Error al generar precuenta' });
   }
 });
 

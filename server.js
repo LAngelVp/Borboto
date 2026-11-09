@@ -118017,6 +118017,36 @@ var import_child_process2 = require("child_process");
 var import_pdf_to_printer = __toESM(require_bundle(), 1);
 
 // backend-borboto/src/modules/printer/templates/ticket-templates.ts
+function generarTemplatePrecuenta(datos, anchoPapel = "80mm") {
+  const width = anchoPapel === "58mm" ? 30 : 42;
+  const lineas = [];
+  const agregar = (texto) => {
+    for (let offset = 0; offset < texto.length; offset += width) {
+      lineas.push(texto.slice(offset, offset + width));
+    }
+  };
+  agregar(datos.datosEmpresa.nombre || "BORBOTO POS");
+  for (const valor of [datos.datosEmpresa.rfc, datos.datosEmpresa.direccion, datos.datosEmpresa.telefono]) {
+    if (valor) agregar(valor);
+  }
+  agregar("*** PRECUENTA / NO ES COMPROBANTE DE PAGO ***");
+  agregar(`COMANDA: #${datos.folioComanda}`);
+  agregar(`ORIGEN: ${datos.tipoOrigen || "MESA"} ${datos.folioOrigen || ""}`);
+  if (datos.mesa) agregar(`MESA: ${datos.mesa}`);
+  agregar(`ZONA: ${datos.zona}`);
+  agregar(`MESERO: ${datos.atendidoPor}`);
+  agregar(`FECHA: ${datos.fecha}`);
+  lineas.push("-".repeat(width));
+  for (const item of datos.items) {
+    agregar(`${item.cantidad}x ${item.nombre}`);
+    agregar(`UNITARIO: $${Number(item.precio_unitario || 0).toFixed(2)}`);
+    agregar(`SUBTOTAL: $${Number(item.subtotal || 0).toFixed(2)}`);
+  }
+  lineas.push("-".repeat(width));
+  agregar(`TOTAL: $${datos.total.toFixed(2)}`);
+  agregarRemateFinal(lineas, width);
+  return lineas.join("\n");
+}
 var MARGEN_INFERIOR_LINEAS = 4;
 function obtenerEtiquetaOrigen(mesa, folioOrigen) {
   if (mesa && mesa.trim()) {
@@ -118154,7 +118184,66 @@ function generarTemplateCobro(datos, anchoPapel = "80mm") {
 }
 
 // backend-borboto/src/modules/printer/printer.service.ts
+var PrecuentaError = class extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+  status;
+};
 var PrinterService = class {
+  static async imprimirPrecuenta(comandaId) {
+    const comandaRes = await pool.query(
+      `SELECT c.id, m.numero AS mesa, c.tipo_origen, c.folio_origen,
+              COALESCE(z.nombre, c.tipo_origen) AS zona, u.nombre AS atendido_por,
+              TO_CHAR(NOW(), 'DD/MM/YYYY HH24:MI') AS fecha
+       FROM comandas c LEFT JOIN mesas m ON m.id = c.mesa_id
+       LEFT JOIN zonas z ON z.id = m.zona_id JOIN usuarios u ON u.id = c.usuario_id
+       WHERE c.id = $1 AND c.estado = 'ABIERTA'`,
+      [comandaId]
+    );
+    if (!comandaRes.rows[0]) throw new PrecuentaError("Comanda abierta no encontrada", 404);
+    const itemsRes = await pool.query(
+      `SELECT ci.cantidad, p.nombre, ci.precio_unitario, ci.subtotal
+       FROM comanda_items ci JOIN productos p ON p.id = ci.producto_id
+       WHERE ci.comanda_id = $1 ORDER BY ci.id`,
+      [comandaId]
+    );
+    if (!itemsRes.rows.length) throw new PrecuentaError("La comanda no tiene items para generar precuenta", 400);
+    const items = itemsRes.rows.map((item) => ({
+      cantidad: Number(item.cantidad),
+      nombre: item.nombre,
+      precio_unitario: Number(item.precio_unitario),
+      subtotal: Number(item.subtotal)
+    }));
+    const comanda = comandaRes.rows[0];
+    const datos = {
+      folioComanda: comandaId,
+      mesa: comanda.mesa,
+      tipoOrigen: comanda.tipo_origen,
+      folioOrigen: comanda.folio_origen,
+      zona: comanda.zona,
+      atendidoPor: comanda.atendido_por,
+      fecha: comanda.fecha,
+      items,
+      total: Math.round(items.reduce((total, item) => total + Number(item.subtotal), 0) * 100) / 100,
+      datosEmpresa: await this.obtenerDatosEmpresaTicket()
+    };
+    const impresoras = await this.obtenerImpresorasPorDestino("CAJA");
+    const textos = [];
+    const impresionesPendientes = [];
+    if (!impresoras.length) textos.push(generarTemplatePrecuenta(datos));
+    for (const impresora of impresoras) {
+      const contenido = generarTemplatePrecuenta(datos, impresora.ancho_papel || "80mm");
+      if (impresora.tipo === "USB") {
+        impresionesPendientes.push(this.crearTrabajoElectron(impresora, contenido, "Precuenta"));
+      } else {
+        const fallback = await this.enviarDirectoAImpresora(impresora, contenido);
+        if (fallback) textos.push(fallback);
+      }
+    }
+    return { ok: true, comandaId, ticketTexto: textos.join("\n\n") || null, impresionesPendientes };
+  }
   static VIRTUAL_PRINTER_PATTERNS = [
     "microsoft print to pdf",
     "microsoft xps document writer",
@@ -119617,12 +119706,59 @@ app.post("/api/envios/crear", async (req, res) => {
 });
 app.post("/api/mesas/:mesaId/servir", async (req, res) => {
   const { mesaId } = req.params;
+  const client = await pool.connect();
+  let transactionOpen = true;
+  let releaseError;
   try {
-    await pool.query(`UPDATE mesas SET estado = 'SERVIDO' WHERE id = $1`, [mesaId]);
+    await client.query("BEGIN");
+    const mesaRes = await client.query("SELECT id FROM mesas WHERE id = $1 FOR UPDATE", [mesaId]);
+    if (!mesaRes.rows.length) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return res.status(404).json({ error: "Mesa no encontrada" });
+    }
+    await client.query(`UPDATE mesas SET estado = 'SERVIDO' WHERE id = $1`, [mesaId]);
+    await client.query(`UPDATE comandas SET estado_operativo = 'SERVIDO' WHERE mesa_id = $1 AND estado = 'ABIERTA'`, [mesaId]);
+    await client.query("COMMIT");
+    transactionOpen = false;
     emitirCambioGlobal("actualizar_mesas");
+    emitirCambioGlobal("actualizar_cocina");
     res.json({ ok: true, mensaje: "Mesa marcada como servida" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (transactionOpen) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError));
+      }
+    }
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } finally {
+    client.release(releaseError);
+  }
+});
+app.post("/api/comandas/:comandaId/precuenta", async (req, res) => {
+  const comandaId = Number(req.params.comandaId);
+  if (!Number.isInteger(comandaId) || comandaId <= 0) {
+    return res.status(400).json({ error: "ID de comanda invalido" });
+  }
+  try {
+    res.json(await PrinterService.imprimirPrecuenta(comandaId));
+  } catch (error) {
+    res.status(error instanceof PrecuentaError ? error.status : 500).json({ error: error instanceof Error ? error.message : "Error al generar precuenta" });
+  }
+});
+app.post("/api/mesas/:mesaId/precuenta", async (req, res) => {
+  const mesaId = Number(req.params.mesaId);
+  if (!Number.isInteger(mesaId) || mesaId <= 0) {
+    return res.status(400).json({ error: "ID de mesa invalido" });
+  }
+  try {
+    const comanda = await obtenerComandaAbiertaPorMesa(pool, mesaId);
+    if (!comanda) return res.status(404).json({ error: "Mesa sin comanda abierta" });
+    res.json(await PrinterService.imprimirPrecuenta(Number(comanda.id)));
+  } catch (error) {
+    res.status(error instanceof PrecuentaError ? error.status : 500).json({ error: error instanceof Error ? error.message : "Error al generar precuenta" });
   }
 });
 app.post("/api/comandas", async (req, res) => {

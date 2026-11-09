@@ -8,6 +8,8 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md) implementada: par
 
 ### Integridad de mesa y cobro desde SDD-002
 
+Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md) implementada: precuenta real sin pagos ni flags, SERVIDO sincronizado y fallback TicketModal. Validacion con mocks Node/VM de pg/client/servicios/window, no PostgreSQL/Electron activos. Typechecks backend/Angular/raiz y bundle/sintaxis pasan.
+
 Apertura bloquea SELECT id,estado de mesa FOR UPDATE antes de verificar si tiene ABIERTA; movimiento bloquea origen/destino en orden numerico estable y comprueba destino. Conflicto o unique_violation 23505 en abrir/mover/agregar produce rollback y 409 La mesa ya tiene una comanda abierta. Origen igual a destino se rechaza 400. El indice parcial de 004 impide duplicados por cualquier escritor una vez instalado; si existen duplicados historicos la migracion aborta sin cambiar pedidos.
 
 Cobro, despues del lock de comanda, suma subtotal persistido. Valida descuento manual acotado, promocion activa calculada desde BD o puntos contra saldo del cliente bloqueado; no combina promocion y puntos. Calcula total=max(0,subtotal-descuento) y cambio en centavos; EFECTIVO debe cubrir total o cuota por partes enteras positivas, de lo contrario 400 y rollback. Sincroniza total de comanda antes de guardar pago; devuelve cifras autoritativas adicionales. Un totalCuenta cliente manipulado no gobierna el pago. Consumo fiscal agrupado usa ese total; desglosado por producto conserva la limitacion de conciliacion con descuentos.
@@ -26,7 +28,8 @@ Socket conserva callback por suscripcion y unsubscribe retira la misma referenci
 | Mover/asignar mesa | Comanda y destino | Traslada mesa asociada; asignacion verifica ABIERTA y conflicto; origen comercial se conserva |
 | Registrar consumo | Mesa o comanda seleccionada | Borrador por producto/notas, agrega nuevas lineas, suma total, envia cocina e impresion por destino |
 | Preparar/despachar | Cocinero | Toggle completado; despacho pone todos LISTO y pedido LISTO PARA SERVIR |
-| Servir | Endpoint existente | Marca mesa SERVIDO; no cambia estado operativo de comanda |
+| Servir | Endpoint existente | Lock de mesa y transaccion; mesa y comandas ABIERTA pasan a SERVIDO; ambos eventos mesas/cocina |
+| Precuenta | Accion de mesa/pedido | Texto NO ES COMPROBANTE DE PAGO, total de items y CAJA RED/USB/fallback; sin cerrar comanda ni cambiar flags |
 | Detalle/cancelacion | Comanda abierta | Motivo sobre notas, CANCELADA, items completados y mesa liberada |
 | Cobrar | ADMIN/CAJERO en Electron por permisos UI | Efectivo/tarjeta/transferencia, descuentos/puntos, metadatos de division, pago y cierre total |
 | Autofactura | Solicitud al cobrar y key configurada | Receipt Facturapi, codigo/URL/expiracion; cliente completa proceso fuera del POS |
@@ -36,7 +39,7 @@ Socket conserva callback por suscripcion y unsubscribe retira la misma referenci
 | Impresoras | Configuracion por destino | RED/USB/SIMULACION, ancho 58/80 mm, termica y corte, prueba |
 | Sincronizacion fiscal y reporte | Arranque, endpoint manual, corte/senales | Facturas locales por periodo y conteo enviado a Sheets |
 
-Limites de capacidad: IMPRIMIR_PRECUENTA es solo un snackbar. No se implementa pasarela de tarjeta, confirmacion bancaria, logistica de reparto ni cobros parciales acumulados. Los filtros de pedidos externos no convierten GET mesas en un historial de pedidos cerrados.
+Limites de capacidad: precuenta se imprime o visualiza para impresion manual, pero no garantiza snapshot durante cambios concurrentes ni entrega fisica. No se implementa pasarela de tarjeta, confirmacion bancaria, logistica de reparto ni cobros parciales acumulados. Los filtros de pedidos externos no convierten GET mesas en un historial de pedidos cerrados.
 
 ## Arranque y apagado
 
@@ -240,7 +243,31 @@ flowchart TD
 
 Produccion separa COCINA/BARRA por categorias.destino_impresion; CAJA/NINGUNO no generan esos tickets. Marca todos los items consultados impreso=true incluso si no hay impresora, si el envio devuelve fallback o si USB aun no se confirma. Cobro sin impresoras CAJA genera ticket simulado 80mm. No hay retry persistente ni confirmacion de papel entregado. RAW requiere Windows y usa temporal .bin con PowerShell/C# winspool; la UI solo evalua exito HTTP, no el campo ok=false de un 200. Electron escapa contenido/titulo para HTML; ancho usa 220/300 px, no una garantia fisica del driver.
 
-La prueba HTTP USB se rechaza para usar Electron desde ajustes. GET impresoras/system esta retirado (410). TicketModal no imprime si no recibe printerName, habitual en los textos de fallback. TicketCobroDialog si tiene window.print, pero no es el dialog que usa el cobro principal.
+La prueba HTTP USB se rechaza para usar Electron desde ajustes. GET impresoras/system esta retirado (410). Desde SDD-003 TicketModal usa printerName, o consulta default del sistema, o window.print si no hay default o falla envio/listado. window.print solicita imprimir ventana actual: no confirma impresion ni aisla contenido del resto de la UI. TicketCobroDialog tambien tiene window.print, pero no es el dialog de cobro principal.
+
+### Precuenta y SERVIDO desde SDD-003
+
+Mesas llama precuenta por comanda o mesa fisica; backend valida ABIERTA/items, lee datos de negocio y genera ticket 58/80mm con cantidades/precio unitario/subtotal y suma real. Consulta CAJA activa y usa RED, USB pendiente o texto fallback. No escribe pagos, comanda, mesa ni flags impreso/impreso_en. USB fallido se visualiza tambien para accion manual. Lecturas separadas no son una transaccion snapshot.
+
+Servir adquiere client, BEGIN y SELECT mesa FOR UPDATE. Inexistente -> ROLLBACK/404; existente -> UPDATE mesas SERVIDO y UPDATE comandas ABIERTA estado_operativo SERVIDO, COMMIT, actualizar_mesas y actualizar_cocina. Error precommit intenta rollback, finally libera una vez; si rollback falla descarta con release(Error). No cambia estado_kds/completado ni cierra comanda.
+
+```mermaid
+sequenceDiagram
+  participant U as Mesas / TicketModal
+  participant B as Backend
+  participant P as PrinterService
+  participant DB as Datos
+  U->>B: POST precuenta por comanda o mesa
+  B->>P: imprimirPrecuenta
+  P->>DB: SELECT abierta, items y CAJA
+  P-->>U: RED enviado o USB pendiente / texto fallback
+  U->>U: Enviar USB o abrir TicketModal
+  U->>U: Impresora indicada/default o window.print
+  U->>B: POST servir
+  B->>DB: BEGIN, lock mesa y ambos UPDATE SERVIDO
+  B->>DB: COMMIT o ROLLBACK ante error
+  B-->>U: actualizar_mesas y actualizar_cocina solo en exito
+```
 
 ## Sincronizacion fiscal, reporte y administracion
 

@@ -1,4 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
+import type { ElectronPendingPrintJob } from './printer.service';
 import { HttpClient } from '@angular/common/http';
 import { Mesa, EstadoMesa } from '../models/mesa';
 import { Zona } from '../models/zona';
@@ -306,5 +307,17 @@ export class MesaService {
       `${this.apiUrl}/comandas/${comandaId}/cancelar`,
       { usuarioId, notas },
     );
+  }
+
+  imprimirPrecuenta(mesa: Mesa) {
+    const ruta = mesa.comandaId
+      ? `/comandas/${mesa.comandaId}/precuenta`
+      : `/mesas/${mesa.mesaId || mesa.id}/precuenta`;
+    return this.http.post<{
+      ok: true;
+      comandaId: number;
+      ticketTexto: string | null;
+      impresionesPendientes: ElectronPendingPrintJob[];
+    }>(`${this.apiUrl}${ruta}`, {});
   }
 }

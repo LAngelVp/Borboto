@@ -11,6 +11,8 @@ import {
   type DatosEmpresaTicket,
   generarTemplateProduccion,
   generarTemplateCobro,
+  generarTemplatePrecuenta,
+  type DatosPrecuenta,
   type DatosComandaProduccion,
   type DatosTicketCobro,
   type ItemComandaImpresion,
@@ -60,7 +62,64 @@ interface UsbRawPrintPayload {
   corteTipo?: TipoCorte;
 }
 
+export class PrecuentaError extends Error {
+  constructor(message: string, readonly status: 400 | 404) {
+    super(message);
+  }
+}
+
 export class PrinterService {
+  static async imprimirPrecuenta(comandaId: number): Promise<{
+    ok: true;
+    comandaId: number;
+    ticketTexto: string | null;
+    impresionesPendientes: ElectronPendingPrintJob[];
+  }> {
+    const comandaRes = await pool.query(
+      `SELECT c.id, m.numero AS mesa, c.tipo_origen, c.folio_origen,
+              COALESCE(z.nombre, c.tipo_origen) AS zona, u.nombre AS atendido_por,
+              TO_CHAR(NOW(), 'DD/MM/YYYY HH24:MI') AS fecha
+       FROM comandas c LEFT JOIN mesas m ON m.id = c.mesa_id
+       LEFT JOIN zonas z ON z.id = m.zona_id JOIN usuarios u ON u.id = c.usuario_id
+       WHERE c.id = $1 AND c.estado = 'ABIERTA'`,
+      [comandaId],
+    );
+    if (!comandaRes.rows[0]) throw new PrecuentaError('Comanda abierta no encontrada', 404);
+    const itemsRes = await pool.query(
+      `SELECT ci.cantidad, p.nombre, ci.precio_unitario, ci.subtotal
+       FROM comanda_items ci JOIN productos p ON p.id = ci.producto_id
+       WHERE ci.comanda_id = $1 ORDER BY ci.id`,
+      [comandaId],
+    );
+    if (!itemsRes.rows.length) throw new PrecuentaError('La comanda no tiene items para generar precuenta', 400);
+    const items: ItemComandaImpresion[] = itemsRes.rows.map((item) => ({
+      cantidad: Number(item.cantidad), nombre: item.nombre,
+      precio_unitario: Number(item.precio_unitario), subtotal: Number(item.subtotal),
+    }));
+    const comanda = comandaRes.rows[0];
+    const datos: DatosPrecuenta = {
+      folioComanda: comandaId, mesa: comanda.mesa, tipoOrigen: comanda.tipo_origen,
+      folioOrigen: comanda.folio_origen, zona: comanda.zona,
+      atendidoPor: comanda.atendido_por, fecha: comanda.fecha,
+      items, total: Math.round(items.reduce((total, item) => total + Number(item.subtotal), 0) * 100) / 100,
+      datosEmpresa: await this.obtenerDatosEmpresaTicket(),
+    };
+    const impresoras = await this.obtenerImpresorasPorDestino('CAJA');
+    const textos: string[] = [];
+    const impresionesPendientes: ElectronPendingPrintJob[] = [];
+    if (!impresoras.length) textos.push(generarTemplatePrecuenta(datos));
+    for (const impresora of impresoras) {
+      const contenido = generarTemplatePrecuenta(datos, impresora.ancho_papel || '80mm');
+      if (impresora.tipo === 'USB') {
+        impresionesPendientes.push(this.crearTrabajoElectron(impresora, contenido, 'Precuenta'));
+      } else {
+        const fallback = await this.enviarDirectoAImpresora(impresora, contenido);
+        if (fallback) textos.push(fallback);
+      }
+    }
+    return { ok: true, comandaId, ticketTexto: textos.join('\n\n') || null, impresionesPendientes };
+  }
+
   private static readonly VIRTUAL_PRINTER_PATTERNS = [
     'microsoft print to pdf',
     'microsoft xps document writer',

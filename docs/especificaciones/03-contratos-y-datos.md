@@ -8,6 +8,8 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): indice unico par
 
 ## Esquema SQL
 
+Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): sin cambios de esquema; precuenta solo lee y servir sincroniza estado_operativo de comandas abiertas. Template DatosPrecuenta extiende DatosComandaProduccion con datosEmpresa y total calculado desde items; PrecuentaError expone status 400/404. Bundle actualizado y pruebas en memoria sin PostgreSQL.
+
 El SQL inicial establece timezone America/Mexico_City, elimina tablas/tipos anteriores con CASCADE y crea 18 tablas contando schema_migrations. No contiene usuarios o configuracion de negocio sembrados. PK id es SERIAL salvo datos_negocio/datos_transferencia (INT); FK y nulabilidad indicadas abajo. `?` significa columna nullable; los DEFAULT no implican NOT NULL. Importes son NUMERIC(10,2), fechas TIMESTAMP sin zona y creado_en suele tener CURRENT_TIMESTAMP.
 
 | Tabla | Columnas y restricciones principales |
@@ -254,7 +256,9 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | POST /api/mesas/:id/abrir | comensales,usuarioId | {ok,comandaId,mesaId,tipoOrigen,folioOrigen}; crea comanda, estado PENDIENTE |
 | POST /api/mesas/:origenId/mover | destinoId | {ok,mensaje}; mueve ultima comanda abierta y estado/comensales/minutos |
 | POST /api/mesas/mover | origenId,destinoId | {ok}; variante mueve todas ABIERTA de origen, solo cambia estados de mesas |
-| POST /api/mesas/:mesaId/servir | Sin cuerpo requerido | {ok,mensaje}; cambia mesas.estado a SERVIDO, no comandas.estado_operativo |
+| POST /api/mesas/:mesaId/servir | Sin cuerpo requerido | {ok,mensaje}; transaccion con lock mesa, mesas.estado y comandas ABIERTA estado_operativo SERVIDO; 404 tras rollback si no existe; emite actualizar_mesas y actualizar_cocina |
+| POST /api/comandas/:comandaId/precuenta | ID entero positivo, cuerpo vacio | {ok:true,comandaId,ticketTexto:string o null,impresionesPendientes:array}; 404 sin ABIERTA, 400 sin items/ID invalido, 500 error operativo |
+| POST /api/mesas/:mesaId/precuenta | ID entero positivo, cuerpo vacio | Resuelve ABIERTA por mesa y usa misma respuesta/servicio; 404 sin comanda, 400 ID invalido/sin items |
 | POST /api/comandas/:comandaId/asignar-mesa | destinoId | {ok,comandaId,mesaId,tipoOrigen,folioOrigen}; solo ABIERTA; 409 si destino tiene otra ABIERTA; preserva origen/folio |
 | POST /api/mostrador/crear | usuarioId,clienteId | 201 {ok,mesaId:null,comandaId,numero,tipoOrigen,folioOrigen}; folio M-n del dia |
 | POST /api/envios/crear | usuarioId,clienteId | Igual con ENVIO y folio E-n |
@@ -307,6 +311,8 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 ### Formas relevantes de respuesta
 
 `autofactura` es null o `{codigo,url,expiracion}`. `ticketTexto` puede ser null/ausente/string segun operacion. `impresionesPendientes` contiene `{tipo:'USB',printerName,contenido,titulo,anchoPapel?,esTermica?,corteTipo?}`. No es una cola persistente: el caller Angular la procesa.
+
+Precuenta usa CAJA activa: RED envia texto por transporte existente, USB retorna trabajos pendientes, simulacion/error retorna ticketTexto; sin impresoras produce texto 80mm. No INSERT pagos ni UPDATE comanda/mesa/items/impreso_en. Total suma subtotal de items sin modificar comandas.total. TicketModal sin nombre consulta impresora predeterminada y, sin alternativa o ante fallo, solicita window.print; no cambia IPC ni garantiza entrega fisica.
 
 SDD-002: cobro ignora totalCuenta/cambio cliente, suma COALESCE(SUM(subtotal),0) de items y sincroniza comandas.total si difiere. Descuento manual debe ser finito/no negativo y <=subtotal; promocion activa se calcula por tipo/valor BD; puntos se validan como enteros contra saldo de cliente bloqueado y no se combinan con promocion. Total y cambio se redondean a centavos. EFECTIVO insuficiente para total o cuota proporcional devuelve 400 {error:'Monto recibido insuficiente para cubrir el total de la cuenta'} despues de rollback; cambio de otros metodos es cero. Respuesta exitosa agrega totalCuenta, descuento y cambio autoritativos manteniendo campos previos. Apertura/movimiento bloquean mesas y comprueban destino libre de comanda; conflicto o 23505 en abrir/mover/agregar devuelve 409 {error:'La mesa ya tiene una comanda abierta'} tras rollback. Precios de adiciones y cifras de corte aun proceden del cliente; no hay idempotency key. Division sigue cerrando toda la comanda. Folios M/E usan COUNT+1 diario sin UNIQUE.
 

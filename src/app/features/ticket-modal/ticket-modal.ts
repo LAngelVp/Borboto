@@ -74,24 +74,30 @@ export class TicketModal {
   private readonly printerService = inject(PrinterService);
 
   async imprimirConNavegador() {
-    if (!this.data.printerName) {
-      this.notifications.warning('Este ticket no tiene una impresora Electron asociada.');
-      return;
-    }
-
     try {
-      const payload = {
-        tipo: 'USB',
-        printerName: this.data.printerName,
-        contenido: this.data.contenidoTicket,
-        titulo: this.data.titulo || 'Ticket',
-        anchoPapel: this.data.anchoPapel || '80mm',
-      } as const;
-      await this.printerService.printTicketSilently(payload);
-
-      this.notifications.success('Ticket enviado a la impresora.');
-    } catch (err: any) {
-      this.notifications.error(err?.message || 'No se pudo imprimir el ticket.');
+      const printerName = this.data.printerName ||
+        (await this.printerService.getSystemPrinters()).find((printer) => printer.isDefault)?.name;
+      if (printerName) {
+        await this.printerService.printTicketSilently({
+          tipo: 'USB', printerName, contenido: this.data.contenidoTicket,
+          titulo: this.data.titulo || 'Ticket', anchoPapel: this.data.anchoPapel || '80mm',
+        });
+        this.notifications.success('Ticket enviado a la impresora.');
+        return;
+      }
+    } catch {
+      this.notifications.warning('Impresion local no disponible; se intentara imprimir la ventana.');
     }
+    if (typeof window !== 'undefined' && typeof window.print === 'function') {
+      try {
+        window.print();
+        this.notifications.info('Dialogo de impresion solicitado.');
+        return;
+      } catch {
+        this.notifications.error('No se pudo abrir el dialogo de impresion.');
+        return;
+      }
+    }
+    this.notifications.error('No hay una impresora local ni impresion de ventana disponible.');
   }
 }

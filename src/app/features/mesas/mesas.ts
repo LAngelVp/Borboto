@@ -14,7 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 
 import { MesaService } from '../../core/services/mesa';
 import { SocketService } from '../../core/services/socket.service';
@@ -29,6 +29,8 @@ import { Mesa } from '../../core/models/mesa';
 import { CrearMostradorDialogComponent } from './components/crear-mostrador-dialog/crear-mostrador-dialog';
 import { FormatoNumeroMesaPipe } from '../../core/pipes/formato-numero-mesa.pipe';
 import { NotificationService } from '../../core/services/notification.service';
+import { PrinterService } from '../../core/services/printer.service';
+import { TicketModal } from '../ticket-modal/ticket-modal';
 
 @Component({
   selector: 'app-mesas',
@@ -56,6 +58,7 @@ export class MesasComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly notifications = inject(NotificationService);
+  private readonly printerService = inject(PrinterService);
 
   // Controla la pestaña activa del panel derecho ('MOSTRADOR' o 'DOMICILIO')
   readonly vistaEspecial = signal<'MOSTRADOR' | 'DOMICILIO'>('MOSTRADOR');
@@ -196,7 +199,7 @@ export class MesasComponent implements OnInit, OnDestroy {
         break;
 
       case 'IMPRIMIR_PRECUENTA':
-        this.notifications.info(`Imprimiendo precuenta de ${mesa.numero}...`);
+        void this.imprimirPrecuenta(mesa);
         break;
 
       case 'MOVER_MESA':
@@ -211,6 +214,32 @@ export class MesasComponent implements OnInit, OnDestroy {
             : { mesaId: mesa.id },
         });
         break;
+    }
+  }
+
+  private async imprimirPrecuenta(mesa: Mesa) {
+    try {
+      const resultado = await firstValueFrom(this.mesaService.imprimirPrecuenta(mesa));
+      for (const trabajo of resultado.impresionesPendientes) {
+        try {
+          await this.printerService.printTicketSilently(trabajo);
+        } catch {
+          this.dialog.open(TicketModal, {
+            width: '360px',
+            data: { contenidoTicket: trabajo.contenido, titulo: 'Precuenta', anchoPapel: trabajo.anchoPapel },
+          });
+          this.notifications.warning('No se pudo imprimir por USB; se abrio la precuenta para imprimir manualmente.');
+        }
+      }
+      if (resultado.ticketTexto) {
+        this.dialog.open(TicketModal, {
+          width: '360px',
+          data: { contenidoTicket: resultado.ticketTexto, titulo: 'Precuenta' },
+        });
+      }
+      this.notifications.info('Precuenta generada sin cerrar la comanda.');
+    } catch {
+      this.notifications.error('No se pudo generar la precuenta; verifica que la comanda este abierta y tenga items.');
     }
   }
 

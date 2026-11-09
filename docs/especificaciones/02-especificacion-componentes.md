@@ -6,6 +6,8 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): index.ts bloquea
 
 ## Shell y paginas Angular
 
+Revision [SDD-003](SDD-003-precuenta-servido-y-ticket-modal.md): generarTemplatePrecuenta e imprimirPrecuenta consultan comanda ABIERTA/items y envian a CAJA sin mutaciones. MesaService ofrece imprimirPrecuenta(Mesa), Mesas procesa USB o TicketModal; servir sincroniza mesa y comandas abiertas con lock/transaccion y dos eventos. Pruebas en memoria, typechecks limpios, bundle regenerado.
+
 | Componente y archivo | Responsabilidad y E/S | Dependencias y estado |
 | --- | --- | --- |
 | App: [src/app/app.ts](../../src/app/app.ts) | Shell con RouterOutlet/navbar; recibe app-notification, errores globales y consola; emite snackbars | AuthService, NotificationService; title signal y bandera de instalacion del puente; no declara OnPush |
@@ -18,7 +20,7 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): index.ts bloquea
 | AjustesComponent: [ajustes.ts](../../src/app/features/ajustes/ajustes.ts) | CRUD categorias, productos, zonas, mesas, clientes, promociones, empleados, impresoras; datos negocio/transferencia, historial cortes, importacion XLSX/CSV, carga imagen y renovacion de licencia | AjustesService, CajaService, AuthService, HttpClient, PrinterService, RuntimeConfigService, NgZone, NotificationService, XLSX; listas/edicion en signals y objetos mutables de formulario; flags de licencia |
 | BillingComponent: [billing-component.ts](../../src/app/features/billing-component/billing-component.ts) | Configura datos fiscales, API keys y CSD; prueba conexion y guarda FormData; embebido en ajustes, sin ruta propia | FormBuilder, Validators, AjustesService, NotificationService; FormGroup, File cer/key, signals probandoConexion/guardando |
 | NotFoundComponent: [not-found.ts](../../src/app/features/not-found/not-found.ts) | Ruta **; devuelve al inicio segun sesion | Router y AuthService; sin almacen de dominio |
-| TicketModal: [ticket-modal.ts](../../src/app/features/ticket-modal/ticket-modal.ts) | Visualiza texto de ticket; MAT_DIALOG_DATA DatosDialogTicket; intento de impresion local exige printerName | MatDialogRef, PrinterService, NotificationService; datos inyectados, no signal propio; no llama window.print pese al nombre imprimirConNavegador |
+| TicketModal: [ticket-modal.ts](../../src/app/features/ticket-modal/ticket-modal.ts) | Visualiza texto de ticket; MAT_DIALOG_DATA DatosDialogTicket; envia a printerName o default del sistema, fallback window.print | MatDialogRef, PrinterService, NotificationService; datos inyectados, no signal propio; no bloquea por ausencia de printerName |
 
 Las paginas no exponen inputs formales. Se encuentran componentes con standalone:true y OnPush, pero no es uniforme: App y TicketModal son ejemplos sin OnPush. No se deduce conformidad AXE/WCAG de estas declaraciones.
 
@@ -34,7 +36,7 @@ Las paginas no exponen inputs formales. Se encuentran componentes con standalone
 | [crear-mostrador-dialog.ts](../../src/app/features/mesas/components/crear-mostrador-dialog/crear-mostrador-dialog.ts), CrearMostradorDialogComponent | Selecciona cliente o crea uno; devuelve confirmado, clienteId y nombre; Mesas crea la comanda despues | AjustesService, MatDialogRef, NotificationService; clientes/busquedaCliente signals, clientesFiltrados computed y campos de cliente |
 | [crear-envio-dialog.ts](../../src/app/features/mesas/components/crear-envio-dialog/crear-envio-dialog.ts), CrearEnvioDialogComponent | Seleccion/creacion de cliente y direccion; devuelve confirmacion y datos para crear ENVIO, o false | AjustesService, MatDialogRef, NotificationService; clientes y busqueda signals, filtrado computed, campos de envio |
 
-IMPRIMIR_PRECUENTA solo emite una notificacion en MesasComponent. No existe envio a impresora asociado a esa rama.
+IMPRIMIR_PRECUENTA invoca MesaService.imprimirPrecuenta, por comandaId si existe o por mesa fisica. Mesas envia trabajos USB con PrinterService y abre TicketModal para texto fallback/simulacion o trabajo USB fallido. No cierra comanda ni marca flags de cocina.
 
 ## Componentes de comanda, cocina y caja
 
