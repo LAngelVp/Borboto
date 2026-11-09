@@ -1,7 +1,21 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { Producto, ItemComanda } from '../models/producto';
 import { RuntimeConfigService } from './runtime-config.service';
+
+interface ComandaCargada {
+  comandaId: number;
+  mesaId: number | null;
+  tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO' | null;
+  folioOrigen: string | null;
+  items: {
+    producto: Omit<Producto, 'precio'> & { precio: number | string };
+    cantidad: number;
+    subtotal: number | string;
+    notas?: string;
+  }[];
+}
 
 @Injectable({
   providedIn: 'root',
@@ -9,6 +23,10 @@ import { RuntimeConfigService } from './runtime-config.service';
 export class ComandaService {
   private readonly http = inject(HttpClient);
   private readonly runtimeConfig = inject(RuntimeConfigService);
+  private cargaComanda?: Subscription;
+  private cargaProductos?: Subscription;
+  private versionComanda = 0;
+  private versionProductos = 0;
 
   private get apiUrl() {
     return this.runtimeConfig.apiBaseUrl;
@@ -82,123 +100,60 @@ export class ComandaService {
   });
 
   cargarProductos() {
-    this.http.get<Producto[]>(`${this.apiUrl}/productos`).subscribe({
+    const version = ++this.versionProductos;
+    this.cargaProductos?.unsubscribe();
+    this.cargaProductos = this.http.get<Producto[]>(`${this.apiUrl}/productos`).subscribe({
       next: (data) => {
+        if (version !== this.versionProductos) return;
         const parsed = (data || []).map((p) => ({
           ...p,
           precio: Number(p.precio),
         }));
         this.productos.set(parsed);
       },
-      error: (err) => console.error('Error al cargar menú:', err),
+      error: (err: unknown) => {
+        if (version === this.versionProductos) console.error('Error al cargar menú:', err);
+      },
     });
   }
 
-  // Carga los consumos previamente guardados sin mezclarlos con el borrador de nuevos ítems
   cargarComandaActivaPorMesa(mesaId: number) {
-    // El borrador de nuevos ítems SIEMPRE inicia limpio
-    this.itemsComanda.set([]);
-
-    this.http
-      .get<{
-        comandaId: number;
-        mesaId: number;
-        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO' | null;
-        folioOrigen: string | null;
-        estadoOperativo:
-          | 'DISPONIBLE'
-          | 'PENDIENTE'
-          | 'EN COCINA'
-          | 'LISTO PARA SERVIR'
-          | 'SERVIDO'
-          | 'LIBRE'
-          | null;
-        items: any[];
-      }>(`${this.apiUrl}/comandas/activa/${mesaId}`)
-      .subscribe({
-        next: (res) => {
-          if (res && res.comandaId > 0) {
-            this.comandaIdActiva.set(res.comandaId);
-            this.mesaIdActual.set(res.mesaId || mesaId);
-            this.tipoOrigenActual.set(res.tipoOrigen);
-            this.folioOrigenActual.set(res.folioOrigen || '');
-
-            const itemsCargados: ItemComanda[] = (res.items || []).map((i) => ({
-              producto: {
-                id: i.producto.id,
-                nombre: i.producto.nombre,
-                precio: Number(i.producto.precio),
-                categoria: i.producto.categoria,
-                imagen_url: i.producto.imagen_url,
-              },
-              cantidad: i.cantidad,
-              subtotal: Number(i.subtotal),
-              notas: i.notas,
-            }));
-
-            // Se asignan a la señal de ítems guardados (referencia visual)
-            this.itemsGuardados.set(itemsCargados);
-          } else {
-            this.comandaIdActiva.set(0);
-            this.mesaIdActual.set(null);
-            this.tipoOrigenActual.set(null);
-            this.folioOrigenActual.set('');
-            this.itemsGuardados.set([]);
-          }
-        },
-        error: () => {
-          this.comandaIdActiva.set(0);
-          this.mesaIdActual.set(null);
-          this.tipoOrigenActual.set(null);
-          this.folioOrigenActual.set('');
-          this.itemsGuardados.set([]);
-        },
-      });
+    this.cargarSeleccion(`/comandas/activa/${mesaId}`, mesaId);
   }
 
   cargarComandaPorId(comandaId: number) {
-    this.itemsComanda.set([]);
+    this.cargarSeleccion(`/comandas/${comandaId}`, null);
+  }
 
-    this.http
-      .get<{
-        comandaId: number;
-        mesaId: number | null;
-        tipoOrigen: 'MESA' | 'MOSTRADOR' | 'ENVIO';
-        folioOrigen: string;
-        estadoOperativo?:
-          'DISPONIBLE' | 'PENDIENTE' | 'EN COCINA' | 'LISTO PARA SERVIR' | 'SERVIDO' | 'LIBRE';
-        items: any[];
-      }>(`${this.apiUrl}/comandas/${comandaId}`)
-      .subscribe({
-        next: (res) => {
-          this.comandaIdActiva.set(res.comandaId || 0);
-          this.mesaIdActual.set(res.mesaId || null);
-          this.tipoOrigenActual.set(res.tipoOrigen || null);
-          this.folioOrigenActual.set(res.folioOrigen || '');
+  private cargarSeleccion(ruta: string, mesaRespaldo: number | null) {
+    this.limpiarComanda();
+    const version = this.versionComanda;
+    this.cargaComanda = this.http.get<ComandaCargada>(`${this.apiUrl}${ruta}`).subscribe({
+      next: (res) => {
+        if (version !== this.versionComanda) return;
+        if (!res || res.comandaId <= 0) {
+          this.restablecerSeleccion();
+          return;
+        }
+        this.comandaIdActiva.set(res.comandaId);
+        this.mesaIdActual.set(res.mesaId ?? mesaRespaldo);
+        this.tipoOrigenActual.set(res.tipoOrigen ?? null);
+        this.folioOrigenActual.set(res.folioOrigen ?? '');
+        this.itemsGuardados.set(this.mapearItems(res.items ?? []));
+      },
+      error: () => {
+        if (version === this.versionComanda) this.restablecerSeleccion();
+      },
+    });
+  }
 
-          const itemsCargados: ItemComanda[] = (res.items || []).map((i) => ({
-            producto: {
-              id: i.producto.id,
-              nombre: i.producto.nombre,
-              precio: Number(i.producto.precio),
-              categoria: i.producto.categoria,
-              imagen_url: i.producto.imagen_url,
-            },
-            cantidad: i.cantidad,
-            subtotal: Number(i.subtotal),
-            notas: i.notas,
-          }));
-
-          this.itemsGuardados.set(itemsCargados);
-        },
-        error: () => {
-          this.comandaIdActiva.set(0);
-          this.mesaIdActual.set(null);
-          this.tipoOrigenActual.set(null);
-          this.folioOrigenActual.set('');
-          this.itemsGuardados.set([]);
-        },
-      });
+  private mapearItems(items: ComandaCargada['items']): ItemComanda[] {
+    return items.map(item => ({
+      producto: { ...item.producto, precio: Number(item.producto.precio) },
+      cantidad: item.cantidad,
+      subtotal: Number(item.subtotal),
+      notas: item.notas,
+    }));
   }
 
   agregarProducto(producto: Producto, notas?: string) {
@@ -255,6 +210,20 @@ export class ComandaService {
   }
 
   limpiarComanda() {
+    ++this.versionComanda;
+    this.cargaComanda?.unsubscribe();
+    this.cargaComanda = undefined;
+    this.restablecerSeleccion();
+  }
+
+  cancelarCargas() {
+    this.limpiarComanda();
+    ++this.versionProductos;
+    this.cargaProductos?.unsubscribe();
+    this.cargaProductos = undefined;
+  }
+
+  private restablecerSeleccion() {
     this.itemsGuardados.set([]);
     this.itemsComanda.set([]);
     this.comandaIdActiva.set(0);

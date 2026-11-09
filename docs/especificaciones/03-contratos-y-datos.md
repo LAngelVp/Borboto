@@ -224,9 +224,9 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | DELETE /api/usuarios/:id | id | Inactiva si tiene comandas, elimina si no; otras FK pueden impedir eliminacion |
 | GET /api/productos | Ninguna | Solo disponibles, categoria como nombre, precio e imagen_url |
 | GET /api/admin/productos | Ninguna | Todos, categoria_id y categoriaNombre |
-| POST /api/productos | categoria_id,nombre,precio,disponible,imagen_url,clave_sat opcional | Fila 201; persiste clave_sat o null |
-| PUT /api/productos/:id | mismos campos | Fila; emite PRODUCTO_ACTUALIZADO; no 404 explicito si falta |
-| DELETE /api/productos/:id | id | Elimina; si falla intenta disponible=false |
+| POST /api/productos | categoria_id,nombre,precio,disponible,imagen_url,clave_sat opcional | Fila 201; persiste clave_sat o null; emite actualizar_productos tras SQL exitoso |
+| PUT /api/productos/:id | mismos campos | Fila; 404 Producto no encontrado si rows vacio; emite actualizar_productos y PRODUCTO_ACTUALIZADO con fila en exito |
+| DELETE /api/productos/:id | id | DELETE RETURNING; 404 ausente; solo FK 23503 intenta disponible=false con UPDATE RETURNING y 404 si ausente; otros errores 500 sin fallback; evento actualizar_productos solo en exito |
 | POST /api/productos/upload | multipart imagen | {url:'/uploads/productos/...png'}; max 10 MB, MIME image/, resize 600x600 |
 | POST /api/productos/importar-lote | {productos:[{nombre,precio,categoria?,disponible?,clave_sat?}]} | {ok:true,agregados}, 201; crea categoria faltante; transaccion de lote |
 | GET /api/categorias | Ninguna | Filas ordenadas por orden/nombre |
@@ -252,8 +252,9 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | Metodo y ruta | Entrada | Salida / comportamiento |
 | --- | --- | --- |
 | GET /api/mesas | Ninguna | Union de mesas fisicas, externas ABIERTA y CERRADA del dia servidor por fecha_cierre; cerradas DISPONIBLE, minutos 0, creadoEn=fecha_cierre; abiertas minutos desde fecha_apertura minimo 1; fisica sin abierta 0 |
+| GET /api/admin/mesas | Ninguna | Solo filas fisicas de mesas con id,numero,zona_id,capacidad,estado y zona desde LEFT JOIN zonas; sin union de comandas externas |
 | POST /api/mesas | numero,zona_id,capacidad | Mesa proyectada 201; estado DISPONIBLE |
-| PUT /api/mesas/:id | mismos campos | Fila SQL o 404 |
+| PUT /api/mesas/:id | numero no vacio (nombre textual o numero finito), zona_id entero positivo, capacidad | Fila SQL; 400 Numero y zona validos son requeridos, 404 Mesa no encontrada; evento mesas solo en exito |
 | DELETE /api/mesas/:id | id | ok; 400 si error de eliminacion/historial |
 | POST /api/mesas/:id/abrir | comensales,usuarioId | {ok,comandaId,mesaId,tipoOrigen,folioOrigen}; crea comanda, estado PENDIENTE |
 | POST /api/mesas/:origenId/mover | destinoId | {ok,mensaje}; mueve ultima comanda abierta y estado/comensales/minutos |
@@ -337,8 +338,8 @@ Servidor comparte listener HTTP; cors origin '*'. emitirCambioGlobal(evento,data
 | --- | --- | --- |
 | actualizar_mesas | Apertura/movimiento/asignacion, pedidos, comandas, cliente, despacho, cobro y CRUD mesas; normalmente sin payload | MesasComponent recarga HTTP |
 | actualizar_cocina | Adiciones, cancelacion, toggle, despacho y cobro; post-COMMIT, sin payload | Cocina recarga HTTP |
-| actualizar_productos | Importacion de lote; sin payload | No se observa suscripcion de pantalla equivalente en los caminos revisados |
-| PRODUCTO_ACTUALIZADO | PUT producto; fila modificada | Broadcast registrado; no asumir recarga general de todos los catalogos |
+| actualizar_productos | POST/PUT/DELETE productos e importacion de lote; sin payload, tras SQL exitoso o COMMIT de lote | Comanda recarga cargarProductos; listener retirado en OnDestroy; carga anterior cancelada/invalida |
+| PRODUCTO_ACTUALIZADO | PUT producto; fila modificada, conservado por compatibilidad | No sustituye actualizar_productos; Comanda usa evento uniforme |
 
 No hay garantia de cobertura de todos los CRUD mediante eventos. Desde SDD-002 SocketService.onEvent conserva handler y retorna teardown socket.off(eventName,handler); unsubscribe elimina exactamente ese listener sin afectar otras suscripciones.
 

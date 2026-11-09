@@ -267,6 +267,18 @@ app.post('/api/productos/upload', uploadImagen.single('imagen'), async (req: any
 });
 
 // ─── 2. MESAS Y ZONAS ────────────────────────────────────────────────────────
+app.get('/api/admin/mesas', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT m.id, m.numero, m.zona_id, m.capacidad, m.estado, z.nombre AS zona
+      FROM mesas m LEFT JOIN zonas z ON m.zona_id = z.id ORDER BY m.id
+    `);
+    res.json(rows);
+  } catch (error: unknown) {
+    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
 app.get('/api/mesas', async (_req, res) => {
   try {
     const query = `
@@ -1819,6 +1831,7 @@ app.post('/api/productos', async (req, res) => {
       `INSERT INTO productos (categoria_id, nombre, precio, disponible, imagen_url, clave_sat) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [Number(categoria_id), nombre, Number(precio), disponible !== false, imagen_url || null, clave_sat || null],
     );
+    emitirCambioGlobal('actualizar_productos');
     res.status(201).json(rows[0]);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -2001,6 +2014,8 @@ app.put('/api/productos/:id', async (req, res) => {
        clave_sat = CASE WHEN $7::boolean THEN $8::varchar ELSE clave_sat END WHERE id = $6 RETURNING *`,
       [Number(categoria_id), nombre, Number(precio), disponible, imagen_url || null, id, clave_sat !== undefined, clave_sat || null],
     );
+    if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    emitirCambioGlobal('actualizar_productos');
     emitirCambioGlobal('PRODUCTO_ACTUALIZADO', rows[0]);
     res.json(rows[0]);
   } catch (err: any) {
@@ -2013,13 +2028,19 @@ app.delete('/api/productos/:id', async (req, res) => {
   try {
     const { rows } = await pool.query('DELETE FROM productos WHERE id = $1 RETURNING *', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    emitirCambioGlobal('actualizar_productos');
     res.json({ ok: true, mensaje: 'Producto removido' });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (typeof err !== 'object' || err === null || !('code' in err) || err.code !== '23503') {
+      return res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
     try {
-      await pool.query('UPDATE productos SET disponible = FALSE WHERE id = $1', [id]);
+      const { rows } = await pool.query('UPDATE productos SET disponible = FALSE WHERE id = $1 RETURNING id', [id]);
+      if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+      emitirCambioGlobal('actualizar_productos');
       res.json({ ok: true, mensaje: 'Producto desactivado lógicamente.' });
-    } catch (err2: any) {
-      res.status(500).json({ error: err2.message });
+    } catch (err2: unknown) {
+      res.status(500).json({ error: err2 instanceof Error ? err2.message : String(err2) });
     }
   }
 });
@@ -2070,10 +2091,15 @@ app.delete('/api/zonas/:id', async (req, res) => {
 app.put('/api/mesas/:id', async (req, res) => {
   const { id } = req.params;
   const { numero, zona_id, capacidad } = req.body;
+  const zonaId = Number(zona_id);
+  const numeroMesa = typeof numero === 'string' ? numero.trim() : typeof numero === 'number' && Number.isFinite(numero) ? String(numero) : '';
+  if (!numeroMesa || !Number.isInteger(zonaId) || zonaId <= 0 || typeof zona_id === 'boolean') {
+    return res.status(400).json({ error: 'Numero y zona validos son requeridos' });
+  }
   try {
     const { rows } = await pool.query(
       `UPDATE mesas SET numero = $1, zona_id = $2, capacidad = $3 WHERE id = $4 RETURNING *`,
-      [numero, Number(zona_id), Number(capacidad) || 4, id],
+      [numeroMesa, zonaId, Number(capacidad) || 4, id],
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Mesa no encontrada' });
     emitirCambioGlobal('actualizar_mesas');

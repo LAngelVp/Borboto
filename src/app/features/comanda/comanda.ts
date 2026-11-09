@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +8,7 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog'; // 👈 1. Importar MatDialog
 
 import { ComandaService } from '../../core/services/comanda';
+import { SocketService } from '../../core/services/socket.service';
 import { MesaService } from '../../core/services/mesa';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -17,7 +19,6 @@ import { TicketModal } from '../ticket-modal/ticket-modal'; // 👈 2. Importar 
 
 @Component({
   selector: 'app-comanda',
-  standalone: true,
   imports: [
     CommonModule,
     MatButtonModule,
@@ -31,8 +32,10 @@ import { TicketModal } from '../ticket-modal/ticket-modal'; // 👈 2. Importar 
   templateUrl: './comanda.html',
   styleUrl: './comanda.scss',
 })
-export class Comanda implements OnInit {
+export class Comanda implements OnInit, OnDestroy {
   protected readonly comandaService = inject(ComandaService);
+  private readonly socketService = inject(SocketService);
+  private readonly subscriptions = new Subscription();
   protected readonly mesaService = inject(MesaService);
   protected readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
@@ -47,16 +50,28 @@ export class Comanda implements OnInit {
   ngOnInit() {
     this.comandaService.cargarProductos();
 
-    this.route.queryParams.subscribe((params) => {
-      this.mesaId = Number(params['mesaId']) || 0;
-      this.comandaId = Number(params['comandaId']) || 0;
+    this.subscriptions.add(this.socketService.onEvent('actualizar_productos').subscribe(() => {
+      this.comandaService.cargarProductos();
+    }));
+    this.subscriptions.add(this.route.queryParamMap.subscribe((params) => {
+      const mesaId = Number(params.get('mesaId'));
+      const comandaId = Number(params.get('comandaId'));
+      this.mesaId = Number.isInteger(mesaId) && mesaId > 0 ? mesaId : 0;
+      this.comandaId = Number.isInteger(comandaId) && comandaId > 0 ? comandaId : 0;
 
       if (this.comandaId > 0) {
         this.comandaService.cargarComandaPorId(this.comandaId);
       } else if (this.mesaId > 0) {
         this.comandaService.cargarComandaActivaPorMesa(this.mesaId);
+      } else {
+        this.comandaService.limpiarComanda();
       }
-    });
+    }));
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+    this.comandaService.cancelarCargas();
   }
 
   enviarCocina() {

@@ -359,7 +359,9 @@ export class AjustesComponent implements OnInit {
 
   private cargarMesas() {
     this.ajustesService.getAdminMesas().subscribe({
-      next: (data) => this.mesas.set(data),
+      next: (data) => this.mesas.set(data.filter(mesa =>
+        Number.isInteger(mesa.id) && (mesa.id ?? 0) > 0 && Number.isInteger(mesa.zona_id) && mesa.zona_id > 0,
+      )),
       error: (err) => console.error('Error al cargar mesas:', err),
     });
   }
@@ -700,6 +702,7 @@ export class AjustesComponent implements OnInit {
   }
 
   habilitarEdicionMesa(m: MesaAdmin) {
+    if (!m.id || m.id <= 0 || !Number.isInteger(m.zona_id) || m.zona_id <= 0) return;
     this.mesaEditando.set({ ...m });
   }
 

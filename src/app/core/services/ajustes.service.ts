@@ -166,7 +166,7 @@ export class AjustesService {
 
   // Mesas
   getAdminMesas(): Observable<MesaAdmin[]> {
-    return this.http.get<MesaAdmin[]>(`${this.apiUrl}/mesas`);
+    return this.http.get<MesaAdmin[]>(`${this.apiUrl}/admin/mesas`);
   }
 
   crearMesa(mesa: MesaAdmin): Observable<MesaAdmin> {
