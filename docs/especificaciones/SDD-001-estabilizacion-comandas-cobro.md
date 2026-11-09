@@ -1,6 +1,7 @@
 # SDD-001: Estabilizacion de comandas y cobro
 
 Estado: Implementado
+Actualizacion parte A (2026-11-09): declaracion local backend-borboto/src/multer.d.ts; el comando TypeScript backend --noEmit termina ahora con cero errores. Sin cambios de dependencias de produccion. Los errores Multer mencionados abajo son evidencia historica anterior a esta limpieza.
 Responsable: GitHub Copilot, arquitectura e implementacion solicitadas por el usuario.
 Fecha / revision: 2026-11-09 / 1.
 Fuentes As-Built relacionadas: [03](03-contratos-y-datos.md), [04](04-flujos-y-funcionalidad.md), [plantilla SDD](05-reglas-sdd-y-convenciones.md).

@@ -119152,6 +119152,15 @@ app.post("/api/mesas/:id/abrir", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const mesaRes = await client.query("SELECT id, estado FROM mesas WHERE id = $1 FOR UPDATE", [id]);
+    if (mesaRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Mesa no encontrada" });
+    }
+    if (await obtenerComandaAbiertaPorMesa(client, id)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
+    }
     const origenMesa = await obtenerOrigenComandaPorMesa(client, id);
     await client.query(
       `UPDATE mesas SET estado = 'PENDIENTE', comensales = $1, minutos_abierta = 1 WHERE id = $2`,
@@ -119174,6 +119183,9 @@ app.post("/api/mesas/:id/abrir", async (req, res) => {
     });
   } catch (err) {
     await client.query("ROLLBACK");
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
+    }
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
@@ -119185,9 +119197,23 @@ app.post("/api/mesas/:origenId/mover", async (req, res) => {
   if (!origenId || !destinoId) {
     return res.status(400).json({ error: "Faltan par\xE1metros: origenId y destinoId son requeridos." });
   }
+  if (Number(origenId) === Number(destinoId)) {
+    return res.status(400).json({ error: "Origen y destino deben ser distintos" });
+  }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    for (const mesaId of [Number(origenId), Number(destinoId)].sort((left, right) => left - right)) {
+      const mesaRes = await client.query("SELECT id, estado FROM mesas WHERE id = $1 FOR UPDATE", [mesaId]);
+      if (mesaRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Mesa no encontrada" });
+      }
+    }
+    if (await obtenerComandaAbiertaPorMesa(client, destinoId)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
+    }
     const mesaOrigenRes = await client.query(
       `SELECT estado, comensales, minutos_abierta FROM mesas WHERE id = $1`,
       [origenId]
@@ -119217,6 +119243,9 @@ app.post("/api/mesas/:origenId/mover", async (req, res) => {
     res.json({ ok: true, mensaje: "Mesa movida exitosamente" });
   } catch (err) {
     await client.query("ROLLBACK");
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
+    }
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
@@ -119691,6 +119720,9 @@ app.post("/api/comandas", async (req, res) => {
     });
   } catch (err) {
     await client.query("ROLLBACK");
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "La mesa ya tiene una comanda abierta" });
+    }
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
@@ -119893,12 +119925,10 @@ app.post("/api/caja/cobrar", async (req, res) => {
     mesaId,
     usuarioId,
     metodoPago,
-    totalCuenta,
-    montoRecibido,
-    cambio,
+    montoRecibido: montoSolicitado,
     dividirCuenta,
     partesIguales,
-    descuento,
+    descuento: descuentoSolicitado,
     promocionId,
     puntosCanjeados,
     solicitaFactura,
@@ -119923,6 +119953,53 @@ app.post("/api/caja/cobrar", async (req, res) => {
       transactionOpen = false;
       return res.status(409).json({ error: "La comanda ya fue cobrada o cancelada" });
     }
+    const subtotalRes = await client.query(
+      "SELECT COALESCE(SUM(subtotal), 0) AS subtotal FROM comanda_items WHERE comanda_id = $1",
+      [comandaId]
+    );
+    const subtotalServidor = Math.round(Number(subtotalRes.rows[0].subtotal) * 100) / 100;
+    let descuento = Number(descuentoSolicitado ?? 0);
+    const puntos = Number(puntosCanjeados ?? 0);
+    const partes = dividirCuenta === true ? Number(partesIguales ?? 1) : 1;
+    const montoRecibido = Number(montoSolicitado);
+    if (!Number.isFinite(subtotalServidor) || subtotalServidor < 0 || !Number.isFinite(descuento) || descuento < 0 || descuento > subtotalServidor || !Number.isInteger(puntos) || puntos < 0 || !Number.isInteger(partes) || partes < 1 || !Number.isFinite(montoRecibido) || montoRecibido < 0 || promocionId && puntos > 0) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return res.status(400).json({ error: "Importes, descuento o division de cuenta invalidos" });
+    }
+    if (promocionId) {
+      const promoRes = await client.query("SELECT tipo, valor FROM promociones WHERE id = $1 AND activo = TRUE", [promocionId]);
+      const promo = promoRes.rows[0];
+      if (!promo || !["DESCUENTO_PORCENTAJE", "DESCUENTO_MONTO"].includes(promo.tipo) || !Number.isFinite(Number(promo.valor)) || Number(promo.valor) < 0) {
+        await client.query("ROLLBACK");
+        transactionOpen = false;
+        return res.status(400).json({ error: "Promocion invalida" });
+      }
+      descuento = Math.min(subtotalServidor, promo.tipo === "DESCUENTO_PORCENTAJE" ? subtotalServidor * Number(promo.valor) / 100 : Number(promo.valor));
+    } else if (puntos > 0) {
+      const clienteRes = await client.query(
+        "SELECT cli.puntos_acumulados FROM clientes cli JOIN comandas c ON c.cliente_id = cli.id WHERE c.id = $1 FOR UPDATE OF cli",
+        [comandaId]
+      );
+      if (!clienteRes.rows[0] || puntos > Number(clienteRes.rows[0].puntos_acumulados) || puntos > Math.ceil(subtotalServidor)) {
+        await client.query("ROLLBACK");
+        transactionOpen = false;
+        return res.status(400).json({ error: "Puntos de lealtad insuficientes o invalidos" });
+      }
+      descuento = Math.min(subtotalServidor, puntos);
+    }
+    descuento = Math.round(descuento * 100) / 100;
+    const totalCuenta = Math.max(0, Math.round((subtotalServidor - descuento) * 100) / 100);
+    const totalExigible = Math.round(totalCuenta / partes * 100) / 100;
+    if (metodoPago === "EFECTIVO" && montoRecibido < totalExigible) {
+      await client.query("ROLLBACK");
+      transactionOpen = false;
+      return res.status(400).json({ error: "Monto recibido insuficiente para cubrir el total de la cuenta" });
+    }
+    const cambio = metodoPago === "EFECTIVO" ? Math.round((montoRecibido - totalExigible) * 100) / 100 : 0;
+    if (Number(comandaRes.rows[0].total) !== subtotalServidor) {
+      await client.query("UPDATE comandas SET total = $1 WHERE id = $2", [subtotalServidor, comandaId]);
+    }
     const configRes = await client.query(
       `SELECT api_key_test, api_key_live, modo_produccion, clave_sat_defecto FROM configuracion_facturacion WHERE id = 1`
     );
@@ -119942,8 +120019,8 @@ app.post("/api/caja/cobrar", async (req, res) => {
         totalCuenta,
         montoRecibido,
         cambio,
-        dividirCuenta || false,
-        partesIguales || 1,
+        dividirCuenta === true,
+        partes,
         descuento || 0,
         promocionId || null
       ]
@@ -120107,6 +120184,9 @@ app.post("/api/caja/cobrar", async (req, res) => {
     res.json({
       ok: true,
       ticketId: pagoId,
+      totalCuenta,
+      descuento,
+      cambio,
       comandaId: Number(comandaId),
       mesaId: mesaIdReal,
       tipoOrigen: comandaInfo.rows[0]?.tipoOrigen,

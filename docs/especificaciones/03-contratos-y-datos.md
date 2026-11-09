@@ -4,6 +4,8 @@ Fecha: 2026-11-09. Fuentes de verdad: [000_init.sql](../../Database/000_init.sql
 
 Revision SDD-001 implementada el 2026-11-09: rollback seguro de cancelacion, bloqueo/verificacion de estado del cobro y subtotal real de items. [Especificacion y evidencia](SDD-001-estabilizacion-comandas-cobro.md). Bundle server.js regenerado con build:server; no hay migracion SQL ni cambios Angular.
 
+Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): indice unico parcial en esquema inicial y [004](../../Database/migrations/004_unique_open_comanda_per_mesa.sql); lock de mesas, calculo financiero en servidor y teardown Socket. SQL 004 no ejecutado: garantia de BD requiere su aplicacion en despliegue. Typechecks backend/Angular limpios y bundle regenerado; pruebas con mocks, sin PostgreSQL.
+
 ## Esquema SQL
 
 El SQL inicial establece timezone America/Mexico_City, elimina tablas/tipos anteriores con CASCADE y crea 18 tablas contando schema_migrations. No contiene usuarios o configuracion de negocio sembrados. PK id es SERIAL salvo datos_negocio/datos_transferencia (INT); FK y nulabilidad indicadas abajo. `?` significa columna nullable; los DEFAULT no implican NOT NULL. Importes son NUMERIC(10,2), fechas TIMESTAMP sin zona y creado_en suele tener CURRENT_TIMESTAMP.
@@ -39,7 +41,7 @@ Enums exactos:
 - estado_factura_enum: PENDIENTE, TIMBRADA, CANCELADA, ERROR (tickets; facturas.estado es VARCHAR).
 - destino_impresion_enum: COCINA, BARRA, CAJA, NINGUNO.
 
-Indices: mesas.estado; comandas.mesa_id parcial ABIERTA (migracion 002 agrega mesa_id IS NOT NULL); comandas(tipo_origen,estado,fecha_apertura DESC); comandas.folio_origen; comandas.estado_operativo (003); comanda_items.completado parcial false; productos.categoria_id; tickets.codigo/estado; facturas.uuid/rfc. El indice de comanda abierta por mesa no es UNIQUE y no evita varias comandas abiertas para la misma mesa.
+Indices: mesas.estado; comandas.mesa_id parcial ABIERTA (migracion 002 agrega mesa_id IS NOT NULL); comandas(tipo_origen,estado,fecha_apertura DESC); comandas.folio_origen; comandas.estado_operativo (003); comanda_items.completado parcial false; productos.categoria_id; tickets.codigo/estado; facturas.uuid/rfc. SDD-002 agrega idx_comandas_unica_mesa_abierta UNIQUE(mesa_id) WHERE estado='ABIERTA' AND mesa_id IS NOT NULL. 004 bloquea tabla y aborta con 23505 ante duplicados historicos; no cierra comandas automaticamente. Conserva el indice previo no unico y usa IF NOT EXISTS para repeticion segura.
 
 ### Evolucion aplicada por initDB
 
@@ -306,7 +308,7 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 
 `autofactura` es null o `{codigo,url,expiracion}`. `ticketTexto` puede ser null/ausente/string segun operacion. `impresionesPendientes` contiene `{tipo:'USB',printerName,contenido,titulo,anchoPapel?,esTermica?,corteTipo?}`. No es una cola persistente: el caller Angular la procesa.
 
-El backend acepta precios, total, cambio, descuento y cifras de corte del cliente; no recalcula autoritativamente todos los importes ni exige idempotency key. La division de cuenta guarda metadatos pero cierra toda la comanda en una solicitud. Los folios M/E se calculan con COUNT+1 por dia, sin secuencia ni restriccion UNIQUE de folio.
+SDD-002: cobro ignora totalCuenta/cambio cliente, suma COALESCE(SUM(subtotal),0) de items y sincroniza comandas.total si difiere. Descuento manual debe ser finito/no negativo y <=subtotal; promocion activa se calcula por tipo/valor BD; puntos se validan como enteros contra saldo de cliente bloqueado y no se combinan con promocion. Total y cambio se redondean a centavos. EFECTIVO insuficiente para total o cuota proporcional devuelve 400 {error:'Monto recibido insuficiente para cubrir el total de la cuenta'} despues de rollback; cambio de otros metodos es cero. Respuesta exitosa agrega totalCuenta, descuento y cambio autoritativos manteniendo campos previos. Apertura/movimiento bloquean mesas y comprueban destino libre de comanda; conflicto o 23505 en abrir/mover/agregar devuelve 409 {error:'La mesa ya tiene una comanda abierta'} tras rollback. Precios de adiciones y cifras de corte aun proceden del cliente; no hay idempotency key. Division sigue cerrando toda la comanda. Folios M/E usan COUNT+1 diario sin UNIQUE.
 
 SDD-001: POST cobrar ejecuta `SELECT id, mesa_id, estado, total FROM comandas WHERE id = $1 FOR UPDATE` inmediatamente despues de BEGIN. No existe: ROLLBACK y `404 {error:'Comanda no encontrada'}`; estado distinto de ABIERTA: ROLLBACK y `409 {error:'La comanda ya fue cobrada o cancelada'}`. Dos cobros que usan este handler se serializan y el segundo rechaza el estado confirmado; no devuelve replay del pago anterior. No sustituye validacion financiera ni serializa todos los otros endpoints. Cancelacion y cobro intentan rollback en errores precommit, liberan una vez y descartan el client con release(Error) si rollback falla; no intentan rollback tras COMMIT confirmado.
 
@@ -321,7 +323,7 @@ Servidor comparte listener HTTP; cors origin '*'. emitirCambioGlobal(evento,data
 | actualizar_productos | Importacion de lote; sin payload | No se observa suscripcion de pantalla equivalente en los caminos revisados |
 | PRODUCTO_ACTUALIZADO | PUT producto; fila modificada | Broadcast registrado; no asumir recarga general de todos los catalogos |
 
-No hay garantia de cobertura de todos los CRUD mediante eventos. SocketService.onEvent agrega listener sin teardown; desuscribir la Subscription de pagina no elimina necesariamente el listener socket.
+No hay garantia de cobertura de todos los CRUD mediante eventos. Desde SDD-002 SocketService.onEvent conserva handler y retorna teardown socket.off(eventName,handler); unsubscribe elimina exactamente ese listener sin afectar otras suscripciones.
 
 ## IPC Electron
 

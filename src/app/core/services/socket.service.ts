@@ -16,9 +16,11 @@ export class SocketService {
 
   onEvent<T>(eventName: string): Observable<T> {
     return new Observable((observer) => {
-      this.socket.on(eventName, (data: T) => {
+      const handler = (data: T) => {
         observer.next(data);
-      });
+      };
+      this.socket.on(eventName, handler);
+      return () => this.socket.off(eventName, handler);
     });
   }
 }

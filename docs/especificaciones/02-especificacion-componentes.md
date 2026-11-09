@@ -2,6 +2,8 @@
 
 Fecha: 2026-11-09. Catalogo de responsabilidades implementadas. E/S significa entradas y salidas observables, incluyendo servicios inyectados, parametros de ruta y resultados de dialogs; no implica que exista un input/output Angular formal. Las rutas de cada fila identifican la fuente. Las dependencias listadas son las funcionales principales; CommonModule, FormsModule y modulos Material actuan como dependencias de presentacion donde se importan.
 
+Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): index.ts bloquea mesas al abrir/mover, convierte 23505 en 409 en esos handlers y adiciones, calcula subtotal/pago/cambio en servidor y valida descuentos/puntos. SocketService retira listeners al desuscribirse. Declaracion local [multer.d.ts](../../backend-borboto/src/multer.d.ts) permite typecheck backend limpio sin cambiar dependencias. Validacion con mocks en memoria, sin PostgreSQL activo.
+
 ## Shell y paginas Angular
 
 | Componente y archivo | Responsabilidad y E/S | Dependencias y estado |
@@ -71,7 +73,7 @@ Prefijo de archivos: src/app/core/services. Todos los servicios siguientes decla
 | [caja-service.ts](../../src/app/core/services/caja-service.ts) | Cuentas, cobro, cliente, cupon, puntos y cortes; HTTP + runtime | Signals de origen/cuenta/cliente/metodo/partes/fiscal; cambio, pagoSuficiente, totalPorPersona computed; limpiarSeleccion resetea |
 | [ajustes.service.ts](../../src/app/core/services/ajustes.service.ts) | Fachada CRUD administrativo y configuracion fiscal/FormData; HTTP + runtime; Observable DTO | Sin cache de dominio |
 | [printer.service.ts](../../src/app/core/services/printer.service.ts) | CRUD/prueba HTTP, get-system-printers IPC, trabajos USB; RAW HTTP con fallback IPC para termica con corte | Sin cola durable; Promises/Observables por solicitud |
-| [socket.service.ts](../../src/app/core/services/socket.service.ts) | Crea socket.io-client desde runtime; onEvent devuelve Observable | Socket singleton; onEvent no devuelve teardown que quite listener |
+| [socket.service.ts](../../src/app/core/services/socket.service.ts) | Crea socket.io-client desde runtime; onEvent devuelve Observable | Socket singleton; callback retenido por suscripcion; teardown invoca off(eventName,handler) al unsubscribe |
 | [notification.service.ts](../../src/app/core/services/notification.service.ts) | Snackbars success/info/warning/error y confirmAction callback | Map de deduplicacion 2.5 s; normaliza texto a 220 caracteres |
 | [theme.service.ts](../../src/app/core/services/theme.service.ts) | Tema claro/oscuro, inicial desde storage/SO; effect sobre DOM/storage | temaActual signal y esOscuro computed |
 

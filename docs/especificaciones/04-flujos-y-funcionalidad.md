@@ -4,6 +4,16 @@ Fecha: 2026-11-09. Fuentes: [main.js](../../main.js), [license.html](../../licen
 
 Revision [SDD-001](SDD-001-estabilizacion-comandas-cobro.md) implementada: rollback en cancelacion, cobro con FOR UPDATE/estado ABIERTA y subtotal generado en lecturas. Veinticuatro escenarios controlados pasan y server.js fue regenerado; no se ejecutaron pruebas sobre PostgreSQL real ni dispositivos. El typecheck conserva errores previos de declaraciones Multer, sin regresiones semanticas nuevas.
 
+Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md) implementada: parte A elimina los errores Multer con declaracion local; backend, Angular y raiz pasan --noEmit con cero errores. Se agregan indice unico 004, apertura/movimiento bloqueados, calculo financiero servidor y teardown Socket. Mocks pg/client/socket y comprobaciones SQL/AST en memoria, sin iniciar ni conectar PostgreSQL/Electron. Bundle regenerado; migracion aun no ejecutada.
+
+### Integridad de mesa y cobro desde SDD-002
+
+Apertura bloquea SELECT id,estado de mesa FOR UPDATE antes de verificar si tiene ABIERTA; movimiento bloquea origen/destino en orden numerico estable y comprueba destino. Conflicto o unique_violation 23505 en abrir/mover/agregar produce rollback y 409 La mesa ya tiene una comanda abierta. Origen igual a destino se rechaza 400. El indice parcial de 004 impide duplicados por cualquier escritor una vez instalado; si existen duplicados historicos la migracion aborta sin cambiar pedidos.
+
+Cobro, despues del lock de comanda, suma subtotal persistido. Valida descuento manual acotado, promocion activa calculada desde BD o puntos contra saldo del cliente bloqueado; no combina promocion y puntos. Calcula total=max(0,subtotal-descuento) y cambio en centavos; EFECTIVO debe cubrir total o cuota por partes enteras positivas, de lo contrario 400 y rollback. Sincroniza total de comanda antes de guardar pago; devuelve cifras autoritativas adicionales. Un totalCuenta cliente manipulado no gobierna el pago. Consumo fiscal agrupado usa ese total; desglosado por producto conserva la limitacion de conciliacion con descuentos.
+
+Socket conserva callback por suscripcion y unsubscribe retira la misma referencia con off; Mesas/Cocina no acumulan ese listener tras navegar y desuscribirse. Las pruebas de concurrencia simulan el lock; no verifican una instancia PostgreSQL real ni ejecutan migraciones.
+
 ## Casos de uso actuales
 
 | Caso | Actor / condicion | Resultado implementado |
@@ -171,7 +181,8 @@ sequenceDiagram
     B->>DB: ROLLBACK
     B-->>U: 409 Ya cobrada o cancelada
   else ABIERTA con lock retenido
-    B->>DB: INSERT pagos
+    B->>DB: SUM subtotal items y validar descuentos/monto
+    B->>DB: Sincronizar total e INSERT pagos autoritativo
     opt Solicita factura
       B->>DB: Leer key activa y productos
       alt Key disponible
@@ -195,7 +206,7 @@ sequenceDiagram
   end
 ```
 
-El backend sigue usando campos financieros recibidos, pero SDD-001 exige comanda ABIERTA bajo FOR UPDATE antes de pagos o efectos fiscales. Dos cobros concurrentes esperan por la misma fila: tras COMMIT del primero, el segundo observa CERRADA y devuelve 409 despues de rollback, sin otro pago/impresion/evento. Inexistente devuelve 404. Los errores precommit intentan rollback y descartan conexion si no pueden limpiarla. La idempotencia es por estado, no una key con replay ni garantia para endpoints ajenos al bloqueo. Dividir cuenta persiste dividir_cuenta/partes_iguales pero el primer POST cierra toda la cuenta: no hay saldo parcial persistente. Facturapi se invoca dentro de la transaccion SQL; no hay transaccion distribuida para revertir un receipt externo si falla SQL despues.
+Desde SDD-002 el backend calcula total/descuento validado/cambio y comprueba monto recibido; SDD-001 exige ABIERTA bajo FOR UPDATE antes de pagos o efectos fiscales. Dos cobros concurrentes esperan por la misma fila: tras COMMIT del primero, el segundo observa CERRADA y devuelve 409 despues de rollback, sin otro pago/impresion/evento. Inexistente devuelve 404. Errores precommit intentan rollback y descartan conexion si no pueden limpiarla. Idempotencia por estado, no replay ni garantia contra adiciones simultaneas que no toman el lock. Dividir cuenta guarda metadatos y cierra toda la cuenta: no hay saldo parcial persistente. Facturapi se invoca dentro de transaccion SQL, sin compensacion distribuida de receipt externo si falla SQL despues.
 
 Para autofactura: EFECTIVO -> payment_form 01, TARJETA -> 04, TRANSFERENCIA -> 03. agruparConsumo crea un solo concepto CONSUMO DE ALIMENTOS Y BEBIDAS con product_key 90101501, unit_key E48 y precio totalCuenta. Sin agrupar usa lineas por producto y clave producto/categoria/default; el fallback de clave es 90101501, tax_included=true. dias_vigencia_ticket se guarda, pero receipts.create no envia ese parametro: la expiracion local se toma del receipt externo.
 
