@@ -266,12 +266,12 @@ Las filas agrupadas enumeran cada metodo expuesto. Los nombres de campos conserv
 | POST /api/envios/crear | usuarioId,clienteId | Igual con ENVIO y folio E-n |
 | GET /api/comandas/activa/:mesaId | mesaId | {comandaId,mesaId,total,tipoOrigen,folioOrigen,estadoOperativo,items}; sin activa: id 0, total 0 e items [] |
 | GET /api/comandas/:comandaId | comandaId | Cuenta/origen/estado/cliente e items; 404 si no existe |
-| POST /api/comandas | comandaId o mesaId, usuarioId, items:[{productoId o producto.id,cantidad,precio o producto.precio,notas}] | {ok,totalAdicional,comandaId,ticketTexto,impresionesPendientes}; agrega items y total, EN COCINA; 400 si identidad/items faltan |
+| POST /api/comandas | comandaId o mesaId, usuarioId, items:[{productoId o producto.id,cantidad,notas}]; precio cliente ignorado | {ok,totalAdicional,comandaId,ticketTexto,impresionesPendientes}; FOR UPDATE y solo ABIERTA; precio de catalogo incluido cero; 400 datos invalidos/producto ausente, 404 comanda ausente, 409 estado terminal/producto no disponible |
 | POST /api/comandas/:comandaId/cancelar | notas | {ok,mensaje}; solo ABIERTA; cancela, libera mesa y completa items con motivo; 404/400 ejecutan ROLLBACK antes de responder |
 | PATCH /api/comandas/:comandaId/cliente | clienteId o null | {ok,cliente:{id,nombre,clientePuntos,clienteEsFrecuente,clienteVisitas} o null}; solo ABIERTA |
 | GET /api/cocina/tickets | Ninguna | Tickets de comandas ABIERTA con items; estado operativo y items con estado_kds/completado |
-| PATCH /api/cocina/items/:itemId/toggle | Sin cuerpo requerido | {ok}; invierte completado, no estado_kds |
-| POST /api/cocina/tickets/:comandaId/despachar | Sin cuerpo requerido | {ok}; todos items LISTO/completado, comanda/mesa LISTO PARA SERVIR |
+| PATCH /api/cocina/items/:itemId/toggle | Sin cuerpo requerido | {ok}; bloquea comanda e item en transaccion; invierte completado, no estado_kds; 404 ausente, 409 no ABIERTA con ROLLBACK |
+| POST /api/cocina/tickets/:comandaId/despachar | Sin cuerpo requerido | {ok}; bloquea comanda; 404 ausente, 409 no ABIERTA con ROLLBACK; todos items LISTO/completado, comanda/mesa LISTO PARA SERVIR; eventos post-COMMIT |
 
 ### Caja, ventas, ajustes y fiscal
 
@@ -324,6 +324,8 @@ SDD-002: cobro ignora totalCuenta/cambio cliente, suma COALESCE(SUM(subtotal),0)
 
 SDD-001: POST cobrar ejecuta `SELECT id, mesa_id, estado, total FROM comandas WHERE id = $1 FOR UPDATE` inmediatamente despues de BEGIN. No existe: ROLLBACK y `404 {error:'Comanda no encontrada'}`; estado distinto de ABIERTA: ROLLBACK y `409 {error:'La comanda ya fue cobrada o cancelada'}`. Dos cobros que usan este handler se serializan y el segundo rechaza el estado confirmado; no devuelve replay del pago anterior. No sustituye validacion financiera ni serializa todos los otros endpoints. Cancelacion y cobro intentan rollback en errores precommit, liberan una vez y descartan el client con release(Error) si rollback falla; no intentan rollback tras COMMIT confirmado.
 
+SDD-008 reemplaza la limitacion anterior de precios cliente: POST comandas consulta productos en transaccion y usa exclusivamente su precio, incluyendo 0.00. Valida IDs enteros positivos y cantidades enteras positivas; producto inexistente 400, disponible=false 409. Adicion, cancelacion, KDS y cobro comparten lock de comanda. Cobro libera exclusivamente mesa_id de la fila bloqueada; NULL nunca usa mesaId del body. No introduce idempotency key ni cambia division/corte. Verificacion en [SDD-008](SDD-008-ciclo-atomico-comanda-y-precios.md).
+
 ## Socket.IO
 
 Servidor comparte listener HTTP; cors origin '*'. emitirCambioGlobal(evento,data?) hace io.emit a todos. connection/disconnect solo registran logs.
@@ -331,7 +333,7 @@ Servidor comparte listener HTTP; cors origin '*'. emitirCambioGlobal(evento,data
 | Evento backend -> UI | Emision y payload | Consumidor observado |
 | --- | --- | --- |
 | actualizar_mesas | Apertura/movimiento/asignacion, pedidos, comandas, cliente, despacho, cobro y CRUD mesas; normalmente sin payload | MesasComponent recarga HTTP |
-| actualizar_cocina | Adiciones, cancelacion, toggle y despacho; sin payload | Cocina recarga HTTP |
+| actualizar_cocina | Adiciones, cancelacion, toggle, despacho y cobro; post-COMMIT, sin payload | Cocina recarga HTTP |
 | actualizar_productos | Importacion de lote; sin payload | No se observa suscripcion de pantalla equivalente en los caminos revisados |
 | PRODUCTO_ACTUALIZADO | PUT producto; fila modificada | Broadcast registrado; no asumir recarga general de todos los catalogos |
 

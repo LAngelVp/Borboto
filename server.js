@@ -119789,11 +119789,20 @@ app.post("/api/comandas", async (req, res) => {
     let comandaActual = null;
     let mesaIdEfectiva = mesaId ? Number(mesaId) : null;
     if (idComandaActual) {
-      comandaActual = await obtenerComandaPorId(client, idComandaActual);
+      const resultado = await client.query(
+        "SELECT id, mesa_id, estado, total, tipo_origen, folio_origen FROM comandas WHERE id = $1 FOR UPDATE",
+        [idComandaActual]
+      );
+      comandaActual = resultado.rows[0];
       if (!comandaActual) {
-        throw new Error("La comanda indicada no existe.");
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Comanda no encontrada" });
       }
-      mesaIdEfectiva = comandaActual.mesaId || mesaIdEfectiva;
+      if (comandaActual.estado !== "ABIERTA") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "No se pueden agregar productos a una comanda cerrada o cancelada" });
+      }
+      mesaIdEfectiva = comandaActual.mesa_id ?? null;
     }
     if (!comandaActual && mesaIdEfectiva) {
       origenMesa = await obtenerOrigenComandaPorMesa(client, mesaIdEfectiva);
@@ -119803,12 +119812,12 @@ app.post("/api/comandas", async (req, res) => {
         throw new Error("Se requiere mesaId para crear una comanda nueva desde una mesa f\xEDsica.");
       }
       const comandaExistente = await client.query(
-        `SELECT id FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1`,
+        `SELECT id, mesa_id, estado FROM comandas WHERE mesa_id = $1 AND estado = 'ABIERTA' ORDER BY id DESC LIMIT 1 FOR UPDATE`,
         [mesaIdEfectiva]
       );
       if (comandaExistente.rows.length > 0) {
         idComandaActual = comandaExistente.rows[0].id;
-        comandaActual = await obtenerComandaPorId(client, idComandaActual);
+        comandaActual = comandaExistente.rows[0];
       } else {
         const nuevaComanda = await client.query(
           `INSERT INTO comandas (mesa_id, usuario_id, estado, total, tipo_origen, folio_origen)
@@ -119824,16 +119833,46 @@ app.post("/api/comandas", async (req, res) => {
         comandaActual = await obtenerComandaPorId(client, idComandaActual);
       }
     }
-    let totalAdicional = 0;
+    const itemsValidados = [];
     for (const item of items) {
-      const productoId = item.productoId || item.producto?.id;
-      const precioUnitario = Number(item.precio || item.producto?.precio || 0);
-      const cantidad = Number(item.cantidad || 1);
+      const productoId = Number(item?.productoId ?? item?.producto?.id);
+      const cantidad = Number(item?.cantidad);
+      if (!Number.isInteger(productoId) || productoId <= 0 || productoId > 2147483647 || !Number.isInteger(cantidad) || cantidad <= 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Producto y cantidad deben ser enteros positivos" });
+      }
+      itemsValidados.push({ productoId, cantidad, notas: item.notas ?? null });
+    }
+    const catalogo = await client.query(
+      "SELECT id, nombre, precio, disponible FROM productos WHERE id = ANY($1::int[])",
+      [[...new Set(itemsValidados.map((item) => item.productoId))]]
+    );
+    const productos = new Map(catalogo.rows.map((producto) => [producto.id, producto]));
+    for (const item of itemsValidados) {
+      const producto = productos.get(item.productoId);
+      if (!producto) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: `Producto ${item.productoId} no existe` });
+      }
+      if (producto.disponible === false) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: `Producto ${producto.id} (${producto.nombre}) no esta disponible` });
+      }
+      if (!Number.isFinite(Number(producto.precio)) || Number(producto.precio) < 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: `Precio invalido del producto ${producto.id}` });
+      }
+    }
+    let totalAdicional = 0;
+    for (const item of itemsValidados) {
+      const productoId = item.productoId;
+      const precioUnitario = Number(productos.get(productoId).precio);
+      const cantidad = item.cantidad;
       const subtotalItem = precioUnitario * cantidad;
       totalAdicional += subtotalItem;
       await client.query(
         `INSERT INTO comanda_items (comanda_id, producto_id, cantidad, precio_unitario, notas, estado_kds) VALUES ($1, $2, $3, $4, $5, 'PENDIENTE')`,
-        [idComandaActual, productoId, cantidad, precioUnitario, item.notas || null]
+        [idComandaActual, productoId, cantidad, precioUnitario, item.notas]
       );
     }
     await client.query(`UPDATE comandas SET total = total + $1 WHERE id = $2`, [
@@ -119887,7 +119926,7 @@ app.post("/api/comandas/:comandaId/cancelar", async (req, res) => {
   let releaseError;
   try {
     await client.query("BEGIN");
-    const comandaRes = await client.query("SELECT mesa_id, estado FROM comandas WHERE id = $1", [
+    const comandaRes = await client.query("SELECT mesa_id, estado FROM comandas WHERE id = $1 FOR UPDATE", [
       comandaId
     ]);
     if (comandaRes.rows.length === 0) {
@@ -120000,15 +120039,34 @@ app.get("/api/cocina/tickets", async (_req, res) => {
 });
 app.patch("/api/cocina/items/:itemId/toggle", async (req, res) => {
   const { itemId } = req.params;
+  const client = await pool.connect();
   try {
-    await pool.query(
+    await client.query("BEGIN");
+    const comandaRes = await client.query(
+      "SELECT c.id, c.estado FROM comandas c WHERE c.id = (SELECT comanda_id FROM comanda_items WHERE id = $1) FOR UPDATE",
+      [itemId]
+    );
+    const itemRes = await client.query("SELECT id FROM comanda_items WHERE id = $1 FOR UPDATE", [itemId]);
+    if (!itemRes.rows[0] || !comandaRes.rows[0]) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Item no encontrado" });
+    }
+    if (comandaRes.rows[0].estado !== "ABIERTA") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "La comanda esta cerrada o cancelada" });
+    }
+    await client.query(
       `UPDATE comanda_items SET completado = NOT COALESCE(completado, false) WHERE id = $1`,
       [itemId]
     );
+    await client.query("COMMIT");
     emitirCambioGlobal("actualizar_cocina");
     res.json({ ok: true });
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 app.post("/api/cocina/tickets/:comandaId/despachar", async (req, res) => {
@@ -120016,6 +120074,19 @@ app.post("/api/cocina/tickets/:comandaId/despachar", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const comandaRes = await client.query(
+      "SELECT id, mesa_id, estado FROM comandas WHERE id = $1 FOR UPDATE",
+      [comandaId]
+    );
+    const comanda = comandaRes.rows[0];
+    if (!comanda) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Comanda no encontrada" });
+    }
+    if (comanda.estado !== "ABIERTA") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "La comanda esta cerrada o cancelada" });
+    }
     await client.query(
       `UPDATE comanda_items SET completado = TRUE, estado_kds = 'LISTO' WHERE comanda_id = $1`,
       [comandaId]
@@ -120023,10 +120094,9 @@ app.post("/api/cocina/tickets/:comandaId/despachar", async (req, res) => {
     await client.query(`UPDATE comandas SET estado_operativo = 'LISTO PARA SERVIR' WHERE id = $1`, [
       comandaId
     ]);
-    const comanda = await obtenerComandaPorId(client, comandaId);
-    if (comanda?.mesaId) {
+    if (comanda.mesa_id) {
       await client.query(`UPDATE mesas SET estado = 'LISTO PARA SERVIR' WHERE id = $1`, [
-        comanda.mesaId
+        comanda.mesa_id
       ]);
     }
     await client.query("COMMIT");
@@ -120073,7 +120143,6 @@ app.get("/api/caja/comanda/:comandaId", async (req, res) => {
 app.post("/api/caja/cobrar", async (req, res) => {
   const {
     comandaId,
-    mesaId,
     usuarioId,
     metodoPago,
     montoRecibido: montoSolicitado,
@@ -120280,7 +120349,8 @@ app.post("/api/caja/cobrar", async (req, res) => {
       [comandaId]
     );
     const clienteId = comandaInfo.rows[0]?.cliente_id;
-    const mesaIdReal = comandaInfo.rows[0]?.mesa_id || mesaId || null;
+    const comandaBloqueada = comandaRes.rows[0];
+    const mesaIdReal = comandaBloqueada.mesa_id ?? null;
     if (clienteId) {
       const negocioInfo = await client.query(
         "SELECT COALESCE(visitas_requeridas_frecuente, 5) AS visitas_requeridas_frecuente, COALESCE(puntos_por_cada_diez_pesos, 1) AS puntos_por_cada_diez_pesos, COALESCE(pesos_por_punto, 10.00) AS pesos_por_punto FROM datos_negocio WHERE id = 1 LIMIT 1"
@@ -120316,6 +120386,7 @@ app.post("/api/caja/cobrar", async (req, res) => {
     transactionOpen = false;
     emitirCambioGlobal("actualizar_mesas");
     let ticketTextoCobro = null;
+    emitirCambioGlobal("actualizar_cocina");
     let impresionesPendientes = [];
     try {
       const resCobroPrinter = await PrinterService.imprimirTicketCobro(pagoId);

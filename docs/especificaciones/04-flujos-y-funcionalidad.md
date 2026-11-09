@@ -151,7 +151,7 @@ No hay validacion estricta del esquema payload ni timer que cierre ventas al ven
 
 ## Pedido y cocina
 
-El borrador de ComandaService distingue itemsGuardados y itemsComanda. Agregar igual producto y notas incrementa cantidad; modificar notas es por indice; enviar manda solo nuevas lineas con productoId, cantidad y precio. POST comandas conserva/reusa la abierta por mesa o crea una, inserta lineas PENDIENTE y suma totalAdicional en transaccion; comanda y mesa pasan EN COCINA.
+El borrador de ComandaService distingue itemsGuardados y itemsComanda. Agregar igual producto y notas incrementa cantidad; modificar notas es por indice; enviar manda solo nuevas lineas con productoId, cantidad y precio. Desde SDD-008 POST comandas bloquea la existente con FOR UPDATE y exige ABIERTA (404 ausente, 409 cerrada/cancelada); conserva/reusa la abierta por mesa o crea una. Valida IDs/cantidades enteros positivos y carga precio/disponibilidad de productos dentro de la transaccion; ignora precio cliente, acepta cero, rechaza producto ausente 400/no disponible 409 con rollback. Inserta lineas PENDIENTE y suma totalAdicional; comanda y mesa asociada pasan EN COCINA; eventos tras COMMIT.
 
 ```mermaid
 sequenceDiagram
@@ -182,7 +182,7 @@ sequenceDiagram
   B-->>K: actualizar_cocina
 ```
 
-KDS filtra PENDIENTE si algun item no esta completado, PREPARANDO si hay mezcla; toggle actualiza optimistamente la UI y no revierte ante error HTTP. Despacho quita ticket local pero el servidor sigue devolviendo comandas ABIERTA con items hasta cobrar/cancelar. El filtro por estado nominal puede discrepar con estado_operativo del contrato.
+KDS filtra PENDIENTE si algun item no esta completado, PREPARANDO si hay mezcla; toggle actualiza optimistamente la UI y no revierte ante error HTTP. Desde SDD-008 toggle bloquea primero comanda y luego item, despacho bloquea comanda; ambos exigen ABIERTA, responden 404 si ausente y 409 si terminal con rollback sin eventos. Despacho quita ticket local pero el servidor sigue devolviendo comandas ABIERTA con items hasta cobrar/cancelar. Eventos post-COMMIT, incluido actualizar_cocina al cobrar, provocan recarga y retiro de cerradas. El filtro por estado nominal puede discrepar con estado_operativo del contrato.
 
 Cancelacion solo acepta ABIERTA; pone CANCELADA/fecha_cierre, estado operativo DISPONIBLE, libera mesa, completa items y antepone notas. Desde SDD-001, las respuestas tempranas 404/400 ejecutan ROLLBACK antes de retornar; catch intenta rollback ante error precommit y finally libera una vez. Si rollback falla, release(Error) descarta la conexion en lugar de devolverla reutilizable al pool. Tras COMMIT confirmado no se intenta revertir. El SELECT de cancelacion no toma FOR UPDATE: la serializacion entre cancelacion y cobro no forma parte de esta correccion.
 
@@ -229,7 +229,7 @@ sequenceDiagram
     end
     B->>DB: Actualizar puntos/visitas del cliente
     B->>DB: CERRADA, liberar mesa y COMMIT
-    B-->>U: Socket actualizar_mesas
+    B-->>U: Socket actualizar_mesas y actualizar_cocina
     B->>P: Generar/despachar ticket por pagoId
     B-->>U: ok, autofactura/error, texto y trabajos USB
     U->>U: Avisar, imprimir y volver a mesas
@@ -237,6 +237,8 @@ sequenceDiagram
 ```
 
 Desde SDD-002 el backend calcula total/descuento validado/cambio y comprueba monto recibido; SDD-001 exige ABIERTA bajo FOR UPDATE antes de pagos o efectos fiscales. Dos cobros concurrentes esperan por la misma fila: tras COMMIT del primero, el segundo observa CERRADA y devuelve 409 despues de rollback, sin otro pago/impresion/evento. Inexistente devuelve 404. Errores precommit intentan rollback y descartan conexion si no pueden limpiarla. Idempotencia por estado, no replay ni garantia contra adiciones simultaneas que no toman el lock. Dividir cuenta guarda metadatos y cierra toda la cuenta: no hay saldo parcial persistente. Facturapi se invoca dentro de transaccion SQL, sin compensacion distribuida de receipt externo si falla SQL despues.
+
+SDD-008 sustituye la limitacion anterior sobre adiciones simultaneas: adicion, cancelacion y KDS adquieren el lock comun de comanda antes de escribir. El cobro libera solo mesa_id de la comanda bloqueada; pedidos externos con NULL no liberan una mesa enviada por cliente. Los mocks verifican SQL/orden y rechazos, no el scheduler de PostgreSQL. Ver [SDD-008](SDD-008-ciclo-atomico-comanda-y-precios.md).
 
 Para autofactura: EFECTIVO -> payment_form 01, TARJETA -> 04, TRANSFERENCIA -> 03. agruparConsumo crea un solo concepto CONSUMO DE ALIMENTOS Y BEBIDAS con product_key 90101501, unit_key E48 y precio totalCuenta. Sin agrupar usa lineas por producto y clave producto/categoria/default; el fallback de clave es 90101501, tax_included=true. dias_vigencia_ticket se guarda, pero receipts.create no envia ese parametro: la expiracion local se toma del receipt externo.
 
