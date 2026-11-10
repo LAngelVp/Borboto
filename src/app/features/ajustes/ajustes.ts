@@ -29,7 +29,6 @@ import { NotificationService } from '../../core/services/notification.service';
 import { PrinterService, Impresora, WindowsPrinterInfo } from '../../core/services/printer.service';
 import { RuntimeConfigService } from '../../core/services/runtime-config.service';
 import * as XLSX from 'xlsx';
-import { InventarioAdminComponent } from '../inventario/inventario-admin';
 
 declare var window: any;
 
@@ -48,7 +47,6 @@ declare var window: any;
     MatSelectModule,
     MatSnackBarModule,
     BillingComponent,
-    InventarioAdminComponent,
   ],
   templateUrl: './ajustes.html',
   styleUrl: './ajustes.scss',

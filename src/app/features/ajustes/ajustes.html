@@ -16,11 +16,6 @@
   </header>
 
   <mat-tab-group class="ajustes-tabs" mat-stretch-tabs="false">
-    @if (authService.usuarioActivo()?.rol === 'ADMIN') {
-      <mat-tab label="Inventario y Almacén">
-        <ng-template matTabContent><app-inventario-admin /></ng-template>
-      </mat-tab>
-    }
     <!-- PESTAÑA 1: CATÁLOGO Y MENÚ -->
     <mat-tab>
       <ng-template mat-tab-label>
