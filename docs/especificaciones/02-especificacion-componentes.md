@@ -14,6 +14,8 @@ Revision [SDD-009](SDD-009-transferencias-folios-y-direccion-envio.md): traslada
 
 ### Inventario SDD-024
 
+Extension UX revision 2 Implementada: InventarioAdminComponent sincroniza controles de paquete habilitados/normalizados CAJA/1 segun permite_paquetes en alta/editar/reset y usa getRawValue. InventarioComponent agrega dictado push-to-talk es-MX a notas (255 caracteres), preserva texto escrito, actualiza provisionales sin duplicarlos, detiene por puntero/teclado y libera reconocimiento con DestroyRef. NotificationService comunica falta de soporte/permisos; teclado sigue disponible al finalizar. Durante reconocimiento la nota es readonly; durante finalizacion se bloquea nuevo dictado/envio, conservando resultados finales. Se cubre inicio tardio despues de soltar y callbacks obsoletos. No se modifica AjustesService, API ni SQL; Ajustes solo contiene la pestaña delegada. Voz depende de navegador/contexto seguro y puede requerir conectividad del proveedor. Ver AC-08/09 y TEST-06/07 de SDD-024: 17 pruebas del arnes, tres typechecks y build correctos; no se certifica microfono real.
+
 | Fuente | Responsabilidad / estado |
 | --- | --- |
 | [inventario.ts](../../src/app/features/inventario/inventario.ts), InventarioComponent | /inventario lazy con authGuard/roleGuard; ADMIN/CAJERO/COCINERO en Electron, COCINERO en navegador segun politica vigente. Filtros de area, guardia y nombre/codigo; tarjetas con stock/paquetes/minimo; vale local con cantidades, saldo proyectado, destino y notas. Signals/computed y formularios reactivos; errores visibles y bloqueo de envio doble local |

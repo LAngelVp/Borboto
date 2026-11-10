@@ -44,6 +44,23 @@ export class InventarioAdminComponent implements OnInit {
     notas: ['', Validators.maxLength(255)],
   });
   readonly filtros = this.fb.group({ insumoId: [''], tipoMovimiento: [''] });
+  constructor() {
+    this.sincronizarPaquetes();
+    this.configuracion.controls.permite_paquetes.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.sincronizarPaquetes());
+  }
+  private sincronizarPaquetes() {
+    const { permite_paquetes, nombre_paquete, factor_paquete } = this.configuracion.controls;
+    if (permite_paquetes.value) {
+      nombre_paquete.enable({ emitEvent: false });
+      factor_paquete.enable({ emitEvent: false });
+    } else {
+      nombre_paquete.setValue('CAJA', { emitEvent: false });
+      factor_paquete.setValue(1, { emitEvent: false });
+      nombre_paquete.disable({ emitEvent: false });
+      factor_paquete.disable({ emitEvent: false });
+    }
+  }
   ngOnInit() {
     this.cargar();
     this.socket.onEvent<void>('actualizar_inventario').pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cargar());
@@ -60,10 +77,12 @@ export class InventarioAdminComponent implements OnInit {
   editar(insumo: Insumo) {
     this.editando.set(insumo.id);
     this.configuracion.reset({ ...insumo, codigo: insumo.codigo ?? '', ubicacion: insumo.ubicacion ?? '', stock_inicial: 0 });
+    this.sincronizarPaquetes();
     this.mensaje.set('');
   }
-  nuevo() { this.editando.set(undefined); this.configuracion.reset(); }
+  nuevo() { this.editando.set(undefined); this.configuracion.reset(); this.sincronizarPaquetes(); }
   guardar() {
+    this.sincronizarPaquetes();
     if (this.ocupado() || this.configuracion.invalid) { this.configuracion.markAllAsTouched(); return; }
     this.ocupado.set(true); this.mensaje.set('');
     this.inventario.guardar(this.configuracion.getRawValue(), this.editando()).subscribe({

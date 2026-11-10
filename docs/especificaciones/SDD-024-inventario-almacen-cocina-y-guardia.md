@@ -2,7 +2,7 @@
 
 Estado: Implementado
 Responsable: Equipo Borboto
-Fecha / revision: 2026-11-09 / 1
+Fecha / revision: 2026-11-09 / 2
 Fuentes As-Built relacionadas: [01](01-arquitectura-general.md), [02](02-especificacion-componentes.md), [03](03-contratos-y-datos.md), [04](04-flujos-y-funcionalidad.md).
 
 ## Problema y alcance
@@ -25,6 +25,8 @@ Hipotesis comprobable: un modulo registrado desde index con pool y emisor inyect
 | REQ-05 | AC-05: suites y builds pasan sin infraestructura activa | tests/sdd-024-inventario.test.cjs | TEST-05 comandos de cierre |
 AC-06: formularios etiquetados, foco visible, teclado y estados de carga/error; no prometer AXE sin ejecutarlo.
 AC-07: una desconexion no confirma exito; no reintentar escrituras automaticamente, recargar antes de decidir un nuevo envio.
+AC-08 (extension REQ-01): alta, edicion y reset sincronizan nombre_paquete/factor_paquete con permite_paquetes. False normaliza CAJA/1 y deshabilita FormControls sin emitir eventos; true habilita ambos. Guardado usa getRawValue. TEST-06 con formularios reales en memoria.
+AC-09 (extension REQ-02): mantener microfono con puntero o Espacio/Enter inicia SpeechRecognition/webkitSpeechRecognition es-MX, interimResults y continuous. Transcripcion acumulada reemplaza provisionales sin duplicarlos y conserva el prefijo escrito, hasta 255 caracteres. Soltar/salir/cancelar detiene, destroy aborta y retira callbacks. Sin soporte/permisos se notifica y permanece teclado disponible. TEST-07 con reconocedor simulado.
 
 ## Contratos
 Todas las rutas bajo `/api/inventario` usan requireAuth (Bearer firmado y usuario activo vigente) y requireRoles.
@@ -48,6 +50,9 @@ Transacciones: BEGIN, SELECT ordenado FOR UPDATE, validar, actualizar e insertar
 No hay clave idempotente: un reenvio confirmado es otra operacion. No existen efectos externos antes de commit.
 
 ## Diseno propuesto
+Extension revision 2: InventarioAdminComponent (compuesto por Ajustes, sin formulario propio en ajustes.ts) observa permite_paquetes con teardown y normaliza tambien despues de reset/editar y antes de guardar. InventarioComponent posee una instancia de reconocimiento por pulsacion, conserva texto base y reconstruye resultados completos, bloquea nuevo dictado/envio mientras termina y evita callbacks despues de destroy. Textarea de solo lectura durante reconocimiento para no sobrescribir ediciones concurrentes; teclado vuelve disponible al finalizar. Sin cambios HTTP, IPC, SQL ni permisos. Hipotesis: disable/enable reactivo y reconstruccion de resultados evitan valores residuales/duplicados; pruebas baratas de reset y dos eventos interim/final pueden refutarla.
+Voz depende del soporte del navegador, permisos, contexto seguro (HTTPS o localhost) y posiblemente del servicio remoto del navegador; no se garantiza offline ni soporte Electron/LAN HTTP. No se guarda audio ni se solicita permiso antes de la pulsacion. El boton incluye estado accesible, teclado, cancelacion por blur y animacion respetando reduced-motion. Estado de esta extension: Implementado. Un inicio tardio tras soltar el boton solicita stop de nuevo; durante finalizacion se conservan resultados finales y se bloquean nuevos inicios/envio.
+
 Modulo backend separado por necesidad de pruebas sin efectos de arranque; registrado en index.ts con pool/emisor. InventarioService mantiene catalogo y alertas con signals y recarga por socket. InventarioComponent gestiona filtros y vale local. InventarioAdminComponent mantiene formularios reactivos de configuracion/entrada/conteo e historial y se integra como pestaña de Ajustes, sin ampliar su servicio generalista.
 
 ```mermaid
@@ -101,9 +106,11 @@ Autoridad exclusivamente servidor: nunca aceptar stock resultante, factor ni usu
 TEST-01: comparar SQL inicial/migracion, checks e indices sin ejecutar PostgreSQL.
 TEST-02/04: node --test backend-borboto/tests/sdd-024-inventario.test.cjs con mocks de pool, sesiones y emision: limites de guardia, paquetes, bloqueo, rollback, compra, conteo, permisos y duplicados.
 TEST-03/05: node --test para sdd-008,009,010,014,099-cierre,024; tsc --noEmit -p backend-borboto/tsconfig.json, tsconfig.app.json y tsconfig.json; bun run build; bun run build:server; node --check server.js.
+TEST-06/07 (revision 2): el mismo arnes sdd-024 usa Angular Forms reales, RxJS y SpeechRecognition simulado; verifica disabled/enable, normalizacion y getRawValue en alta/editar/reset/guardar, teardown de suscripcion, prefijo escrito, reemplazo de interim, resultados finales tras stop, no reinicio concurrente, falta de soporte, permisos denegados, start fallido, variante webkit, teclado, limite 255, inicio tardio y callbacks obsoletos tras destroy.
 Prohibido arrancar PostgreSQL, pg_ctl, initdb, Electron o conectar a 58432. Migracion real, navegador/AXE y hardware no quedan certificados por mocks o compilacion.
 
 ## Entrega y decisiones
+Evidencia extension UX revision 2 (2026-11-09): `node --test backend-borboto/tests/sdd-024-inventario.test.cjs` 17/17 (12 anteriores y 5 nuevas); los tres `bunx tsc --noEmit -p` solicitados, backend/Angular/raiz, cero errores; `bun run build` correcto. No cambia backend ni bundle servidor. No se certifican transcripcion/microfono reales ni soporte de cada dispositivo mediante estos mocks. Los archivos ajustes.ts/html/scss conservan su composicion: el formulario y sus estilos viven realmente en inventario-admin.ts/html/scss.
 Orden: especificacion, SQL/backend/arnes, validacion enfocada, UI/integracion, gates, As-Built. No editar server.js manualmente; build:server lo regenera.
 Se prefiere modulo de dominio inyectable a ampliar handlers inseparables del arranque; componente administrativo enfocado a duplicar logica en Ajustes. Se conserva politica de acceso por dispositivo y no se cambia inventario de productos vendidos.
 Evidencia de cierre (2026-11-09): `node --test` de sdd-008, sdd-009, sdd-010, sdd-014, sdd-099-cierre y sdd-024-inventario: 74/74 pruebas, 12 propias de inventario. `bunx tsc --noEmit -p` backend-borboto/tsconfig.json, tsconfig.app.json y tsconfig.json: cero errores. `bun run build`, `bun run build:server` y `node --check server.js`: correctos. As-Built 01/02/03/04 actualizados. La suite 099 sustituye execFileSync/fs en VM; no inicia binarios reales.

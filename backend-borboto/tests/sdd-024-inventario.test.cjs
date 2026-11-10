@@ -16,6 +16,166 @@ vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs', target: 
   require: name => { assert.equal(name, '../session'); return sessionModule.exports; },
 });
 const { enriquecerInsumo, registrarInventario } = moduleMock.exports;
+async function componenteInventario(nombre, navegador = {}) {
+  await import('@angular/compiler');
+  const forms = await import('@angular/forms');
+  const { Subject, of, takeUntil } = require('rxjs');
+  const destruido = new Subject(), callbacks = [], avisos = [], guardados = [];
+  const providers = {
+    FormBuilder: new forms.FormBuilder(),
+    DestroyRef: { onDestroy(callback) { callbacks.push(callback); } },
+    NotificationService: { warning(message) { avisos.push(message); } },
+    SocketService: { onEvent() { return new Subject(); } },
+    InventarioService: {
+      insumos: () => [], listarTodos: () => of([]), movimientos: () => of([]), recargar() {},
+      guardar(body, id) { guardados.push({ body, id }); return of({}); },
+    },
+  };
+  const tokens = new Map();
+  const core = {
+    Component: () => target => target,
+    ChangeDetectionStrategy: { OnPush: 0 },
+    inject: dependency => providers[dependency.name],
+    computed: derive => derive,
+    signal(initial) { let value = initial; const read = () => value; read.set = next => { value = next; }; read.update = update => { value = update(value); }; return read; },
+  };
+  const module = { exports: {} };
+  const filename = nombre === 'InventarioAdminComponent' ? 'inventario-admin' : 'inventario';
+  vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, `src/app/features/inventario/${filename}.ts`), 'utf8'), { loader: 'ts', format: 'cjs', target: 'node18' }).code, {
+    module, exports: module.exports, window: navegador,
+    require(dependency) {
+      if (dependency === '@angular/forms') return forms;
+      if (dependency === 'rxjs') return require('rxjs');
+      if (dependency === '@angular/core/rxjs-interop') return { takeUntilDestroyed: () => takeUntil(destruido) };
+      return new Proxy(dependency === '@angular/core' ? core : {}, { get(target, key) {
+        if (key === '__esModule') return undefined;
+        if (key in target) return target[key];
+        if (!tokens.has(key)) tokens.set(key, Object.defineProperty(function Token() {}, 'name', { value: key }));
+        return tokens.get(key);
+      } });
+    },
+  });
+  return { component: new module.exports[nombre](), avisos, guardados, destroy() { destruido.next(); destruido.complete(); callbacks.forEach(callback => callback()); } };
+}
+function navegadorVoz(options = {}) {
+  const instances = [];
+  class Recognition {
+    constructor() { instances.push(this); this.stops = 0; this.aborts = 0; }
+    start() { if (options.startError) throw Error('microphone unavailable'); if (!options.delayedStart) this.onstart?.(); }
+    stop() { this.stops++; }
+    abort() { this.aborts++; }
+    result(...texts) { this.onresult?.({ results: texts.map(transcript => [{ transcript }]) }); }
+  }
+  return { instances, window: options.webkit ? { webkitSpeechRecognition: Recognition } : { SpeechRecognition: Recognition } };
+}
+const pulsacion = () => ({ button: 0, preventDefault() {} });
+test('TEST-06: paquetes sincronizados en alta, checkbox, editar, reset y payload getRawValue', async () => {
+  const env = await componenteInventario('InventarioAdminComponent');
+  const component = env.component, form = component.configuracion, controls = form.controls;
+  assert.equal(controls.nombre_paquete.disabled, true);
+  assert.equal(controls.factor_paquete.disabled, true);
+  controls.permite_paquetes.setValue(true);
+  assert.equal(controls.nombre_paquete.enabled, true);
+  assert.equal(controls.factor_paquete.enabled, true);
+  form.patchValue({ nombre_paquete: 'SIX', factor_paquete: 6 });
+  controls.permite_paquetes.setValue(false);
+  assert.equal(form.getRawValue().nombre_paquete, 'CAJA');
+  assert.equal(form.getRawValue().factor_paquete, 1);
+  component.editar({ ...base(1), codigo: null, ubicacion: null, nombre_paquete: 'SIX', factor_paquete: 6 });
+  assert.equal(controls.factor_paquete.enabled, true);
+  assert.equal(controls.factor_paquete.value, 6);
+  component.editar({ ...base(2, 20, false), codigo: null, ubicacion: null, nombre_paquete: 'SIX', factor_paquete: 6 });
+  assert.equal(controls.factor_paquete.disabled, true);
+  assert.equal(controls.factor_paquete.value, 1);
+  assert.equal(controls.nombre_paquete.value, 'CAJA');
+  component.nuevo();
+  controls.nombre.setValue('Servilleta');
+  component.guardar();
+  assert.equal(env.guardados[0].body.nombre_paquete, 'CAJA');
+  assert.equal(env.guardados[0].body.factor_paquete, 1);
+  assert.equal(controls.factor_paquete.disabled, true);
+  env.destroy();
+  controls.permite_paquetes.setValue(true);
+  assert.equal(controls.factor_paquete.disabled, true);
+});
+test('TEST-07: push-to-talk conserva prefijo y reemplaza interim sin duplicados; stop y final', async () => {
+  const voice = navegadorVoz();
+  const env = await componenteInventario('InventarioComponent', voice.window), component = env.component;
+  component.formulario.controls.notas.setValue('Para cocina  ');
+  component.iniciarDictadoNota(pulsacion());
+  const recognition = voice.instances[0];
+  assert.equal(recognition.lang, 'es-MX');
+  assert.equal(recognition.interimResults, true);
+  assert.equal(recognition.continuous, true);
+  assert.equal(component.dictando(), true);
+  recognition.result('dos');
+  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos');
+  recognition.result('dos cajas', 'de agua');
+  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua');
+  component.detenerDictadoNota(pulsacion());
+  component.detenerDictadoNota(pulsacion());
+  assert.equal(recognition.stops, 1);
+  assert.equal(component.dictando(), false);
+  assert.equal(component.procesandoDictado(), true);
+  component.iniciarDictadoNota(pulsacion());
+  assert.equal(voice.instances.length, 1);
+  recognition.result('dos cajas', 'de agua mineral');
+  recognition.onend();
+  assert.equal(component.procesandoDictado(), false);
+  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua mineral');
+  component.iniciarDictadoNota(pulsacion());
+  voice.instances[1].result('para barra');
+  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua mineral para barra');
+  env.destroy();
+});
+test('TEST-07: soporte ausente, permisos denegados, start fallido y teclado intacto', async () => {
+  const unsupported = await componenteInventario('InventarioComponent');
+  unsupported.component.formulario.controls.notas.setValue('Escrito');
+  unsupported.component.iniciarDictadoNota(pulsacion());
+  assert.equal(unsupported.avisos.length, 1);
+  assert.equal(unsupported.component.formulario.controls.notas.value, 'Escrito');
+  assert.equal(unsupported.component.procesandoDictado(), false);
+  unsupported.destroy();
+  for (const options of [{}, { startError: true }]) {
+    const voice = navegadorVoz(options), env = await componenteInventario('InventarioComponent', voice.window);
+    env.component.iniciarDictadoNota(pulsacion());
+    if (!options.startError) voice.instances[0].onerror({ error: 'not-allowed' });
+    assert.equal(env.avisos.length, 1);
+    assert.equal(env.component.procesandoDictado(), false);
+    assert.equal(voice.instances[0].aborts, 1);
+    assert.equal(voice.instances[0].onresult, null);
+    env.destroy();
+  }
+});
+test('TEST-07: webkit, teclado, limite de nota y destroy impiden callbacks tardios', async () => {
+  const voice = navegadorVoz({ webkit: true }), env = await componenteInventario('InventarioComponent', voice.window), component = env.component;
+  component.iniciarDictadoNota({ key: 'Tab', preventDefault() {} });
+  assert.equal(voice.instances.length, 0);
+  component.formulario.controls.notas.setValue('x'.repeat(250));
+  component.iniciarDictadoNota({ key: ' ', preventDefault() {} });
+  voice.instances[0].result('texto muy largo');
+  assert.equal(component.formulario.controls.notas.value.length, 255);
+  assert.equal(env.avisos.length, 1);
+  const callback = voice.instances[0].onresult;
+  env.destroy();
+  assert.equal(voice.instances[0].aborts, 1);
+  assert.equal(voice.instances[0].onresult, null);
+  assert.equal(component.procesandoDictado(), false);
+  const anterior = component.formulario.controls.notas.value;
+  callback({ results: [[{ transcript: 'no debe escribirse' }]] });
+  assert.equal(component.formulario.controls.notas.value, anterior);
+});
+test('TEST-07: soltar antes de obtener permiso detiene tambien un inicio tardio', async () => {
+  const voice = navegadorVoz({ delayedStart: true }), env = await componenteInventario('InventarioComponent', voice.window);
+  env.component.iniciarDictadoNota(pulsacion());
+  env.component.detenerDictadoNota(pulsacion());
+  assert.equal(voice.instances[0].stops, 1);
+  voice.instances[0].onstart();
+  assert.equal(voice.instances[0].stops, 2);
+  voice.instances[0].onend();
+  assert.equal(env.component.procesandoDictado(), false);
+  env.destroy();
+});
 const base = (id, stock = 40, paquetes = true) => ({ id, nombre: `Insumo ${id}`, stock_actual: stock, stock_minimo: 10, factor_paquete: 12, permite_paquetes: paquetes, activo: true });
 function entorno(initial = [base(1), base(2)], options = {}) {
   let state = structuredClone(initial), snapshot, movimientos = [], anteriores;

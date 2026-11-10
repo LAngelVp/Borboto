@@ -9,6 +9,7 @@ input, select, textarea, button { font: inherit; max-width: 100%; min-width: 0; 
 button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; cursor: pointer; } button:disabled { color: var(--color-text-muted); background: var(--color-hover); cursor: default; }.principal:not(:disabled) { background: var(--inventario-accion); color: #fff; }
 button:not(:disabled):hover { filter: brightness(.94); }
 input::placeholder, textarea::placeholder { color: var(--color-text-muted); opacity: 1; }
+input:disabled, select:disabled { background: var(--color-hover); color: var(--color-text-muted); border-style: dashed; cursor: not-allowed; opacity: 1; }
 input[type=checkbox] { accent-color: var(--inventario-accion); }
 select option { background: var(--color-surface); color: var(--color-text-main); }
 :is(input,select,textarea,button,.tabla-scroll):focus-visible { outline: 3px solid var(--inventario-foco); outline-offset: 3px; }.acciones { display: flex; gap: 8px; flex-wrap: wrap; }
