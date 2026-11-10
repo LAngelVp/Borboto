@@ -176,6 +176,24 @@ test('TEST-07: soltar antes de obtener permiso detiene tambien un inicio tardio'
   assert.equal(env.component.procesandoDictado(), false);
   env.destroy();
 });
+test('TEST-07: errores de dictado explican causa, conservan nota y liberan microfono', async () => {
+  for (const [codigo, esperado] of [['network', 'Internet'], ['audio-capture', 'ajustes de audio'], ['no-speech', 'No se detecto voz'], ['not-allowed', 'permiso'], ['service-not-allowed', 'servicio de dictado'], ['language-not-supported', 'es-MX'], ['otro-error', 'otro-error']]) {
+    const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', voice.window);
+    env.component.formulario.controls.notas.setValue('Nota previa');
+    env.component.iniciarDictadoNota(pulsacion());
+    voice.instances[0].onerror({ error: codigo });
+    assert.ok(env.avisos[0].includes(esperado), codigo);
+    assert.equal(env.component.formulario.controls.notas.value, 'Nota previa');
+    assert.equal(env.component.procesandoDictado(), false);
+    assert.equal(voice.instances[0].aborts, 1);
+    env.destroy();
+  }
+  const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', { ...voice.window, isSecureContext: false });
+  env.component.iniciarDictadoNota(pulsacion());
+  assert.equal(voice.instances.length, 0);
+  assert.ok(env.avisos[0].includes('HTTPS o localhost'));
+  env.destroy();
+});
 const base = (id, stock = 40, paquetes = true) => ({ id, nombre: `Insumo ${id}`, stock_actual: stock, stock_minimo: 10, factor_paquete: 12, permite_paquetes: paquetes, activo: true });
 function entorno(initial = [base(1), base(2)], options = {}) {
   let state = structuredClone(initial), snapshot, movimientos = [], anteriores;

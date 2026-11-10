@@ -59,6 +59,10 @@ export class InventarioComponent {
     event.preventDefault();
     if (this.enviando() || this.reconocimiento) return;
     const navegador = window as VentanaVoz;
+    if (navegador.isSecureContext === false) {
+      this.notifications.warning('El dictado requiere HTTPS o localhost. En una direccion HTTP de la red local puedes seguir escribiendo con el teclado.');
+      return;
+    }
     const Constructor = navegador.SpeechRecognition ?? navegador.webkitSpeechRecognition;
     if (!Constructor) { this.notifications.warning('Este navegador no admite dictado. Puedes escribir la nota con el teclado.'); return; }
     const prefijo = this.formulario.controls.notas.value.trimEnd();
@@ -83,15 +87,27 @@ export class InventarioComponent {
       reconocimiento.onend = () => { if (this.reconocimiento === reconocimiento) this.liberarDictado(false); };
       reconocimiento.onerror = event => {
         if (this.reconocimiento !== reconocimiento) return;
-        if (event.error !== 'aborted') this.notifications.warning(event.error === 'not-allowed' || event.error === 'service-not-allowed'
-          ? 'No se autorizo el microfono. Puedes escribir la nota con el teclado.'
-          : 'No se pudo completar el dictado. Puedes editar la nota con el teclado.');
+        if (event.error !== 'aborted') this.notifications.warning(this.mensajeErrorDictado(event.error));
         this.liberarDictado();
       };
       reconocimiento.start();
-    } catch {
+    } catch (error) {
       this.liberarDictado();
-      this.notifications.warning('No se pudo iniciar el microfono. Puedes escribir la nota con el teclado.');
+      const nombre = error instanceof Error ? error.name : '';
+      this.notifications.warning(nombre === 'NotAllowedError' ? this.mensajeErrorDictado('not-allowed')
+        : nombre === 'NotFoundError' || nombre === 'NotReadableError' ? this.mensajeErrorDictado('audio-capture')
+        : 'No se pudo iniciar el microfono. Puedes escribir la nota con el teclado.');
+    }
+  }
+  private mensajeErrorDictado(codigo: string): string {
+    switch (codigo) {
+      case 'network': return 'El servicio de dictado no esta disponible. Revisa Internet; en Electron puede no estar habilitado. Prueba en Chrome o Edge con HTTPS o localhost.';
+      case 'audio-capture': return 'No se pudo acceder al microfono. Revisa que este conectado, seleccionado y disponible en los ajustes de audio del dispositivo.';
+      case 'no-speech': return 'No se detecto voz. Manten presionado el microfono y habla cerca de el; despues suelta para terminar.';
+      case 'not-allowed': return 'No se autorizo el microfono. Habilita su permiso en el navegador y en los ajustes de privacidad del dispositivo, o usa el teclado.';
+      case 'service-not-allowed': return 'El navegador no permite usar el servicio de dictado. Prueba en Chrome o Edge con HTTPS o localhost; puedes seguir usando el teclado.';
+      case 'language-not-supported': return 'El servicio de dictado no admite es-MX en este dispositivo. Puedes escribir la nota con el teclado.';
+      default: return `No se pudo completar el dictado (${codigo.replace(/[^a-z-]/g, '').slice(0, 40) || 'error desconocido'}). Puedes editar la nota con el teclado.`;
     }
   }
   detenerDictadoNota(event?: PointerEvent | KeyboardEvent) {
