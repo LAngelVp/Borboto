@@ -1,16 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InventarioService, Insumo, ItemSalida, ModoCaptura, OrigenSalida, errorInventario } from '../../core/services/inventario.service';
-import { NotificationService } from '../../core/services/notification.service';
-
-interface ResultadoVoz { results: ArrayLike<ArrayLike<{ transcript: string }>> }
 interface ReconocimientoVoz {
   lang: string; interimResults: boolean; continuous: boolean;
-  onresult: ((event: ResultadoVoz) => void) | null;
-  onerror: ((event: { error: string; mensaje?: string }) => void) | null;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null; onstart: (() => void) | null;
   start(): void; stop(): void; abort(): void;
 }
@@ -19,62 +16,24 @@ type VentanaVoz = Window & {
   webkitSpeechRecognition?: new () => ReconocimientoVoz;
 };
 
-interface PuenteDictado {
-  invoke(channel: string, payload?: unknown): Promise<unknown>;
-  on(channel: string, callback: (event: unknown, payload: unknown) => void): () => void;
-}
-class ReconocimientoWindows implements ReconocimientoVoz {
-  private static secuencia = 0;
-  private readonly id = `voz-${Date.now()}-${++ReconocimientoWindows.secuencia}`;
-  private retirarListener?: () => void;
-  private activo = false;
-  lang = 'es-MX'; interimResults = true; continuous = true;
-  onresult: ReconocimientoVoz['onresult'] = null;
-  onerror: ReconocimientoVoz['onerror'] = null;
-  onend: ReconocimientoVoz['onend'] = null;
-  onstart: ReconocimientoVoz['onstart'] = null;
-  constructor(private readonly puente: PuenteDictado) {}
-  start() {
-    this.activo = true;
-    this.retirarListener = this.puente.on('dictado-resultado', (_event, payload) => {
-      if (!this.activo || !payload || typeof payload !== 'object' || !('id' in payload) || payload.id !== this.id || !('tipo' in payload)) return;
-      if (payload.tipo === 'listo') this.onstart?.();
-      else if (payload.tipo === 'texto' && 'texto' in payload && typeof payload.texto === 'string') this.onresult?.({ results: [[{ transcript: payload.texto }]] });
-      else if (payload.tipo === 'error') this.fallar('error' in payload && typeof payload.error === 'string' ? payload.error : 'El motor local no pudo completar el dictado.');
-      else if (payload.tipo === 'fin') { this.finalizar(); this.onend?.(); }
-    });
-    this.invocar('dictado-iniciar');
-  }
-  stop() { if (this.activo) this.invocar('dictado-detener'); }
-  abort() {
-    const activo = this.activo;
-    this.finalizar();
-    if (activo) void this.puente.invoke('dictado-cancelar', { id: this.id }).catch(() => {});
-  }
-  private invocar(canal: string) {
-    void this.puente.invoke(canal, { id: this.id }).then(result => {
-      if (!this.activo) return;
-      if (!result || typeof result !== 'object' || !('ok' in result) || result.ok !== true) this.fallar(result && typeof result === 'object' && 'error' in result && typeof result.error === 'string' ? result.error : 'El puente de dictado local no esta disponible. Actualiza la aplicacion instalada.');
-    }).catch(() => { if (this.activo) this.fallar('No se pudo comunicar con el motor local. Actualiza la aplicacion instalada.'); });
-  }
-  private fallar(mensaje: string) {
-    this.onerror?.({ error: 'native', mensaje });
-    this.abort();
-  }
-  private finalizar() { this.activo = false; this.retirarListener?.(); this.retirarListener = undefined; }
-}
-
 @Component({
   selector: 'app-inventario', imports: [ReactiveFormsModule, DecimalPipe, MatIconModule],
   templateUrl: './inventario.html', styleUrl: './inventario.scss', changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class InventarioComponent {
   readonly inventario = inject(InventarioService);
-  private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
   private reconocimiento: ReconocimientoVoz | null = null;
+  private solicitudPermiso: object | null = null;
+  private permisoConcedido = false;
+  private servicioNoDisponible = false;
+  private destruido = false;
+  private finalizacion?: ReturnType<typeof setTimeout>;
+  private readonly notaSalida = viewChild<ElementRef<HTMLTextAreaElement>>('notaSalida');
   readonly dictando = signal(false);
   readonly procesandoDictado = signal(false);
+  readonly pidiendoPermiso = signal(false);
+  readonly guiaDictado = signal('');
   readonly areas = ['TODOS', 'ALMACEN', 'COCINA', 'BARRA', 'EMPAQUES', 'LIMPIEZA'];
   readonly area = signal('TODOS');
   readonly guardia = signal(false);
@@ -96,77 +55,81 @@ export class InventarioComponent {
   readonly invalido = computed(() => !this.vale().length || this.lineas().some(item => !item.insumo || !Number.isFinite(item.cantidad) || item.cantidad <= 0 || this.restante(item.insumo) < 0));
   constructor() {
     this.buscar.valueChanges.pipe(takeUntilDestroyed()).subscribe(value => this.busqueda.set(value));
-    this.destroyRef.onDestroy(() => this.liberarDictado());
+    this.destroyRef.onDestroy(() => { this.destruido = true; this.liberarDictado(); });
   }
   iniciarDictadoNota(event: PointerEvent | KeyboardEvent) {
     if ('key' in event && ![' ', 'Enter'].includes(event.key)) return;
     if ('button' in event && event.button !== 0) return;
     event.preventDefault();
-    if (this.enviando() || this.reconocimiento) return;
+    if (this.enviando() || this.procesandoDictado() || this.destruido) return;
     const navegador = window as VentanaVoz;
-    const puente = navegador.borbotoElectron;
-    if (!puente && navegador.isSecureContext === false) {
-      this.notifications.warning('El dictado requiere HTTPS o localhost. En una direccion HTTP de la red local puedes seguir escribiendo con el teclado.');
-      return;
-    }
     const Constructor = navegador.SpeechRecognition ?? navegador.webkitSpeechRecognition;
-    if (!puente && !Constructor) { this.notifications.warning('Este navegador no admite dictado. Puedes escribir la nota con el teclado.'); return; }
+    if (navegador.isSecureContext === false || !Constructor || this.servicioNoDisponible) { this.usarTeclado(); return; }
     const prefijo = this.formulario.controls.notas.value.trimEnd();
-    if (prefijo.length >= 255) { this.notifications.warning('La nota alcanzo el limite de 255 caracteres.'); return; }
+    if (prefijo.length >= 255) { this.usarTeclado('La nota tiene 255 caracteres. Puedes editarla aqui.'); return; }
+    const solicitud = {};
+    this.solicitudPermiso = solicitud;
+    this.guiaDictado.set(''); this.dictando.set(true); this.procesandoDictado.set(true); this.pidiendoPermiso.set(true);
+    void this.autorizarDictado(Constructor, prefijo, solicitud);
+  }
+  private async autorizarDictado(Constructor: new () => ReconocimientoVoz, prefijo: string, solicitud: object) {
     try {
-      const reconocimiento: ReconocimientoVoz = puente ? new ReconocimientoWindows(puente) : new Constructor!();
+      const media = window.navigator?.mediaDevices;
+      if (!this.permisoConcedido && typeof media?.getUserMedia === 'function') {
+        const stream = await media.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        this.permisoConcedido = true;
+      }
+      if (this.destruido || this.solicitudPermiso !== solicitud || !this.dictando()) return;
+      this.pidiendoPermiso.set(false);
+      const reconocimiento = new Constructor();
       this.reconocimiento = reconocimiento;
       reconocimiento.lang = 'es-MX'; reconocimiento.interimResults = true; reconocimiento.continuous = true;
-      this.dictando.set(true); this.procesandoDictado.set(true);
-      let limiteAvisado = false;
       reconocimiento.onresult = event => {
         if (this.reconocimiento !== reconocimiento) return;
         const transcripcion = Array.from(event.results, resultado => resultado[0]?.transcript.trim() ?? '').filter(Boolean).join(' ');
         const nota = [prefijo, transcripcion].filter(Boolean).join(' ');
         this.formulario.controls.notas.setValue(nota.slice(0, 255));
-        if (nota.length > 255 && !limiteAvisado) { limiteAvisado = true; this.notifications.warning('La nota alcanzo el limite de 255 caracteres.'); }
+        if (nota.length > 255) this.guiaDictado.set('La nota tiene 255 caracteres. Puedes editarla al terminar.');
       };
       reconocimiento.onstart = () => {
         if (this.reconocimiento !== reconocimiento || this.dictando()) return;
-        try { reconocimiento.stop(); } catch { this.liberarDictado(); }
+        try { reconocimiento.stop(); } catch { this.usarTeclado(); }
       };
       reconocimiento.onend = () => { if (this.reconocimiento === reconocimiento) this.liberarDictado(false); };
       reconocimiento.onerror = event => {
         if (this.reconocimiento !== reconocimiento) return;
-        if (event.error !== 'aborted') this.notifications.warning(event.error === 'native' && event.mensaje ? event.mensaje : this.mensajeErrorDictado(event.error));
-        this.liberarDictado();
+        if (event.error === 'aborted') { this.liberarDictado(); return; }
+        if (event.error === 'network' || event.error === 'service-not-allowed') this.servicioNoDisponible = true;
+        this.usarTeclado(event.error === 'not-allowed' ? 'Puedes escribir la nota o usar el microfono de tu teclado si esta disponible.' : undefined);
       };
       reconocimiento.start();
     } catch (error) {
-      this.liberarDictado();
-      const nombre = error instanceof Error ? error.name : '';
-      this.notifications.warning(nombre === 'NotAllowedError' ? this.mensajeErrorDictado('not-allowed')
-        : nombre === 'NotFoundError' || nombre === 'NotReadableError' ? this.mensajeErrorDictado('audio-capture')
-        : 'No se pudo iniciar el microfono. Puedes escribir la nota con el teclado.');
+      if (this.destruido || this.solicitudPermiso !== solicitud) return;
+      this.usarTeclado();
     }
   }
-  private mensajeErrorDictado(codigo: string): string {
-    switch (codigo) {
-      case 'network': return 'El servicio de dictado no esta disponible. Revisa Internet; en Electron puede no estar habilitado. Prueba en Chrome o Edge con HTTPS o localhost.';
-      case 'audio-capture': return 'No se pudo acceder al microfono. Revisa que este conectado, seleccionado y disponible en los ajustes de audio del dispositivo.';
-      case 'no-speech': return 'No se detecto voz. Manten presionado el microfono y habla cerca de el; despues suelta para terminar.';
-      case 'not-allowed': return 'No se autorizo el microfono. Habilita su permiso en el navegador y en los ajustes de privacidad del dispositivo, o usa el teclado.';
-      case 'service-not-allowed': return 'El navegador no permite usar el servicio de dictado. Prueba en Chrome o Edge con HTTPS o localhost; puedes seguir usando el teclado.';
-      case 'language-not-supported': return 'El servicio de dictado no admite es-MX en este dispositivo. Puedes escribir la nota con el teclado.';
-      default: return `No se pudo completar el dictado (${codigo.replace(/[^a-z-]/g, '').slice(0, 40) || 'error desconocido'}). Puedes editar la nota con el teclado.`;
-    }
+  private usarTeclado(guia = 'Escribe aqui o usa el microfono de tu teclado si esta disponible.') {
+    this.liberarDictado();
+    this.guiaDictado.set(guia);
+    this.notaSalida()?.nativeElement.focus();
   }
   detenerDictadoNota(event?: PointerEvent | KeyboardEvent) {
     if (event && 'key' in event && ![' ', 'Enter'].includes(event.key)) return;
     event?.preventDefault();
     if (!this.dictando()) return;
     this.dictando.set(false);
-    try { this.reconocimiento?.stop(); } catch { this.liberarDictado(); }
+    if (!this.reconocimiento) { this.liberarDictado(false); return; }
+    const reconocimiento = this.reconocimiento;
+    this.finalizacion = setTimeout(() => { if (this.reconocimiento === reconocimiento) this.usarTeclado(); }, 5000);
+    try { reconocimiento.stop(); } catch { this.usarTeclado(); }
   }
   private liberarDictado(abortar = true) {
     const reconocimiento = this.reconocimiento;
+    clearTimeout(this.finalizacion);
+    this.solicitudPermiso = null;
     this.reconocimiento = null;
-    this.dictando.set(false); this.procesandoDictado.set(false);
+    this.dictando.set(false); this.procesandoDictado.set(false); this.pidiendoPermiso.set(false);
     if (!reconocimiento) return;
     reconocimiento.onresult = null; reconocimiento.onerror = null; reconocimiento.onend = null; reconocimiento.onstart = null;
     if (abortar) { try { reconocimiento.abort(); } catch { } }

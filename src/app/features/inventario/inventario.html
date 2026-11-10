@@ -42,7 +42,7 @@
         <form [formGroup]="formulario" (ngSubmit)="confirmar()">
           <label>Destino<select formControlName="origen"><option value="SALIDA_COCINA">Salida a Cocina</option><option value="SALIDA_BARRA">Salida a Barra</option><option value="SALIDA_ALMACEN">Uso de Almacen</option><option value="MERMA">Merma / Desperdicio</option></select></label>
           <div class="nota-dictado">
-            <label>Nota opcional<textarea formControlName="notas" maxlength="255" rows="2" [readOnly]="procesandoDictado()"></textarea></label>
+            <label>Nota opcional<textarea #notaSalida formControlName="notas" maxlength="255" rows="2" [readOnly]="procesandoDictado()"></textarea></label>
             <button type="button" class="microfono" [class.escuchando]="dictando()" [attr.aria-pressed]="dictando()"
               [disabled]="enviando() || (procesandoDictado() && !dictando())"
               [title]="dictando() ? 'Escuchando... suelta para terminar' : 'Mantén presionado para hablar'"
@@ -51,9 +51,9 @@
               (keydown)="iniciarDictadoNota($event)" (keyup)="detenerDictadoNota($event)"
               (blur)="detenerDictadoNota()" (contextmenu)="$event.preventDefault()">
               <mat-icon>{{ dictando() ? 'mic' : 'mic_none' }}</mat-icon>
-              <span>{{ dictando() ? 'Escuchando... suelta para terminar' : procesandoDictado() ? 'Finalizando dictado...' : 'Mantén presionado para hablar' }}</span>
+              <span>{{ pidiendoPermiso() ? 'Autorizando microfono...' : dictando() ? 'Escuchando... suelta para terminar' : procesandoDictado() ? 'Finalizando dictado...' : 'Mantén presionado para hablar' }}</span>
             </button>
-            <span class="estado-dictado" role="status" aria-live="polite">{{ dictando() ? 'Microfono activo' : procesandoDictado() ? 'Finalizando dictado' : '' }}</span>
+            <span class="estado-dictado" role="status" aria-live="polite">{{ guiaDictado() || (pidiendoPermiso() ? 'Esperando permiso' : dictando() ? 'Microfono activo' : procesandoDictado() ? 'Finalizando dictado' : '') }}</span>
           </div>
           <button class="confirmar" type="submit" [disabled]="enviando() || procesandoDictado() || invalido() || formulario.invalid"><mat-icon>check</mat-icon>{{ enviando() ? 'Registrando...' : 'Confirmar Salida y Descontar Inventario' }}</button>
         </form>

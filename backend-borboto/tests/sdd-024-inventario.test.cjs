@@ -21,6 +21,7 @@ async function componenteInventario(nombre, navegador = {}) {
   const forms = await import('@angular/forms');
   const { Subject, of, takeUntil } = require('rxjs');
   const destruido = new Subject(), callbacks = [], avisos = [], guardados = [];
+  let focos = 0;
   const providers = {
     FormBuilder: new forms.FormBuilder(),
     DestroyRef: { onDestroy(callback) { callbacks.push(callback); } },
@@ -37,12 +38,13 @@ async function componenteInventario(nombre, navegador = {}) {
     ChangeDetectionStrategy: { OnPush: 0 },
     inject: dependency => providers[dependency.name],
     computed: derive => derive,
+    viewChild: () => () => ({ nativeElement: { focus() { focos++; } } }),
     signal(initial) { let value = initial; const read = () => value; read.set = next => { value = next; }; read.update = update => { value = update(value); }; return read; },
   };
   const module = { exports: {} };
   const filename = nombre === 'InventarioAdminComponent' ? 'inventario-admin' : 'inventario';
   vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, `src/app/features/inventario/${filename}.ts`), 'utf8'), { loader: 'ts', format: 'cjs', target: 'node18' }).code, {
-    module, exports: module.exports, window: navegador,
+    module, exports: module.exports, window: navegador, DOMException, setTimeout, clearTimeout,
     require(dependency) {
       if (dependency === '@angular/forms') return forms;
       if (dependency === 'rxjs') return require('rxjs');
@@ -55,8 +57,9 @@ async function componenteInventario(nombre, navegador = {}) {
       } });
     },
   });
-  return { component: new module.exports[nombre](), avisos, guardados, destroy() { destruido.next(); destruido.complete(); callbacks.forEach(callback => callback()); } };
+  return { component: new module.exports[nombre](), avisos, guardados, get focos() { return focos; }, destroy() { destruido.next(); destruido.complete(); callbacks.forEach(callback => callback()); } };
 }
+const tick = () => new Promise(resolve => setImmediate(resolve));
 function navegadorVoz(options = {}) {
   const instances = [];
   class Recognition {
@@ -69,153 +72,6 @@ function navegadorVoz(options = {}) {
   return { instances, window: options.webkit ? { webkitSpeechRecognition: Recognition } : { SpeechRecognition: Recognition } };
 }
 const pulsacion = () => ({ button: 0, preventDefault() {} });
-function dictadoNativoFixture(options = {}) {
-  const { EventEmitter } = require('node:events');
-  const { crearDictadoLocal } = require(path.join(root, 'electron-dictation.cjs'));
-  const handlers = new Map(), timers = new Map(), children = [], events = [], spawns = [];
-  const sender = new EventEmitter();
-  sender.mainFrame = {}; sender.isDestroyed = () => false;
-  sender.send = (channel, payload) => events.push({ channel, ...payload });
-  const ventana = new EventEmitter(); ventana.webContents = sender; ventana.isDestroyed = () => false;
-  const controller = crearDictadoLocal({
-    ipcMain: { handle(channel, handler) { handlers.set(channel, handler); } },
-    app: { isPackaged: true }, getMainWindow: () => ventana,
-    resourcesPath: 'resources-test', systemRoot: 'Windows-test', platform: options.platform ?? 'win32',
-    schedule(callback, ms) { const timer = { callback, ms }; timers.set(timer, timer); return timer; },
-    unschedule(timer) { timers.delete(timer); },
-    spawn(executable, args, settings) {
-      spawns.push({ executable, args, settings });
-      const child = new EventEmitter();
-      child.stdout = new EventEmitter(); child.stdout.setEncoding = () => {};
-      child.stderr = { resume() {} }; child.stdin = new EventEmitter();
-      child.stdin.writes = []; child.stdin.write = text => child.stdin.writes.push(text);
-      child.exitCode = null; child.kills = 0;
-      child.kill = () => { child.kills++; child.exitCode = 0; };
-      children.push(child); return child;
-    },
-  });
-  controller.vincularVentana(ventana);
-  return { controller, children, events, spawns, timers, sender, ventana,
-    call(channel, id = 'voz-test', event = { sender, senderFrame: sender.mainFrame }) { return handlers.get(channel)(event, { id }); },
-    emit(message, index = children.length - 1) { children[index].stdout.emit('data', JSON.stringify(message) + '\n'); },
-  };
-}
-test('TEST-08: motor local autoriza solo ventana/frame principal y ejecuta archivo fijo sin shell', () => {
-  const env = dictadoNativoFixture();
-  assert.equal(env.call('dictado-iniciar', 'voz-1', { sender: env.sender, senderFrame: {} }).ok, false);
-  assert.equal(env.call('dictado-iniciar', 'voz-1', { sender: {}, senderFrame: env.sender.mainFrame }).ok, false);
-  assert.equal(env.call('dictado-iniciar', 'bad;command').ok, false);
-  assert.equal(env.spawns.length, 0);
-  assert.equal(env.call('dictado-iniciar').ok, true);
-  assert.equal(env.spawns[0].settings.shell, false);
-  assert.ok(env.spawns[0].executable.endsWith('powershell.exe'));
-  assert.equal(env.spawns[0].args.at(-1), path.join('resources-test', 'speech', 'windows-dictation.ps1'));
-  assert.equal(env.call('dictado-iniciar', 'otra-sesion').ok, false);
-  env.controller.cerrar();
-  const unsupported = dictadoNativoFixture({ platform: 'linux' });
-  assert.equal(unsupported.call('dictado-iniciar').ok, false);
-  assert.equal(unsupported.spawns.length, 0);
-});
-test('TEST-08: texto incremental, STOP, fin, mensajes obsoletos y timeout no dejan procesos', () => {
-  const env = dictadoNativoFixture(); env.call('dictado-iniciar');
-  env.emit({ tipo: 'listo' });
-  const linea = JSON.stringify({ tipo: 'texto', texto: 'dos cajas' }) + '\n';
-  env.children[0].stdout.emit('data', linea.slice(0, 10));
-  env.children[0].stdout.emit('data', linea.slice(10));
-  assert.equal(env.events.at(-1).texto, 'dos cajas');
-  env.call('dictado-detener', 'id-obsoleto');
-  assert.equal(env.children[0].stdin.writes.length, 0);
-  env.call('dictado-detener'); env.call('dictado-detener');
-  assert.deepEqual(env.children[0].stdin.writes, ['STOP\n']);
-  env.emit({ tipo: 'texto', texto: 'dos cajas de agua' });
-  env.emit({ tipo: 'fin' });
-  assert.equal(env.events.at(-1).tipo, 'fin');
-  assert.equal(env.children[0].kills, 1);
-  assert.equal(env.timers.size, 0);
-  env.call('dictado-iniciar', 'voz-2');
-  env.emit({ tipo: 'texto', texto: 'obsoleto' }, 0);
-  assert.equal(env.events.at(-1).tipo, 'fin');
-  env.call('dictado-detener', 'voz-2');
-  [...env.timers.values()].find(timer => timer.ms === 5000).callback();
-  assert.equal(env.events.at(-1).tipo, 'error');
-  assert.equal(env.children[1].kills, 1);
-  assert.equal(env.timers.size, 0);
-});
-test('TEST-08: ausencia de motor, error de proceso, protocolo invalido y cierre limpian recursos', () => {
-  for (const fallo of ['sin-motor', 'spawn', 'json', 'reload', 'cancel', 'watchdog', 'close']) {
-    const env = dictadoNativoFixture(); env.call('dictado-iniciar');
-    if (fallo === 'sin-motor') { env.emit({ tipo: 'error', error: 'sin-motor' }); assert.ok(env.events.at(-1).error.includes('motor de reconocimiento')); }
-    if (fallo === 'spawn') env.children[0].emit('error', Error('failure'));
-    if (fallo === 'json') env.children[0].stdout.emit('data', 'invalid\n');
-    if (fallo === 'reload') env.sender.emit('did-start-navigation', {}, 'file:///index.html', false, true);
-    if (fallo === 'cancel') env.call('dictado-cancelar');
-    if (fallo === 'watchdog') [...env.timers.values()].find(timer => timer.ms === 90000).callback();
-    if (fallo === 'close') env.ventana.emit('closed');
-    assert.equal(env.children[0].kills, 1, fallo);
-    assert.equal(env.timers.size, 0, fallo);
-  }
-});
-test('TEST-08: renderer Electron usa IPC offline aunque exista Web Speech y descarta IDs viejos', async () => {
-  const calls = [], listeners = new Set(), voice = navegadorVoz();
-  const puente = { invoke(channel, payload) { calls.push({ channel, payload }); return Promise.resolve({ ok: true }); },
-    on(channel, callback) { assert.equal(channel, 'dictado-resultado'); listeners.add(callback); return () => listeners.delete(callback); } };
-  const env = await componenteInventario('InventarioComponent', { ...voice.window, borbotoElectron: puente, isSecureContext: false });
-  env.component.formulario.controls.notas.setValue('Cocina');
-  env.component.iniciarDictadoNota(pulsacion());
-  assert.equal(voice.instances.length, 0);
-  const id = calls[0].payload.id;
-  const emitir = payload => [...listeners].forEach(callback => callback(undefined, payload));
-  emitir({ id: 'obsoleto', tipo: 'texto', texto: 'ignorar' });
-  assert.equal(env.component.formulario.controls.notas.value, 'Cocina');
-  emitir({ id, tipo: 'listo' }); emitir({ id, tipo: 'texto', texto: 'dos cajas' });
-  env.component.detenerDictadoNota(pulsacion());
-  assert.equal(calls.at(-1).channel, 'dictado-detener');
-  emitir({ id, tipo: 'texto', texto: 'dos cajas de agua' }); emitir({ id, tipo: 'fin' });
-  assert.equal(env.component.formulario.controls.notas.value, 'Cocina dos cajas de agua');
-  assert.equal(env.component.procesandoDictado(), false);
-  assert.equal(listeners.size, 0);
-  env.component.iniciarDictadoNota(pulsacion()); env.destroy();
-  assert.equal(calls.at(-1).channel, 'dictado-cancelar');
-  assert.equal(listeners.size, 0);
-});
-test('TEST-08: error local y bridge desactualizado dejan nota y teclado disponibles', async () => {
-  for (const rechazado of [true, false]) {
-    let callback;
-    const puente = { invoke() { return Promise.resolve(rechazado ? { ok: false, error: 'Instala el motor espanol' } : { ok: true }); }, on(_channel, listener) { callback = listener; return () => {}; } };
-    const env = await componenteInventario('InventarioComponent', { borbotoElectron: puente });
-    env.component.formulario.controls.notas.setValue('Nota');
-    env.component.iniciarDictadoNota(pulsacion());
-    if (!rechazado) {
-      const id = env.component.reconocimiento.id;
-      callback(undefined, { id, tipo: 'error', error: 'Instala el motor espanol' });
-    }
-    await new Promise(resolve => setImmediate(resolve));
-    assert.ok(env.avisos[0].includes('motor espanol'));
-    assert.equal(env.component.formulario.controls.notas.value, 'Nota');
-    assert.equal(env.component.procesandoDictado(), false);
-    env.destroy();
-  }
-});
-test('TEST-08: paquete incluye controlador/script y preload limita canales e IDs de voz', async () => {
-  const config = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.ok(config.build.files.includes('electron-dictation.cjs'));
-  assert.ok(config.build.extraResources.some(resource => resource.from === 'speech' && resource.to === 'speech'));
-  const script = fs.readFileSync(path.join(root, 'speech/windows-dictation.ps1'), 'utf8');
-  assert.ok(script.includes('InstalledRecognizers()'));
-  assert.ok(script.includes('RecognizeAsyncStop()'));
-  assert.ok(script.includes('Task.Run(() => Console.ReadLine())'));
-  assert.equal(/https?:|Invoke-WebRequest|Invoke-RestMethod/.test(script), false);
-  const exposed = {}, invocations = [];
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'preload.js'), 'utf8'), {
-    process: { argv: [] }, require() { return { contextBridge: { exposeInMainWorld(name, value) { exposed[name] = value; } }, ipcRenderer: {
-      invoke(channel, payload) { invocations.push({ channel, payload }); return Promise.resolve({ ok: true }); },
-    } }; },
-  });
-  await exposed.borbotoElectron.invoke('dictado-iniciar', { id: 'voz-1' });
-  assert.equal(invocations.length, 1);
-  await assert.rejects(exposed.borbotoElectron.invoke('dictado-iniciar', { id: ';command' }), /Dictado no permitido/);
-  await assert.rejects(exposed.borbotoElectron.invoke('spawn', {}), /IPC no permitido/);
-});
 test('TEST-06: paquetes sincronizados en alta, checkbox, editar, reset y payload getRawValue', async () => {
   const env = await componenteInventario('InventarioAdminComponent');
   const component = env.component, form = component.configuracion, controls = form.controls;
@@ -244,102 +100,6 @@ test('TEST-06: paquetes sincronizados en alta, checkbox, editar, reset y payload
   env.destroy();
   controls.permite_paquetes.setValue(true);
   assert.equal(controls.factor_paquete.disabled, true);
-});
-test('TEST-07: push-to-talk conserva prefijo y reemplaza interim sin duplicados; stop y final', async () => {
-  const voice = navegadorVoz();
-  const env = await componenteInventario('InventarioComponent', voice.window), component = env.component;
-  component.formulario.controls.notas.setValue('Para cocina  ');
-  component.iniciarDictadoNota(pulsacion());
-  const recognition = voice.instances[0];
-  assert.equal(recognition.lang, 'es-MX');
-  assert.equal(recognition.interimResults, true);
-  assert.equal(recognition.continuous, true);
-  assert.equal(component.dictando(), true);
-  recognition.result('dos');
-  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos');
-  recognition.result('dos cajas', 'de agua');
-  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua');
-  component.detenerDictadoNota(pulsacion());
-  component.detenerDictadoNota(pulsacion());
-  assert.equal(recognition.stops, 1);
-  assert.equal(component.dictando(), false);
-  assert.equal(component.procesandoDictado(), true);
-  component.iniciarDictadoNota(pulsacion());
-  assert.equal(voice.instances.length, 1);
-  recognition.result('dos cajas', 'de agua mineral');
-  recognition.onend();
-  assert.equal(component.procesandoDictado(), false);
-  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua mineral');
-  component.iniciarDictadoNota(pulsacion());
-  voice.instances[1].result('para barra');
-  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua mineral para barra');
-  env.destroy();
-});
-test('TEST-07: soporte ausente, permisos denegados, start fallido y teclado intacto', async () => {
-  const unsupported = await componenteInventario('InventarioComponent');
-  unsupported.component.formulario.controls.notas.setValue('Escrito');
-  unsupported.component.iniciarDictadoNota(pulsacion());
-  assert.equal(unsupported.avisos.length, 1);
-  assert.equal(unsupported.component.formulario.controls.notas.value, 'Escrito');
-  assert.equal(unsupported.component.procesandoDictado(), false);
-  unsupported.destroy();
-  for (const options of [{}, { startError: true }]) {
-    const voice = navegadorVoz(options), env = await componenteInventario('InventarioComponent', voice.window);
-    env.component.iniciarDictadoNota(pulsacion());
-    if (!options.startError) voice.instances[0].onerror({ error: 'not-allowed' });
-    assert.equal(env.avisos.length, 1);
-    assert.equal(env.component.procesandoDictado(), false);
-    assert.equal(voice.instances[0].aborts, 1);
-    assert.equal(voice.instances[0].onresult, null);
-    env.destroy();
-  }
-});
-test('TEST-07: webkit, teclado, limite de nota y destroy impiden callbacks tardios', async () => {
-  const voice = navegadorVoz({ webkit: true }), env = await componenteInventario('InventarioComponent', voice.window), component = env.component;
-  component.iniciarDictadoNota({ key: 'Tab', preventDefault() {} });
-  assert.equal(voice.instances.length, 0);
-  component.formulario.controls.notas.setValue('x'.repeat(250));
-  component.iniciarDictadoNota({ key: ' ', preventDefault() {} });
-  voice.instances[0].result('texto muy largo');
-  assert.equal(component.formulario.controls.notas.value.length, 255);
-  assert.equal(env.avisos.length, 1);
-  const callback = voice.instances[0].onresult;
-  env.destroy();
-  assert.equal(voice.instances[0].aborts, 1);
-  assert.equal(voice.instances[0].onresult, null);
-  assert.equal(component.procesandoDictado(), false);
-  const anterior = component.formulario.controls.notas.value;
-  callback({ results: [[{ transcript: 'no debe escribirse' }]] });
-  assert.equal(component.formulario.controls.notas.value, anterior);
-});
-test('TEST-07: soltar antes de obtener permiso detiene tambien un inicio tardio', async () => {
-  const voice = navegadorVoz({ delayedStart: true }), env = await componenteInventario('InventarioComponent', voice.window);
-  env.component.iniciarDictadoNota(pulsacion());
-  env.component.detenerDictadoNota(pulsacion());
-  assert.equal(voice.instances[0].stops, 1);
-  voice.instances[0].onstart();
-  assert.equal(voice.instances[0].stops, 2);
-  voice.instances[0].onend();
-  assert.equal(env.component.procesandoDictado(), false);
-  env.destroy();
-});
-test('TEST-07: errores de dictado explican causa, conservan nota y liberan microfono', async () => {
-  for (const [codigo, esperado] of [['network', 'Internet'], ['audio-capture', 'ajustes de audio'], ['no-speech', 'No se detecto voz'], ['not-allowed', 'permiso'], ['service-not-allowed', 'servicio de dictado'], ['language-not-supported', 'es-MX'], ['otro-error', 'otro-error']]) {
-    const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', voice.window);
-    env.component.formulario.controls.notas.setValue('Nota previa');
-    env.component.iniciarDictadoNota(pulsacion());
-    voice.instances[0].onerror({ error: codigo });
-    assert.ok(env.avisos[0].includes(esperado), codigo);
-    assert.equal(env.component.formulario.controls.notas.value, 'Nota previa');
-    assert.equal(env.component.procesandoDictado(), false);
-    assert.equal(voice.instances[0].aborts, 1);
-    env.destroy();
-  }
-  const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', { ...voice.window, isSecureContext: false });
-  env.component.iniciarDictadoNota(pulsacion());
-  assert.equal(voice.instances.length, 0);
-  assert.ok(env.avisos[0].includes('HTTPS o localhost'));
-  env.destroy();
 });
 const base = (id, stock = 40, paquetes = true) => ({ id, nombre: `Insumo ${id}`, stock_actual: stock, stock_minimo: 10, factor_paquete: 12, permite_paquetes: paquetes, activo: true });
 function entorno(initial = [base(1), base(2)], options = {}) {
@@ -374,7 +134,7 @@ function entorno(initial = [base(1), base(2)], options = {}) {
     async request(method, route, body = {}, role = 'ADMIN', params = {}, queryParams = {}) {
       currentRole = role;
       const req = { body, params, query: queryParams, headers: { authorization: role ? `Bearer ${sessionModule.exports.emitirSesion(8, role)}` : '' } };
-      const res = { locals: {}, code: 200, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+      const res = Object.assign(new (require('node:events').EventEmitter)(), { locals: {}, code: 200, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } });
       for (const handler of routes.get(`${method} /api/inventario${route}`)) {
         let next = false;
         await handler(req, res, () => { next = true; });
@@ -522,4 +282,117 @@ test('REQ-01: esquema inicial y migracion 007 equivalentes, checks y FK persiste
   assert.match(migration, /\(insumo_id, fecha DESC\)/);
   const index = fs.readFileSync(path.join(root, 'backend-borboto/index.ts'), 'utf8');
   assert.ok(index.indexOf('registrarInventario(app, pool, emitirCambioGlobal)') < index.indexOf("app.use('/api',"));
+});
+test('AC-09 / TEST-12: dictado nativo conserva prefijo y reemplaza provisionales sin duplicar', async () => {
+  const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', voice.window), component = env.component;
+  component.formulario.controls.notas.setValue('Para cocina  ');
+  component.iniciarDictadoNota(pulsacion());
+  const recognition = voice.instances[0];
+  assert.equal(recognition.lang, 'es-MX'); assert.equal(recognition.interimResults, true); assert.equal(recognition.continuous, true);
+  recognition.result('dos'); recognition.result('dos cajas', 'de agua');
+  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua');
+  component.detenerDictadoNota(pulsacion()); component.detenerDictadoNota(pulsacion());
+  assert.equal(recognition.stops, 1);
+  recognition.result('dos cajas', 'de agua mineral'); recognition.onend();
+  assert.equal(component.formulario.controls.notas.value, 'Para cocina dos cajas de agua mineral');
+  assert.equal(component.procesandoDictado(), false); assert.equal(env.avisos.length, 0); env.destroy();
+});
+test('TEST-12: permiso nativo cierra tracks antes de reconocimiento y no repite solicitud concedida', async () => {
+  let permitir, solicitudes = 0, stops = 0;
+  const permiso = new Promise(resolve => { permitir = resolve; }), voice = navegadorVoz();
+  const env = await componenteInventario('InventarioComponent', { ...voice.window, navigator: { mediaDevices: { getUserMedia(options) { assert.equal(options.audio, true); solicitudes++; return permiso; } } } });
+  env.component.iniciarDictadoNota(pulsacion());
+  assert.equal(env.component.pidiendoPermiso(), true); assert.equal(voice.instances.length, 0);
+  permitir({ getTracks: () => [{ stop() { stops++; } }] }); await tick();
+  assert.equal(stops, 1); assert.equal(voice.instances.length, 1); assert.equal(env.component.pidiendoPermiso(), false);
+  env.component.detenerDictadoNota(pulsacion()); voice.instances[0].onend();
+  env.component.iniciarDictadoNota(pulsacion()); await tick();
+  assert.equal(solicitudes, 1); assert.equal(voice.instances.length, 2); env.destroy();
+});
+test('TEST-12: clic corto y destroy durante permiso cierran tracks tardios sin abrir reconocimiento', async () => {
+  for (const destruir of [true, false]) {
+    let permitir, stops = 0;
+    const voice = navegadorVoz(), permiso = new Promise(resolve => { permitir = resolve; });
+    const env = await componenteInventario('InventarioComponent', { ...voice.window, navigator: { mediaDevices: { getUserMedia: () => permiso } } });
+    env.component.iniciarDictadoNota(pulsacion());
+    if (destruir) env.destroy(); else env.component.detenerDictadoNota(pulsacion());
+    permitir({ getTracks: () => [{ stop() { stops++; } }] }); await tick();
+    assert.equal(stops, 1); assert.equal(voice.instances.length, 0); assert.equal(env.component.procesandoDictado(), false);
+    assert.equal(env.focos, 0); assert.equal(env.avisos.length, 0); if (!destruir) env.destroy();
+  }
+});
+test('TEST-12: HTTP inseguro o API ausente enfoca nota y guia discreta sin alertas ni flags', async () => {
+  for (const options of [{ isSecureContext: false, ...navegadorVoz().window }, {}]) {
+    const env = await componenteInventario('InventarioComponent', options);
+    env.component.formulario.controls.notas.setValue('Escrito'); env.component.iniciarDictadoNota(pulsacion());
+    assert.equal(env.focos, 1); assert.ok(env.component.guiaDictado().includes('teclado'));
+    assert.equal(env.component.guiaDictado().includes('chrome://'), false); assert.equal(env.avisos.length, 0);
+    assert.equal(env.component.formulario.controls.notas.value, 'Escrito'); assert.equal(env.component.procesandoDictado(), false); env.destroy();
+  }
+});
+test('TEST-12: fallos nativos dejan nota editable con foco y sin avisos alarmantes', async () => {
+  for (const error of ['network', 'service-not-allowed', 'not-allowed', 'audio-capture', 'no-speech', 'language-not-supported']) {
+    const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', voice.window);
+    env.component.formulario.controls.notas.setValue('Nota'); env.component.iniciarDictadoNota(pulsacion());
+    voice.instances[0].onerror({ error });
+    assert.equal(env.focos, 1, error); assert.equal(env.avisos.length, 0, error);
+    assert.equal(env.component.formulario.controls.notas.value, 'Nota'); assert.equal(env.component.procesandoDictado(), false);
+    assert.equal(voice.instances[0].aborts, 1); assert.equal(voice.instances[0].onresult, null);
+    if (['network', 'service-not-allowed'].includes(error)) { env.component.iniciarDictadoNota(pulsacion()); assert.equal(voice.instances.length, 1); assert.equal(env.focos, 2); }
+    env.destroy();
+  }
+});
+test('TEST-12: permiso denegado o start fallido usa teclado sin snackbar', async () => {
+  for (const denegado of [true, false]) {
+    let rechazar;
+    const permiso = new Promise((_resolve, reject) => { rechazar = reject; }), voice = navegadorVoz({ startError: !denegado });
+    const env = await componenteInventario('InventarioComponent', denegado ? { ...voice.window, navigator: { mediaDevices: { getUserMedia: () => permiso } } } : voice.window);
+    env.component.iniciarDictadoNota(pulsacion());
+    if (denegado) rechazar(new DOMException('Denied', 'NotAllowedError'));
+    await tick(); assert.equal(env.focos, 1); assert.equal(env.avisos.length, 0); assert.equal(env.component.procesandoDictado(), false); env.destroy();
+  }
+});
+test('TEST-12: teclado, variante webkit, limite 255 y destroy descartan eventos tardios', async () => {
+  const voice = navegadorVoz({ webkit: true }), env = await componenteInventario('InventarioComponent', voice.window);
+  env.component.iniciarDictadoNota({ key: 'Tab', preventDefault() {} }); assert.equal(voice.instances.length, 0);
+  env.component.formulario.controls.notas.setValue('x'.repeat(250));
+  env.component.iniciarDictadoNota({ key: ' ', preventDefault() {} });
+  const recognition = voice.instances[0]; recognition.result('texto mas largo');
+  assert.equal(env.component.formulario.controls.notas.value.length, 255);
+  const callback = recognition.onresult, anterior = env.component.formulario.controls.notas.value;
+  env.destroy(); assert.equal(recognition.aborts, 1); assert.equal(recognition.onresult, null);
+  callback({ results: [[{ transcript: 'no escribir' }]] }); assert.equal(env.component.formulario.controls.notas.value, anterior);
+});
+test('TEST-12: permiso Electron media solo audio, origen propio, ventana principal', () => {
+  const main = fs.readFileSync(path.join(root, 'main.js'), 'utf8');
+  const start = main.indexOf('function configurarPermisoMedios('), end = main.indexOf('function createMainWindow()', start);
+  for (const isDev of [true, false]) {
+    let check, request;
+    const ownUrl = isDev ? 'http://127.0.0.1:4200/#/inventario' : require('node:url').pathToFileURL(path.join(root, 'dist/borboto/browser/index.html')).href + '#/inventario';
+    const webContents = { getURL: () => ownUrl, session: { setPermissionCheckHandler(handler) { check = handler; }, setPermissionRequestHandler(handler) { request = handler; } } };
+    const ventana = { webContents, isDestroyed: () => false };
+    vm.runInNewContext(main.slice(start, end) + 'configurarPermisoMedios(ventana);', { path, require, URL, __dirname: root, isDev, ventana });
+    const origin = isDev ? 'http://127.0.0.1:4200' : 'file://';
+    const details = { mediaType: 'audio', mediaTypes: ['audio'], isMainFrame: true, requestingUrl: ownUrl };
+    assert.equal(check(webContents, 'media', origin, details), true);
+    assert.equal(check(webContents, 'media', origin, { ...details, mediaType: 'video' }), false);
+    assert.equal(check(webContents, 'media', origin, { ...details, isMainFrame: false }), false);
+    assert.equal(check({}, 'media', origin, details), false);
+    assert.equal(check(webContents, 'media', 'https://otro.example', details), false);
+    let autorizado; request(webContents, 'media', value => { autorizado = value; }, details); assert.equal(autorizado, true);
+    request(webContents, 'media', value => { autorizado = value; }, { ...details, mediaTypes: ['video'] }); assert.equal(autorizado, false);
+    request(webContents, 'notifications', value => { autorizado = value; }, details); assert.equal(autorizado, false);
+  }
+});
+test('TEST-12: distribucion y backend no dependen de voz externa', () => {
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(fs.existsSync(path.join(root, 'speech')), false);
+  assert.equal(fs.existsSync(path.join(root, 'electron-dictation.cjs')), false);
+  assert.equal(config.dependencies['@huggingface/transformers'], undefined);
+  assert.equal(config.scripts['speech:check'], undefined); assert.equal(config.scripts['speech:prepare'], undefined);
+  assert.equal(config.scripts.dist.includes('speech:'), false);
+  assert.equal(config.build.extraResources.some(resource => resource.from === 'speech'), false);
+  assert.deepEqual(config.build.asarUnpack, ['**/node_modules/pdf-to-printer/**/*']);
+  for (const file of ['backend-borboto/index.ts', 'backend-borboto/src/modules/inventario.ts', 'src/app/core/services/inventario.service.ts']) assert.equal(fs.readFileSync(path.join(root, file), 'utf8').includes('transcribir-nota'), false);
+  const preload = fs.readFileSync(path.join(root, 'preload.js'), 'utf8'); assert.equal(preload.includes('dictado-'), false);
 });

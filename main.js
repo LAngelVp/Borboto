@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const { execSync, execFileSync } = require('child_process');
 const http = require('http');
 const net = require('net');
-const { crearDictadoLocal } = require('./electron-dictation.cjs');
 
 let mainWindow;
 let licenseWindow;
@@ -14,7 +13,6 @@ let expressServer;
 let shutdownBackend;
 let cierreIniciado = false;
 let cierreCompletado = false;
-const dictadoLocal = crearDictadoLocal({ ipcMain, app, getMainWindow: () => mainWindow });
 
 function escapeHtml(value = '') {
   return value
@@ -484,6 +482,33 @@ ipcMain.on('submit-license-key', async (event, keyInput) => {
 });
 
 // ─── VENTANAS PRINCIPALES Y CICLO DE VIDA ─────────────────────────────────────
+function configurarPermisoMedios(ventana) {
+  const contents = ventana.webContents;
+  const esPropia = (url) => {
+    try {
+      const parsed = new URL(url);
+      if (isDev) return parsed.origin === 'http://127.0.0.1:4200';
+      if (parsed.protocol !== 'file:') return false;
+      const archivo = path.resolve(require('node:url').fileURLToPath(parsed));
+      return ['dist/borboto/browser/index.html', 'dist/browser/index.html', 'dist/borboto/index.html', 'dist/index.html']
+        .some(relative => archivo === path.resolve(__dirname, relative));
+    } catch { return false; }
+  };
+  const permite = (webContents, permiso, origin, details) => {
+    if (ventana.isDestroyed() || webContents !== contents || permiso !== 'media' || details?.isMainFrame === false || !esPropia(contents.getURL())) return false;
+    if (details?.requestingUrl && !esPropia(details.requestingUrl)) return false;
+    return isDev ? origin === 'http://127.0.0.1:4200' : origin === 'file://' || origin === 'file:///' || esPropia(origin);
+  };
+  contents.session.setPermissionCheckHandler((webContents, permiso, origin, details) =>
+    permite(webContents, permiso, origin, details) && details?.mediaType === 'audio');
+  contents.session.setPermissionRequestHandler((webContents, permiso, callback, details) => {
+    let origin = '';
+    try { origin = new URL(details?.requestingUrl || contents.getURL()).origin; } catch {}
+    if (origin === 'null') origin = 'file://';
+    callback(permite(webContents, permiso, origin, details) && Array.isArray(details?.mediaTypes) && details.mediaTypes.length > 0 && details.mediaTypes.every(tipo => tipo === 'audio'));
+  });
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -500,7 +525,7 @@ function createMainWindow() {
     },
   });
   mainWindow.setMenuBarVisibility(false);
-  dictadoLocal.vincularVentana(mainWindow);
+  configurarPermisoMedios(mainWindow);
 
   // 💡 1. RUTA DE CARGA INICIAL
   const loadApp = () => {
@@ -605,7 +630,6 @@ app.on('before-quit', async event => {
   event.preventDefault();
   if (cierreIniciado) return;
   cierreIniciado = true;
-  dictadoLocal.cerrar();
   let timer;
   try {
     await Promise.race([

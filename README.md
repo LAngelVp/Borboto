@@ -71,30 +71,30 @@ puertos (3000 y 58432). Los errores de inicio se muestran en un dialogo; el regi
 de PostgreSQL queda en `%APPDATA%/borboto/data-pg/logfile`.
 Los archivos `.env`, las claves privadas y los datos de desarrollo no se distribuyen.
 
-## Dictado local sin Internet (Windows)
+## Dictado nativo en la nota de inventario
 
-El boton de microfono de Inventario usa el motor **System.Speech** de Windows
-en la aplicacion Electron, no el servicio online de Chromium. El instalador debe
-reconstruirse para incluir el controlador y el recurso speech/windows-dictation.ps1;
-actualizar solo Angular no actualiza la aplicacion instalada.
+El boton de microfono usa exclusivamente SpeechRecognition/webkitSpeechRecognition
+del navegador, en espanol es-MX. Al mantenerlo presionado solicita el permiso de
+microfono si hace falta; los tracks usados para autorizar se cierran inmediatamente.
+El texto aparece en vivo sin borrar la nota escrita y queda editable al soltar.
+Soltar antes de autorizar o salir de la vista no inicia un microfono tardio.
 
-Prerrequisitos del equipo: Windows PowerShell 5.1, .NET Framework con System.Speech,
-microfono predeterminado operativo y un **reconocedor de voz de escritorio en
-espanol instalado**. Se prefiere es-MX y se admite otro es-* disponible. Tener una
-voz de lectura TTS, un teclado espanol o dictado online de Windows no garantiza
-este requisito. Provisiona el paquete de reconocimiento compatible durante la
-preparacion del equipo (con los medios/paquetes de idioma de Windows correspondientes)
-antes de desconectarlo; la app no descarga motores ni requiere Internet al dictar.
-La disponibilidad del paquete depende de la version/edicion de Windows.
+Si no hay soporte, el permiso no se concede, el servicio nativo falla o la tablet
+entra por HTTP en una IP LAN, la app vuelve silenciosamente a la nota con foco y
+una guia discreta. Puedes escribir o usar el microfono de tu teclado si el dispositivo
+lo ofrece. No se piden flags, modelos, archivos ni paquetes de voz al usuario final.
 
-Habilita el acceso al microfono para aplicaciones de escritorio en la configuracion
-de privacidad de Windows. Si falta el motor o no se puede abrir el microfono, la
-app muestra la causa y permite seguir escribiendo. No se guarda audio ni se envia
-a un proveedor externo; soltar termina el dictado y cerrar/cambiar de ruta cancela
-el proceso propio. Limite de 90 segundos por pulsacion. La calidad del reconocimiento
-debe probarse en el equipo de destino, desconectado de Internet.
+No se envia audio al backend de Borboto y no existe endpoint de transcripcion.
+No hay librerias de voz, workers de inferencia, PowerShell ni modelos incluidos.
+El empaquetado es directo con `bun run dist`, sin preparacion de recursos de voz.
+Electron solo permite medios/audio al origen propio de la ventana POS; no se
+agregan canales IPC de dictado, permisos para camara ni acceso a paginas remotas.
 
-En navegador se conserva Web Speech: su disponibilidad offline no esta garantizada.
+La disponibilidad de dictado depende del navegador/SO/proveedor y puede necesitar
+Internet. En Electron puede no existir servicio nativo de reconocimiento. En tablets,
+focus solicita el teclado pero no garantiza su despliegue o su microfono: depende
+del sistema operativo, configuracion y teclado instalado. El teclado manual permanece
+como alternativa; no se promete dictado offline ni universal.
 
 # 🛠️ Stack tecnológico
 
