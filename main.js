@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { execSync, execFileSync } = require('child_process');
 const http = require('http');
 const net = require('net');
+const { crearDictadoLocal } = require('./electron-dictation.cjs');
 
 let mainWindow;
 let licenseWindow;
@@ -13,6 +14,7 @@ let expressServer;
 let shutdownBackend;
 let cierreIniciado = false;
 let cierreCompletado = false;
+const dictadoLocal = crearDictadoLocal({ ipcMain, app, getMainWindow: () => mainWindow });
 
 function escapeHtml(value = '') {
   return value
@@ -498,6 +500,7 @@ function createMainWindow() {
     },
   });
   mainWindow.setMenuBarVisibility(false);
+  dictadoLocal.vincularVentana(mainWindow);
 
   // 💡 1. RUTA DE CARGA INICIAL
   const loadApp = () => {
@@ -602,6 +605,7 @@ app.on('before-quit', async event => {
   event.preventDefault();
   if (cierreIniciado) return;
   cierreIniciado = true;
+  dictadoLocal.cerrar();
   let timer;
   try {
     await Promise.race([

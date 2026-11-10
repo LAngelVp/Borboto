@@ -32,6 +32,10 @@
     ],
     "extraResources": [
       {
+        "from": "speech",
+        "to": "speech"
+      },
+      {
         "from": "backend-borboto/postgres-bin",
         "to": "postgres-bin"
       },
@@ -43,6 +47,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "electron-dictation.cjs",
       "server.js",
       "license.html",
       "licencia_publica.pem",

@@ -10,6 +10,8 @@ Revision [SDD-002](SDD-002-integridad-mesa-cobro-y-sockets.md): indice unico par
 
 ### Inventario SDD-024
 
+Extension IPC offline Windows: preload permite invoke dictado-iniciar, dictado-detener y dictado-cancelar con {id: string alfanumerico/guion de 1..80}; resultado {ok:boolean,error?:string}. Solo el webContents y frame principal de la ventana POS pueden invocarlos; no licencia ni subframes. Evento dictado-resultado {id,tipo:listo|texto|fin|error,texto?,error?}; texto acumulado, IDs obsoletos ignorados y errores locales acotados. Main ejecuta archivo fijo y stdin STOP, nunca comandos del cliente. Una sesion global, timeout 90 s y finalizacion 5 s; recarga completa/render-process-gone/destroy/cierre cancelan. No existen nuevas rutas HTTP/tablas; el texto final sigue enviandose en notas del contrato existente.
+
 [007_inventario_almacen.sql](../../Database/migrations/007_inventario_almacen.sql) agrega inventario_insumos e inventario_movimientos; [000_init.sql](../../Database/000_init.sql) refleja sus mismas definiciones. Insumos tienen codigo unico nullable, configuracion de unidad/paquete, stock/minimo/costo no negativos, factor positivo y desactivacion logica. Movimientos conservan captura, factor aplicado, delta firmado, saldos anterior/resultante y responsable; FK insumo RESTRICT y usuario SET NULL con nombre historico. Indices activo, categoria_almacen e insumo_id/fecha DESC. La migracion no se ejecuto contra PostgreSQL en esta entrega.
 
 Todas las rutas siguientes se prefijan con /api/inventario y exigen sesion firmada y usuario activo con rol vigente en servidor.

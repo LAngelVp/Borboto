@@ -71,6 +71,31 @@ puertos (3000 y 58432). Los errores de inicio se muestran en un dialogo; el regi
 de PostgreSQL queda en `%APPDATA%/borboto/data-pg/logfile`.
 Los archivos `.env`, las claves privadas y los datos de desarrollo no se distribuyen.
 
+## Dictado local sin Internet (Windows)
+
+El boton de microfono de Inventario usa el motor **System.Speech** de Windows
+en la aplicacion Electron, no el servicio online de Chromium. El instalador debe
+reconstruirse para incluir el controlador y el recurso speech/windows-dictation.ps1;
+actualizar solo Angular no actualiza la aplicacion instalada.
+
+Prerrequisitos del equipo: Windows PowerShell 5.1, .NET Framework con System.Speech,
+microfono predeterminado operativo y un **reconocedor de voz de escritorio en
+espanol instalado**. Se prefiere es-MX y se admite otro es-* disponible. Tener una
+voz de lectura TTS, un teclado espanol o dictado online de Windows no garantiza
+este requisito. Provisiona el paquete de reconocimiento compatible durante la
+preparacion del equipo (con los medios/paquetes de idioma de Windows correspondientes)
+antes de desconectarlo; la app no descarga motores ni requiere Internet al dictar.
+La disponibilidad del paquete depende de la version/edicion de Windows.
+
+Habilita el acceso al microfono para aplicaciones de escritorio en la configuracion
+de privacidad de Windows. Si falta el motor o no se puede abrir el microfono, la
+app muestra la causa y permite seguir escribiendo. No se guarda audio ni se envia
+a un proveedor externo; soltar termina el dictado y cerrar/cambiar de ruta cancela
+el proceso propio. Limite de 90 segundos por pulsacion. La calidad del reconocimiento
+debe probarse en el equipo de destino, desconectado de Internet.
+
+En navegador se conserva Web Speech: su disponibilidad offline no esta garantizada.
+
 # 🛠️ Stack tecnológico
 
 | Tecnología | Uso                           |

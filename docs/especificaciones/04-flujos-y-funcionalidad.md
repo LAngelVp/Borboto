@@ -20,6 +20,8 @@ Socket conserva callback por suscripcion y unsubscribe retira la misma referenci
 
 ### Inventario y guardia SDD-024
 
+Dictado offline en Electron: mantener presionado crea una sesion IPC ligada a la ventana principal; main inicia un proceso propio de Windows PowerShell y System.Speech con gramatica de dictado espanol instalada. Hipotesis/finales se concatenan al prefijo escrito sin duplicar; soltar envia STOP y espera fin para conservar el ultimo resultado. Destroy/recarga/cierre cancela; watchdog cierra procesos bloqueados. No hay fallback automatico a Internet: si falta motor de escritorio espanol o permiso/dispositivo se informa y se conserva la nota. La preparacion del equipo debe instalar ese motor antes de operar desconectado. Web Speech permanece solo para navegador y no garantiza offline.
+
 1. Operador ADMIN/CAJERO/COCINERO abre /inventario (conserva politica de dispositivo), filtra area/nombre/codigo/guardia y agrega unidades o paquetes al vale. La UI muestra saldo previsto, pero el servidor decide conversion y disponibilidad.
 2. Confirmar envia origen, notas e items; requireAuth verifica token/usuario activo y requireRoles autoriza. Transaccion bloquea todos los insumos con ORDER BY id ASC FOR UPDATE; ausente/inactivo 404, paquete no habilitado 400, saldo insuficiente 409. Cantidades duplicadas comparten el saldo acumulado, sin permitir sobregiro.
 3. UPDATE y movimientos se confirman juntos. Fallo intermedio revierte todo y no emite evento. Tras COMMIT se publica actualizar_inventario; clientes recargan catalogo/resumen. La UI conserva el vale en error y no reintenta escrituras automaticamente. Respuesta perdida exige revisar inventario/Kardex antes de reenviar; no hay garantia exactamente-una-vez.

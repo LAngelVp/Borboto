@@ -10,7 +10,7 @@ interface ResultadoVoz { results: ArrayLike<ArrayLike<{ transcript: string }>> }
 interface ReconocimientoVoz {
   lang: string; interimResults: boolean; continuous: boolean;
   onresult: ((event: ResultadoVoz) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
+  onerror: ((event: { error: string; mensaje?: string }) => void) | null;
   onend: (() => void) | null; onstart: (() => void) | null;
   start(): void; stop(): void; abort(): void;
 }
@@ -18,6 +18,51 @@ type VentanaVoz = Window & {
   SpeechRecognition?: new () => ReconocimientoVoz;
   webkitSpeechRecognition?: new () => ReconocimientoVoz;
 };
+
+interface PuenteDictado {
+  invoke(channel: string, payload?: unknown): Promise<unknown>;
+  on(channel: string, callback: (event: unknown, payload: unknown) => void): () => void;
+}
+class ReconocimientoWindows implements ReconocimientoVoz {
+  private static secuencia = 0;
+  private readonly id = `voz-${Date.now()}-${++ReconocimientoWindows.secuencia}`;
+  private retirarListener?: () => void;
+  private activo = false;
+  lang = 'es-MX'; interimResults = true; continuous = true;
+  onresult: ReconocimientoVoz['onresult'] = null;
+  onerror: ReconocimientoVoz['onerror'] = null;
+  onend: ReconocimientoVoz['onend'] = null;
+  onstart: ReconocimientoVoz['onstart'] = null;
+  constructor(private readonly puente: PuenteDictado) {}
+  start() {
+    this.activo = true;
+    this.retirarListener = this.puente.on('dictado-resultado', (_event, payload) => {
+      if (!this.activo || !payload || typeof payload !== 'object' || !('id' in payload) || payload.id !== this.id || !('tipo' in payload)) return;
+      if (payload.tipo === 'listo') this.onstart?.();
+      else if (payload.tipo === 'texto' && 'texto' in payload && typeof payload.texto === 'string') this.onresult?.({ results: [[{ transcript: payload.texto }]] });
+      else if (payload.tipo === 'error') this.fallar('error' in payload && typeof payload.error === 'string' ? payload.error : 'El motor local no pudo completar el dictado.');
+      else if (payload.tipo === 'fin') { this.finalizar(); this.onend?.(); }
+    });
+    this.invocar('dictado-iniciar');
+  }
+  stop() { if (this.activo) this.invocar('dictado-detener'); }
+  abort() {
+    const activo = this.activo;
+    this.finalizar();
+    if (activo) void this.puente.invoke('dictado-cancelar', { id: this.id }).catch(() => {});
+  }
+  private invocar(canal: string) {
+    void this.puente.invoke(canal, { id: this.id }).then(result => {
+      if (!this.activo) return;
+      if (!result || typeof result !== 'object' || !('ok' in result) || result.ok !== true) this.fallar(result && typeof result === 'object' && 'error' in result && typeof result.error === 'string' ? result.error : 'El puente de dictado local no esta disponible. Actualiza la aplicacion instalada.');
+    }).catch(() => { if (this.activo) this.fallar('No se pudo comunicar con el motor local. Actualiza la aplicacion instalada.'); });
+  }
+  private fallar(mensaje: string) {
+    this.onerror?.({ error: 'native', mensaje });
+    this.abort();
+  }
+  private finalizar() { this.activo = false; this.retirarListener?.(); this.retirarListener = undefined; }
+}
 
 @Component({
   selector: 'app-inventario', imports: [ReactiveFormsModule, DecimalPipe, MatIconModule],
@@ -59,16 +104,17 @@ export class InventarioComponent {
     event.preventDefault();
     if (this.enviando() || this.reconocimiento) return;
     const navegador = window as VentanaVoz;
-    if (navegador.isSecureContext === false) {
+    const puente = navegador.borbotoElectron;
+    if (!puente && navegador.isSecureContext === false) {
       this.notifications.warning('El dictado requiere HTTPS o localhost. En una direccion HTTP de la red local puedes seguir escribiendo con el teclado.');
       return;
     }
     const Constructor = navegador.SpeechRecognition ?? navegador.webkitSpeechRecognition;
-    if (!Constructor) { this.notifications.warning('Este navegador no admite dictado. Puedes escribir la nota con el teclado.'); return; }
+    if (!puente && !Constructor) { this.notifications.warning('Este navegador no admite dictado. Puedes escribir la nota con el teclado.'); return; }
     const prefijo = this.formulario.controls.notas.value.trimEnd();
     if (prefijo.length >= 255) { this.notifications.warning('La nota alcanzo el limite de 255 caracteres.'); return; }
     try {
-      const reconocimiento = new Constructor();
+      const reconocimiento: ReconocimientoVoz = puente ? new ReconocimientoWindows(puente) : new Constructor!();
       this.reconocimiento = reconocimiento;
       reconocimiento.lang = 'es-MX'; reconocimiento.interimResults = true; reconocimiento.continuous = true;
       this.dictando.set(true); this.procesandoDictado.set(true);
@@ -87,7 +133,7 @@ export class InventarioComponent {
       reconocimiento.onend = () => { if (this.reconocimiento === reconocimiento) this.liberarDictado(false); };
       reconocimiento.onerror = event => {
         if (this.reconocimiento !== reconocimiento) return;
-        if (event.error !== 'aborted') this.notifications.warning(this.mensajeErrorDictado(event.error));
+        if (event.error !== 'aborted') this.notifications.warning(event.error === 'native' && event.mensaje ? event.mensaje : this.mensajeErrorDictado(event.error));
         this.liberarDictado();
       };
       reconocimiento.start();
