@@ -15,6 +15,59 @@
   }
 }
 
+.envios-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--status-pendiente, #ffb300);
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--status-pendiente, #ffb300) 12%, var(--color-surface));
+  color: var(--color-text-main);
+
+  .envios-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 13px;
+
+    mat-icon {
+      color: var(--status-pendiente, #ffb300);
+    }
+  }
+
+  .envios-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .envio-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    font-size: 12px;
+    font-weight: 600;
+
+    &.con-error {
+      border-color: var(--status-urgente, #d32f2f);
+      color: var(--status-urgente, #d32f2f);
+    }
+
+    button {
+      min-height: 30px;
+      font-size: 12px;
+      padding: 0 10px;
+    }
+  }
+}
+
 .seccion-menu {
   height: 100%;
   overflow: hidden;

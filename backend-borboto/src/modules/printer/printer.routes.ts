@@ -121,10 +121,28 @@ router.post('/:id/test', async (req, res) => {
 
 router.post('/confirmar-impresion', async (req, res) => {
   try {
-    res.json(await PrinterService.confirmarItemsImpresos(req.body?.itemIds));
+    const envioId = Number(req.body?.envioId);
+    res.json(await PrinterService.confirmarItemsImpresos(
+      req.body?.itemIds,
+      Number.isInteger(envioId) && envioId > 0 ? envioId : undefined,
+    ));
   } catch (error: unknown) {
     const status = error instanceof Error && 'status' in error && error.status === 400 ? 400 : 500;
     res.status(status).json({ error: status === 400 ? 'IDs de items invalidos' : 'No se pudo confirmar la impresion' });
+  }
+});
+
+router.post('/error-impresion', async (req, res) => {
+  try {
+    const envioId = Number(req.body?.envioId);
+    res.json(await PrinterService.marcarItemsErrorImpresion(
+      req.body?.itemIds,
+      Number.isInteger(envioId) && envioId > 0 ? envioId : undefined,
+      typeof req.body?.mensaje === 'string' ? req.body.mensaje.slice(0, 500) : undefined,
+    ));
+  } catch (error: unknown) {
+    const status = error instanceof Error && 'status' in error && error.status === 400 ? 400 : 500;
+    res.status(status).json({ error: status === 400 ? 'IDs de items invalidos' : 'No se pudo registrar el error de impresion' });
   }
 });
 

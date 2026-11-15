@@ -333,7 +333,7 @@ app.use(express.json());
 registrarInventario(app, pool, emitirCambioGlobal);
 app.use('/api', async (req, res, next) => {
   if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
-  const lecturaSensible = /^\/(usuarios|admin|caja|dashboard|ajustes\/facturacion|licencia\/test-sheets)(\/|$)/.test(req.path);
+  const lecturaSensible = /^\/(usuarios|admin|caja|dashboard|comandas|ajustes\/facturacion|licencia\/test-sheets)(\/|$)/.test(req.path);
   if (req.method === 'GET' && !lecturaSensible) return next();
   if (req.path === '/auth/login' || req.path === '/auth/register-first-admin') return next();
   const session = verificarSesion((req.headers.authorization || '').replace(/^Bearer /, ''));
@@ -1016,12 +1016,16 @@ app.post('/api/mesas/:mesaId/precuenta', async (req, res) => {
 });
 
 app.post('/api/comandas', async (req, res) => {
-  const { comandaId, mesaId, items, usuarioId } = req.body;
+  const { comandaId, mesaId, items, usuarioId, idempotencyKey } = req.body;
   if ((!comandaId && !mesaId) || !items || !Array.isArray(items) || items.length === 0) {
     return res
       .status(400)
       .json({ error: 'Faltan parámetros: comandaId o mesaId e items son requeridos.' });
   }
+  const claveIdempotencia =
+    typeof idempotencyKey === 'string' && idempotencyKey.trim()
+      ? idempotencyKey.trim().slice(0, 120)
+      : null;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -1078,6 +1082,24 @@ app.post('/api/comandas', async (req, res) => {
       }
     }
 
+    if (claveIdempotencia) {
+      const envioExistente = await client.query(
+        `SELECT id, estado FROM comanda_envios WHERE comanda_id = $1 AND idempotency_key = $2 LIMIT 1`,
+        [idComandaActual, claveIdempotencia],
+      );
+      if (envioExistente.rows.length > 0) {
+        await client.query('COMMIT');
+        return res.json({
+          ok: true,
+          comandaId: idComandaActual,
+          envioId: envioExistente.rows[0].id,
+          idempotente: true,
+          totalAdicional: 0,
+          impresionesPendientes: [],
+        });
+      }
+    }
+
     const itemsValidados: { productoId: number; cantidad: number; notas: unknown }[] = [];
     for (const item of items) {
       const productoId = Number(item?.productoId ?? item?.producto?.id);
@@ -1110,6 +1132,14 @@ app.post('/api/comandas', async (req, res) => {
       }
     }
     let totalAdicional = 0;
+    const envioRes = await client.query(
+      `INSERT INTO comanda_envios (comanda_id, usuario_id, idempotency_key, estado)
+       VALUES ($1, $2, $3, 'PENDIENTE') RETURNING id`,
+      [idComandaActual, usuarioId || 1, claveIdempotencia],
+    );
+    const envioId: number | null = envioRes.rows[0]?.id ?? null;
+
+    const itemIdsInsertados: number[] = [];
     for (const item of itemsValidados) {
       const productoId = item.productoId;
       const precioUnitario = Number(productos.get(productoId)!.precio);
@@ -1117,9 +1147,23 @@ app.post('/api/comandas', async (req, res) => {
       const subtotalItem = precioUnitario * cantidad;
       totalAdicional += subtotalItem;
 
+      const insertado = await client.query(
+        `INSERT INTO comanda_items (comanda_id, producto_id, cantidad, precio_unitario, notas, estado_kds, envio_id)
+         VALUES ($1, $2, $3, $4, $5, 'PENDIENTE', $6) RETURNING id`,
+        [idComandaActual, productoId, cantidad, precioUnitario, item.notas, envioId],
+      );
+      if (insertado.rows[0]?.id) itemIdsInsertados.push(insertado.rows[0].id);
+    }
+
+    if (itemIdsInsertados.length > 0) {
       await client.query(
-        `INSERT INTO comanda_items (comanda_id, producto_id, cantidad, precio_unitario, notas, estado_kds) VALUES ($1, $2, $3, $4, $5, 'PENDIENTE')`,
-        [idComandaActual, productoId, cantidad, precioUnitario, item.notas],
+        `UPDATE comanda_items ci
+         SET estado_impresion = 'NO_APLICA'
+         FROM productos p JOIN categorias cat ON p.categoria_id = cat.id
+         WHERE ci.producto_id = p.id
+           AND ci.id = ANY($1::int[])
+           AND cat.destino_impresion IN ('CAJA', 'NINGUNO')`,
+        [itemIdsInsertados],
       );
     }
 
@@ -1141,7 +1185,10 @@ app.post('/api/comandas', async (req, res) => {
     let ticketTextoRes: string | null = null;
     let impresionesPendientes: any[] = [];
     try {
-      const resPrinter = await PrinterService.imprimirComandaProduccion(idComandaActual);
+      const resPrinter = await PrinterService.imprimirComandaProduccion(idComandaActual, {
+        itemIds: itemIdsInsertados,
+        envioId: envioId ?? undefined,
+      });
       if (resPrinter && (resPrinter as any).ticketTexto) {
         ticketTextoRes = (resPrinter as any).ticketTexto;
       }
@@ -1152,14 +1199,28 @@ app.post('/api/comandas', async (req, res) => {
       ) {
         impresionesPendientes = (resPrinter as any).impresionesPendientes;
       }
+      if (resPrinter && (resPrinter as any).ok === false && envioId != null) {
+        await pool.query(`UPDATE comanda_envios SET estado = 'ERROR', error = $2 WHERE id = $1`, [
+          envioId,
+          'No se pudo procesar la impresión de producción',
+        ]);
+      }
     } catch (errPrinter: any) {
       console.error('⚠️ Error al imprimir comanda de producción:', errPrinter.message);
+      if (envioId != null) {
+        await pool.query(`UPDATE comanda_envios SET estado = 'ERROR', error = $2 WHERE id = $1`, [
+          envioId,
+          String(errPrinter.message || 'Error de impresión').slice(0, 500),
+        ]);
+      }
     }
 
     res.json({
       ok: true,
       totalAdicional,
       comandaId: idComandaActual,
+      envioId,
+      itemIds: itemIdsInsertados,
       ticketTexto: ticketTextoRes,
       impresionesPendientes,
     });
@@ -1171,6 +1232,87 @@ app.post('/api/comandas', async (req, res) => {
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
+  }
+});
+
+app.get('/api/comandas/:comandaId/envios', async (req, res) => {
+  const comandaId = Number(req.params.comandaId);
+  if (!Number.isInteger(comandaId) || comandaId <= 0) {
+    return res.status(400).json({ error: 'Comanda invalida' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT e.id,
+              e.estado,
+              e.error,
+              e.creado_en,
+              e.confirmado_en,
+              COUNT(ci.id)::int AS items,
+              COUNT(*) FILTER (WHERE ci.estado_impresion IN ('PENDIENTE', 'ERROR'))::int AS pendientes,
+              COUNT(*) FILTER (WHERE ci.estado_impresion = 'ENVIADO')::int AS enviados,
+              COUNT(*) FILTER (WHERE ci.estado_impresion = 'ERROR')::int AS errores
+       FROM comanda_envios e
+       LEFT JOIN comanda_items ci ON ci.envio_id = e.id
+       WHERE e.comanda_id = $1
+       GROUP BY e.id
+       ORDER BY e.creado_en DESC`,
+      [comandaId],
+    );
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: 'No se pudo consultar el estado de impresión' });
+  }
+});
+
+app.post('/api/comandas/:comandaId/envios/:envioId/reimprimir', async (req, res) => {
+  const comandaId = Number(req.params.comandaId);
+  const envioId = Number(req.params.envioId);
+  if (!Number.isInteger(comandaId) || comandaId <= 0 || !Number.isInteger(envioId) || envioId <= 0) {
+    return res.status(400).json({ error: 'Comanda o envio invalido' });
+  }
+  try {
+    const envio = await pool.query(
+      'SELECT id FROM comanda_envios WHERE id = $1 AND comanda_id = $2',
+      [envioId, comandaId],
+    );
+    if (envio.rows.length === 0) {
+      return res.status(404).json({ error: 'Envio no encontrado' });
+    }
+    const resultado = await PrinterService.imprimirComandaProduccion(comandaId, { envioId });
+    if (!resultado.ok) {
+      return res.status(502).json({ error: 'No se pudo reimprimir el envio' });
+    }
+    res.json(resultado);
+  } catch (err: any) {
+    res.status(500).json({ error: 'No se pudo reimprimir el envio' });
+  }
+});
+
+app.post('/api/comandas/:comandaId/envios/:envioId/confirmar', async (req, res) => {
+  const comandaId = Number(req.params.comandaId);
+  const envioId = Number(req.params.envioId);
+  if (!Number.isInteger(comandaId) || comandaId <= 0 || !Number.isInteger(envioId) || envioId <= 0) {
+    return res.status(400).json({ error: 'Comanda o envio invalido' });
+  }
+  try {
+    const envio = await pool.query(
+      'SELECT id FROM comanda_envios WHERE id = $1 AND comanda_id = $2',
+      [envioId, comandaId],
+    );
+    if (envio.rows.length === 0) {
+      return res.status(404).json({ error: 'Envio no encontrado' });
+    }
+    const { rows } = await pool.query(
+      `UPDATE comanda_items
+       SET estado_impresion = 'CONFIRMADO', impreso = TRUE, impreso_en = COALESCE(impreso_en, NOW())
+       WHERE envio_id = $1 AND estado_impresion = 'ENVIADO'
+       RETURNING id`,
+      [envioId],
+    );
+    await PrinterService.recalcularEstadoEnvio(envioId);
+    res.json({ ok: true, confirmados: rows.length });
+  } catch (err: any) {
+    res.status(500).json({ error: 'No se pudo confirmar el envio' });
   }
 });
 

@@ -46,6 +46,7 @@ export class Comanda implements OnInit, OnDestroy {
 
   comandaId = 0;
   mesaId = 0;
+  private comandaParaReintento = 0;
 
   ngOnInit() {
     this.comandaService.cargarProductos();
@@ -88,11 +89,24 @@ export class Comanda implements OnInit, OnDestroy {
         usuarioId,
       )
       .subscribe({
-        next: (res: any) => {
-          void this.procesarImpresionesPendientes(res?.impresionesPendientes || []);
+        next: async (res: any) => {
+          const pendientes: ElectronPendingPrintJob[] = res?.impresionesPendientes || [];
+          const fallos = await this.procesarImpresionesPendientes(pendientes);
+          const comandaAfectada = Number(res?.comandaId) || this.comandaId;
+          this.comandaParaReintento = comandaAfectada;
+
           this.notifications.success('Comanda actualizada y enviada a cocina.');
           this.comandaService.limpiarComanda();
           this.mesaService.cargarMesas();
+          if (comandaAfectada > 0) this.comandaService.cargarEnvios(comandaAfectada);
+
+          if (fallos > 0) {
+            this.notifications.error(
+              'Los productos quedaron guardados, pero la impresión USB falló. Reintenta el envío pendiente desde el aviso superior.',
+              8000,
+            );
+            return;
+          }
 
           // Si el backend devuelve la comanda simulada la previsualizamos en el modal
           if (res?.ticketTexto) {
@@ -115,11 +129,42 @@ export class Comanda implements OnInit, OnDestroy {
       });
   }
 
-  private async procesarImpresionesPendientes(impresionesPendientes: ElectronPendingPrintJob[]) {
+  reimprimirEnvio(envioId: number) {
+    const comandaId = this.comandaParaReintento || this.comandaId || this.comandaService.comandaIdActiva();
+    if (!comandaId) {
+      this.notifications.warning('No se pudo identificar la comanda del envío.');
+      return;
+    }
+    this.comandaService.reimprimirEnvio(comandaId, envioId).subscribe({
+      next: async (res) => {
+        const fallos = await this.procesarImpresionesPendientes(res?.impresionesPendientes || []);
+        if (fallos === 0) {
+          this.notifications.success('Envío reimpreso correctamente.');
+        }
+      },
+      error: () => this.notifications.error('No se pudo reimprimir el envío.'),
+    });
+  }
+
+  confirmarEnvio(envioId: number) {
+    const comandaId = this.comandaParaReintento || this.comandaId || this.comandaService.comandaIdActiva();
+    if (!comandaId) {
+      this.notifications.warning('No se pudo identificar la comanda del envío.');
+      return;
+    }
+    this.comandaService.confirmarEnvio(comandaId, envioId).subscribe({
+      next: () => this.notifications.success('Envío marcado como impreso.'),
+      error: () => this.notifications.error('No se pudo confirmar el envío.'),
+    });
+  }
+
+  private async procesarImpresionesPendientes(impresionesPendientes: ElectronPendingPrintJob[]): Promise<number> {
+    let fallos = 0;
     for (const trabajo of impresionesPendientes) {
       try {
         await this.printerService.printTicketSilently(trabajo);
       } catch (err: unknown) {
+        fallos++;
         console.error('Error en impresión USB con Electron:', err);
         const mensaje = err instanceof Error ? err.message : 'No se pudo imprimir la comanda USB automaticamente.';
         this.notifications.error(
@@ -128,5 +173,6 @@ export class Comanda implements OnInit, OnDestroy {
         );
       }
     }
+    return fallos;
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Subscription } from 'rxjs';
+import { Subscription, tap } from 'rxjs';
 import { Producto, ItemComanda } from '../models/producto';
 import { RuntimeConfigService } from './runtime-config.service';
 
@@ -15,6 +15,29 @@ interface ComandaCargada {
     subtotal: number | string;
     notas?: string;
   }[];
+}
+
+export interface EnvioImpresion {
+  id: number;
+  estado: 'PENDIENTE' | 'ENVIADO' | 'CONFIRMADO' | 'ERROR';
+  error?: string | null;
+  creado_en: string;
+  confirmado_en?: string | null;
+  items: number;
+  pendientes: number;
+  enviados: number;
+  errores: number;
+}
+
+export interface ResultadoEnvioComanda {
+  ok: boolean;
+  comandaId: number;
+  envioId?: number;
+  itemIds?: number[];
+  idempotente?: boolean;
+  totalAdicional?: number;
+  ticketTexto?: string;
+  impresionesPendientes?: import('./printer.service').ElectronPendingPrintJob[];
 }
 
 @Injectable({
@@ -45,6 +68,10 @@ export class ComandaService {
   readonly tipoOrigenActual = signal<'MESA' | 'MOSTRADOR' | 'ENVIO' | null>(null);
   readonly folioOrigenActual = signal<string>('');
   readonly categoriaSeleccionada = signal<string>('TODOS');
+  readonly envios = signal<EnvioImpresion[]>([]);
+  readonly enviosPendientes = computed(() =>
+    this.envios().filter(envio => ['PENDIENTE', 'ENVIADO', 'ERROR'].includes(envio.estado)),
+  );
 
   // Total de los nuevos ítems
   readonly totalNuevosItems = computed(() => {
@@ -141,6 +168,7 @@ export class ComandaService {
         this.tipoOrigenActual.set(res.tipoOrigen ?? null);
         this.folioOrigenActual.set(res.folioOrigen ?? '');
         this.itemsGuardados.set(this.mapearItems(res.items ?? []));
+        this.cargarEnvios(res.comandaId);
       },
       error: () => {
         if (version === this.versionComanda) this.restablecerSeleccion();
@@ -199,6 +227,7 @@ export class ComandaService {
       comandaId: comandaId || this.comandaIdActiva(),
       mesaId: mesaId ?? this.mesaIdActual(),
       usuarioId: usuarioId || 1,
+      idempotencyKey: this.generarIdempotencyKey(),
       items: this.itemsComanda().map((item) => ({
         productoId: item.producto.id,
         cantidad: item.cantidad,
@@ -207,7 +236,42 @@ export class ComandaService {
       })),
     };
 
-    return this.http.post<{ ok: boolean }>(`${this.apiUrl}/comandas`, payload);
+    return this.http.post<ResultadoEnvioComanda>(`${this.apiUrl}/comandas`, payload);
+  }
+
+  cargarEnvios(comandaId = this.comandaIdActiva()) {
+    if (!Number.isInteger(comandaId) || comandaId <= 0) {
+      this.envios.set([]);
+      return;
+    }
+    this.http.get<EnvioImpresion[]>(`${this.apiUrl}/comandas/${comandaId}/envios`).subscribe({
+      next: (envios) => this.envios.set(envios || []),
+      error: () => this.envios.set([]),
+    });
+  }
+
+  reimprimirEnvio(comandaId: number, envioId: number) {
+    return this.http
+      .post<{
+        ok: boolean;
+        ticketTexto?: string;
+        impresionesPendientes?: import('./printer.service').ElectronPendingPrintJob[];
+      }>(`${this.apiUrl}/comandas/${comandaId}/envios/${envioId}/reimprimir`, {})
+      .pipe(tap(() => this.cargarEnvios(comandaId)));
+  }
+
+  confirmarEnvio(comandaId: number, envioId: number) {
+    return this.http
+      .post<{ ok: boolean; confirmados: number }>(`${this.apiUrl}/comandas/${comandaId}/envios/${envioId}/confirmar`, {})
+      .pipe(tap(() => this.cargarEnvios(comandaId)));
+  }
+
+  private generarIdempotencyKey(): string {
+    const cryptoApi = globalThis.crypto;
+    if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+      return cryptoApi.randomUUID();
+    }
+    return `envio-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   limpiarComanda() {
@@ -231,6 +295,7 @@ export class ComandaService {
     this.mesaIdActual.set(null);
     this.tipoOrigenActual.set(null);
     this.folioOrigenActual.set('');
+    this.envios.set([]);
   }
 
   obtenerDesgloseComanda(comandaId: number) {

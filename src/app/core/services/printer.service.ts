@@ -34,6 +34,7 @@ export interface WindowsPrinterInfo {
 export interface ElectronPendingPrintJob {
   tipo: 'USB';
   itemIds?: number[];
+  envioId?: number;
   printerName: string;
   contenido: string;
   titulo: string;
@@ -102,6 +103,15 @@ export class PrinterService {
   }
 
   async printTicketSilently(job: ElectronPendingPrintJob): Promise<void> {
+    try {
+      await this.enviarTrabajo(job);
+    } catch (err) {
+      await this.reportarError(job);
+      throw err;
+    }
+  }
+
+  private async enviarTrabajo(job: ElectronPendingPrintJob): Promise<void> {
     let rawExitoso = false;
     if (job.esTermica === true && job.corteTipo && job.corteTipo !== 'NINGUNO') {
       try {
@@ -140,8 +150,24 @@ export class PrinterService {
 
   private async confirmarTrabajo(job: ElectronPendingPrintJob): Promise<void> {
     if (!job.itemIds?.length) return;
-    const resultado = await firstValueFrom(this.http.post<{ ok: boolean }>(`${this.API_URL}/confirmar-impresion`, { itemIds: job.itemIds }));
+    const resultado = await firstValueFrom(this.http.post<{ ok: boolean }>(`${this.API_URL}/confirmar-impresion`, {
+      itemIds: job.itemIds,
+      envioId: job.envioId,
+    }));
     if (!resultado?.ok) throw new Error('No se pudo confirmar la impresion');
+  }
+
+  private async reportarError(job: ElectronPendingPrintJob): Promise<void> {
+    if (!job.itemIds?.length) return;
+    try {
+      await firstValueFrom(this.http.post(`${this.API_URL}/error-impresion`, {
+        itemIds: job.itemIds,
+        envioId: job.envioId,
+        mensaje: 'Fallo la impresión USB desde Electron',
+      }));
+    } catch {
+      // El error original es el que importa al usuario; no ocultarlo por el reporte.
+    }
   }
 
   private getIpcRenderer(): any | null {

@@ -48,6 +48,7 @@ export interface WindowsPrinterInfo {
 export interface ElectronPendingPrintJob {
   tipo: 'USB';
   itemIds?: number[];
+  envioId?: number;
   printerName: string;
   contenido: string;
   titulo: string;
@@ -70,14 +71,99 @@ export class PrecuentaError extends Error {
 }
 
 export class PrinterService {
-  static async confirmarItemsImpresos(itemIds: number[]): Promise<{ ok: true }> {
+  static async confirmarItemsImpresos(itemIds: number[], envioId?: number): Promise<{ ok: true }> {
     if (!Array.isArray(itemIds) || itemIds.length === 0 || itemIds.length > 2000 ||
         itemIds.some(id => !Number.isInteger(id) || id <= 0 || id > 2147483647)) {
       throw new PrecuentaError('IDs de items invalidos', 400);
     }
-    await pool.query(`UPDATE comanda_items SET impreso = TRUE, impreso_en = NOW()
-      WHERE id = ANY($1::int[]) AND impreso IS NOT TRUE`, [[...new Set(itemIds)]]);
+    const ids = [...new Set(itemIds)];
+    await pool.query(`UPDATE comanda_items
+      SET estado_impresion = 'CONFIRMADO', impreso = TRUE, impreso_en = COALESCE(impreso_en, NOW())
+      WHERE id = ANY($1::int[]) AND estado_impresion IN ('ENVIADO', 'PENDIENTE', 'ERROR')`, [ids]);
+    await this.actualizarEnviosDeItems(ids, envioId);
     return { ok: true };
+  }
+
+  static async marcarItemsErrorImpresion(
+    itemIds: number[],
+    envioId?: number,
+    mensaje?: string,
+  ): Promise<{ ok: true }> {
+    if (!Array.isArray(itemIds) || itemIds.length === 0 || itemIds.length > 2000 ||
+        itemIds.some(id => !Number.isInteger(id) || id <= 0 || id > 2147483647)) {
+      throw new PrecuentaError('IDs de items invalidos', 400);
+    }
+    const ids = [...new Set(itemIds)];
+    await pool.query(`UPDATE comanda_items
+      SET estado_impresion = 'ERROR', impresion_intentos = impresion_intentos + 1
+      WHERE id = ANY($1::int[]) AND estado_impresion IN ('ENVIADO', 'PENDIENTE')`, [ids]);
+    const envios = await this.enviosDeItems(ids, envioId);
+    for (const id of envios) {
+      await pool.query(`UPDATE comanda_envios SET estado = 'ERROR', error = COALESCE($2, error) WHERE id = $1`, [
+        id,
+        mensaje || 'No se pudo confirmar la impresión',
+      ]);
+    }
+    return { ok: true };
+  }
+
+  private static async enviosDeItems(itemIds: number[], envioId?: number): Promise<number[]> {
+    if (envioId && Number.isInteger(envioId)) return [envioId];
+    if (itemIds.length === 0) return [];
+    const { rows } = await pool.query(
+      `SELECT DISTINCT envio_id FROM comanda_items WHERE id = ANY($1::int[]) AND envio_id IS NOT NULL`,
+      [itemIds],
+    );
+    return rows.map(row => Number(row.envio_id)).filter(id => Number.isInteger(id) && id > 0);
+  }
+
+  private static async actualizarEnviosDeItems(itemIds: number[], envioId?: number): Promise<void> {
+    const envios = await this.enviosDeItems(itemIds, envioId);
+    for (const id of envios) await this.recalcularEstadoEnvio(id);
+  }
+
+  static async recalcularEstadoEnvio(envioId: number): Promise<void> {
+    await pool.query(
+      `UPDATE comanda_envios e SET
+         estado = CASE
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion = 'ERROR') THEN 'ERROR'
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion = 'PENDIENTE') THEN 'PENDIENTE'
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion = 'ENVIADO') THEN 'ENVIADO'
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion IN ('CONFIRMADO', 'SIMULADO')) THEN 'CONFIRMADO'
+           ELSE e.estado
+         END,
+         confirmado_en = CASE
+           WHEN NOT EXISTS (
+             SELECT 1 FROM comanda_items ci
+             WHERE ci.envio_id = e.id AND ci.estado_impresion IN ('PENDIENTE', 'ENVIADO', 'ERROR')
+           ) THEN COALESCE(e.confirmado_en, NOW())
+           ELSE e.confirmado_en
+         END
+       WHERE e.id = $1`,
+      [envioId],
+    );
+  }
+
+  private static async recalcularEstadoEnvioConCliente(client: any, envioId: number): Promise<void> {
+    await client.query(
+      `UPDATE comanda_envios e SET
+         estado = CASE
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion = 'ERROR') THEN 'ERROR'
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion = 'PENDIENTE') THEN 'PENDIENTE'
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion = 'ENVIADO') THEN 'ENVIADO'
+           WHEN EXISTS (SELECT 1 FROM comanda_items ci WHERE ci.envio_id = e.id AND ci.estado_impresion IN ('CONFIRMADO', 'SIMULADO')) THEN 'CONFIRMADO'
+           ELSE e.estado
+         END,
+         confirmado_en = CASE
+           WHEN NOT EXISTS (
+             SELECT 1 FROM comanda_items ci
+             WHERE ci.envio_id = e.id AND ci.estado_impresion IN ('PENDIENTE', 'ENVIADO', 'ERROR')
+           ) THEN COALESCE(e.confirmado_en, NOW())
+           ELSE e.confirmado_en
+         END
+       WHERE e.id = $1`,
+      [envioId],
+    );
   }
 
   static async imprimirPrecuenta(comandaId: number): Promise<{
@@ -607,7 +693,10 @@ public static class RawPrinterHelper {
   }
 
   // ─── 1. PROCESAR IMPRESIÓN DE COMANDAS DE PRODUCCIÓN (COCINA Y BARRA) ───────
-  static async imprimirComandaProduccion(comandaId: number): Promise<{
+  static async imprimirComandaProduccion(
+    comandaId: number,
+    opciones: { itemIds?: number[]; envioId?: number } = {},
+  ): Promise<{
     ok: boolean;
     procesados: number;
     ticketTexto?: string;
@@ -642,6 +731,12 @@ public static class RawPrinterHelper {
       }
 
       const infoComanda = comandaRes.rows[0];
+      const itemIdsLote = Array.isArray(opciones.itemIds)
+        ? [...new Set(opciones.itemIds.filter(id => Number.isInteger(id) && id > 0))]
+        : [];
+
+      const filtroLote = itemIdsLote.length > 0 ? 'AND ci.id = ANY($2::int[])' : '';
+      const params: any[] = itemIdsLote.length > 0 ? [comandaId, itemIdsLote] : [comandaId];
 
       const itemsRes = await client.query(
         `
@@ -654,24 +749,29 @@ public static class RawPrinterHelper {
         FROM comanda_items ci
         JOIN productos p ON ci.producto_id = p.id
         JOIN categorias cat ON p.categoria_id = cat.id
-        WHERE ci.comanda_id = $1 AND ci.impreso = FALSE
+        WHERE ci.comanda_id = $1
+          AND ci.estado_impresion IN ('PENDIENTE', 'ERROR')
+          AND cat.destino_impresion IN ('COCINA', 'BARRA')
+          ${filtroLote}
         FOR UPDATE OF ci SKIP LOCKED
       `,
-        [comandaId],
+        params,
       );
 
       if (itemsRes.rows.length === 0) {
-        await client.query('ROLLBACK');
+        if (opciones.envioId) await this.recalcularEstadoEnvioConCliente(client, opciones.envioId);
+        await client.query('COMMIT');
         return { ok: true, procesados: 0 };
       }
 
       const itemsCocina: ItemComandaImpresion[] = [];
       const itemsBarra: ItemComandaImpresion[] = [];
-      const itemIdsAActualizar: number[] = [];
+      const destinosConfirmados = new Set<string>();
+      const destinosSimulados = new Set<string>();
       const destinosEnviados = new Set<string>();
+      const destinosError = new Set<string>();
 
-      itemsRes.rows.forEach((row) => {
-
+      itemsRes.rows.forEach((row: any) => {
         const item: ItemComandaImpresion = {
           cantidad: row.cantidad,
           nombre: row.nombre,
@@ -685,12 +785,57 @@ public static class RawPrinterHelper {
         }
       });
 
+      const idsPorDestino = (destino: string) =>
+        itemsRes.rows.filter((row: any) => row.destino_impresion === destino).map((row: any) => row.id);
+
       let textoTicketsAcumulado = '';
       const impresionesPendientes: ElectronPendingPrintJob[] = [];
 
+      const procesarDestino = async (
+        destino: 'COCINA' | 'BARRA',
+        items: ItemComandaImpresion[],
+        datos: DatosComandaProduccion,
+      ) => {
+        if (items.length === 0) return;
+        const impresoras = await this.obtenerImpresorasPorDestino(destino);
+
+        for (const imp of impresoras) {
+          const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
+          const ticketText = generarTemplateProduccion(datos, destino, anchoConfigurado);
+          const itemIds = idsPorDestino(destino);
+
+          if (imp.tipo === 'USB') {
+            impresionesPendientes.push({
+              ...this.crearTrabajoElectron(imp, ticketText, `Comanda ${destino}`),
+              itemIds,
+              envioId: opciones.envioId,
+            });
+            destinosEnviados.add(destino);
+            continue;
+          }
+
+          const resText = await this.enviarDirectoAImpresora(imp, ticketText);
+          if (imp.tipo === 'SIMULACION') {
+            if (resText) textoTicketsAcumulado += resText + '\n\n';
+            destinosSimulados.add(destino);
+          } else if (imp.tipo === 'RED') {
+            if (resText === null) destinosConfirmados.add(destino);
+            else {
+              textoTicketsAcumulado += resText + '\n\n';
+              destinosError.add(destino);
+            }
+          } else if (resText) {
+            textoTicketsAcumulado += resText + '\n\n';
+          }
+        }
+
+        if (impresoras.length === 0) {
+          textoTicketsAcumulado += generarTemplateProduccion(datos, destino, '80mm');
+        }
+      };
+
       if (itemsCocina.length > 0) {
-        const impresorasCocina = await this.obtenerImpresorasPorDestino('COCINA');
-        const datosCocina: DatosComandaProduccion = {
+        await procesarDestino('COCINA', itemsCocina, {
           folioComanda: infoComanda.folio_comanda,
           mesa: infoComanda.mesa,
           tipoOrigen: infoComanda.tipo_origen,
@@ -699,30 +844,11 @@ public static class RawPrinterHelper {
           atendidoPor: infoComanda.atendido_por,
           fecha: infoComanda.fecha,
           items: itemsCocina,
-        };
-
-        for (const imp of impresorasCocina) {
-          const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
-          const ticketText = generarTemplateProduccion(datosCocina, 'COCINA', anchoConfigurado);
-
-          if (imp.tipo === 'USB') {
-            impresionesPendientes.push(
-              { ...this.crearTrabajoElectron(imp, ticketText, 'Comanda Cocina'),
-                itemIds: itemsRes.rows.filter(row => row.destino_impresion === 'COCINA').map(row => row.id) },
-            );
-            continue;
-          }
-
-          const resText = await this.enviarDirectoAImpresora(imp, ticketText);
-          if (resText) textoTicketsAcumulado += resText + '\n\n';
-          else if (resText === null && imp.tipo === 'RED') destinosEnviados.add('COCINA');
-        }
-        if (impresorasCocina.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosCocina, 'COCINA', '80mm');
+        });
       }
 
       if (itemsBarra.length > 0) {
-        const impresorasBarra = await this.obtenerImpresorasPorDestino('BARRA');
-        const datosBarra: DatosComandaProduccion = {
+        await procesarDestino('BARRA', itemsBarra, {
           folioComanda: infoComanda.folio_comanda,
           mesa: infoComanda.mesa,
           tipoOrigen: infoComanda.tipo_origen,
@@ -731,41 +857,60 @@ public static class RawPrinterHelper {
           atendidoPor: infoComanda.atendido_por,
           fecha: infoComanda.fecha,
           items: itemsBarra,
-        };
-
-        for (const imp of impresorasBarra) {
-          const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
-          const ticketText = generarTemplateProduccion(datosBarra, 'BARRA', anchoConfigurado);
-
-          if (imp.tipo === 'USB') {
-            impresionesPendientes.push({ ...this.crearTrabajoElectron(imp, ticketText, 'Comanda Barra'),
-              itemIds: itemsRes.rows.filter(row => row.destino_impresion === 'BARRA').map(row => row.id) });
-            continue;
-          }
-
-          const resText = await this.enviarDirectoAImpresora(imp, ticketText);
-          if (resText) textoTicketsAcumulado += resText + '\n\n';
-          else if (resText === null && imp.tipo === 'RED') destinosEnviados.add('BARRA');
-        }
-        if (impresorasBarra.length === 0) textoTicketsAcumulado += generarTemplateProduccion(datosBarra, 'BARRA', '80mm');
+        });
       }
 
-      for (const row of itemsRes.rows) {
-        if (destinosEnviados.has(row.destino_impresion)) itemIdsAActualizar.push(row.id);
+      const idsConfirmados: number[] = [];
+      const idsSimulados: number[] = [];
+      const idsEnviados: number[] = [];
+      const idsError: number[] = [];
+
+      for (const row of itemsRes.rows as any[]) {
+        if (destinosConfirmados.has(row.destino_impresion)) idsConfirmados.push(row.id);
+        else if (destinosSimulados.has(row.destino_impresion)) idsSimulados.push(row.id);
+        else if (destinosEnviados.has(row.destino_impresion)) idsEnviados.push(row.id);
+        else if (destinosError.has(row.destino_impresion)) idsError.push(row.id);
       }
-      if (itemIdsAActualizar.length > 0) await client.query(
-        `
-        UPDATE comanda_items
-        SET impreso = TRUE, impreso_en = NOW()
-        WHERE id = ANY($1::int[])
-      `,
-        [itemIdsAActualizar],
-      );
+
+      if (idsConfirmados.length > 0) {
+        await client.query(
+          `UPDATE comanda_items
+           SET estado_impresion = 'CONFIRMADO', impreso = TRUE, impreso_en = NOW()
+           WHERE id = ANY($1::int[])`,
+          [idsConfirmados],
+        );
+      }
+      if (idsSimulados.length > 0) {
+        await client.query(
+          `UPDATE comanda_items
+           SET estado_impresion = 'SIMULADO', impreso = TRUE, impreso_en = NOW()
+           WHERE id = ANY($1::int[])`,
+          [idsSimulados],
+        );
+      }
+      if (idsEnviados.length > 0) {
+        await client.query(
+          `UPDATE comanda_items
+           SET estado_impresion = 'ENVIADO', impresion_intentos = impresion_intentos + 1
+           WHERE id = ANY($1::int[])`,
+          [idsEnviados],
+        );
+      }
+      if (idsError.length > 0) {
+        await client.query(
+          `UPDATE comanda_items
+           SET estado_impresion = 'ERROR', impresion_intentos = impresion_intentos + 1
+           WHERE id = ANY($1::int[])`,
+          [idsError],
+        );
+      }
+
+      if (opciones.envioId) await this.recalcularEstadoEnvioConCliente(client, opciones.envioId);
 
       await client.query('COMMIT');
       return {
         ok: true,
-        procesados: itemIdsAActualizar.length,
+        procesados: idsConfirmados.length + idsSimulados.length,
         ticketTexto: textoTicketsAcumulado.trim() || undefined,
         impresionesPendientes: impresionesPendientes.length > 0 ? impresionesPendientes : undefined,
       };

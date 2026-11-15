@@ -1,4 +1,31 @@
 <div class="comanda-layout">
+  @if (comandaService.enviosPendientes().length > 0) {
+    <div class="envios-banner">
+      <div class="envios-titulo">
+        <mat-icon>print</mat-icon>
+        <span>Hay {{ comandaService.enviosPendientes().length }} envío(s) con impresión pendiente o con error.</span>
+      </div>
+      <div class="envios-chips">
+        @for (envio of comandaService.enviosPendientes(); track envio.id) {
+          <span class="envio-chip" [class.con-error]="envio.estado === 'ERROR'">
+            Lote #{{ envio.id }} · {{ envio.estado }}
+            @if (envio.errores > 0) { · {{ envio.errores }} con error }
+            @if (envio.pendientes > 0) { · {{ envio.pendientes }} pendiente(s) }
+            @if (envio.estado === 'PENDIENTE' || envio.estado === 'ERROR') {
+              <button mat-stroked-button color="primary" (click)="reimprimirEnvio(envio.id)">
+                Reimprimir
+              </button>
+            }
+            @if (envio.estado === 'ENVIADO') {
+              <button mat-stroked-button color="primary" (click)="confirmarEnvio(envio.id)">
+                Marcar impreso
+              </button>
+            }
+          </span>
+        }
+      </div>
+    </div>
+  }
   <section class="seccion-menu">
     <app-menu-productos></app-menu-productos>
   </section>

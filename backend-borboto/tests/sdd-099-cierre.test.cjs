@@ -568,25 +568,25 @@ function printerModule(pool) {
   return module.exports;
 }
 
-test('SDD-013: produccion marca RED exitosa y conserva USB pendiente con itemIds', async () => {
-  for (const mode of ['absent', 'fallback', 'RED', 'USB']) {
+test('SDD-013: produccion marca RED/SIMULACION exitosa y conserva USB pendiente con itemIds', async () => {
+  for (const mode of ['absent', 'fallback', 'RED', 'USB', 'SIMULACION']) {
     const log = [];
     let impreso = false;
     const client = { async query(sql, params) {
       log.push({ sql, params });
-      if (sql.includes('SET impreso = TRUE') && params[0].includes(3)) impreso = true;
+      if ((sql.includes("estado_impresion = 'CONFIRMADO'") || sql.includes("estado_impresion = 'SIMULADO'")) && params[0].includes(3)) impreso = true;
       if (sql.includes('FROM comandas')) return { rows: [{ folio_comanda: 1, atendido_por: 'Caja', fecha: 'hoy' }] };
       if (sql.includes('FROM comanda_items')) return { rows: [{ id: 3, cantidad: 1, nombre: 'Cafe', destino_impresion: 'COCINA' }] };
       return { rows: [] };
     }, release() {} };
     const { PrinterService } = printerModule({ connect: async () => client });
-    PrinterService.obtenerImpresorasPorDestino = async () => mode === 'absent' ? [] : [{ tipo: mode === 'USB' ? 'USB' : 'RED', nombre: 'Test', activa: true }];
+    PrinterService.obtenerImpresorasPorDestino = async () => mode === 'absent' ? [] : [{ tipo: mode === 'USB' ? 'USB' : mode === 'SIMULACION' ? 'SIMULACION' : 'RED', nombre: 'Test', activa: true }];
     PrinterService.enviarDirectoAImpresora = async () => mode === 'fallback' ? 'texto fallback' : null;
     const result = await PrinterService.imprimirComandaProduccion(1);
     assert.equal(result.ok, true);
-    const update = log.find(entry => entry.sql.includes('SET impreso = TRUE'));
-    assert.equal(update?.params[0].length ?? 0, mode === 'RED' ? 1 : 0);
-    assert.equal(impreso, mode === 'RED');
+    const update = log.find(entry => entry.sql.includes("estado_impresion = 'CONFIRMADO'") || entry.sql.includes("estado_impresion = 'SIMULADO'"));
+    assert.equal(update?.params[0].length ?? 0, ['RED', 'SIMULACION'].includes(mode) ? 1 : 0);
+    assert.equal(impreso, ['RED', 'SIMULACION'].includes(mode));
     if (mode === 'USB') assert.deepEqual(Array.from(result.impresionesPendientes[0].itemIds), [3]);
     assert.ok(log.some(entry => entry.sql.includes('SKIP LOCKED')));
   }
@@ -714,7 +714,8 @@ test('SDD-013: ack de items validado e idempotente conserva fecha de primer exit
   await PrinterService.confirmarItemsImpresos([3, 3, 4]);
   await PrinterService.confirmarItemsImpresos([3, 4]);
   assert.deepEqual(Array.from(queries[0].params[0]), [3, 4]);
-  assert.ok(queries.every(query => query.sql.includes('AND impreso IS NOT TRUE')));
+  assert.ok(queries[0].sql.includes("estado_impresion = 'CONFIRMADO'"));
+  assert.ok(queries[0].sql.includes('impreso_en = COALESCE'));
 });
 
 test('SDD-013: USB confirma itemIds solo tras exito RAW o IPC; fallo/ack perdido no reimprime', async () => {
