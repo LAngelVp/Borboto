@@ -17,6 +17,7 @@ Cobro, despues del lock de comanda, suma subtotal persistido. Valida descuento m
 Socket conserva callback por suscripcion y unsubscribe retira la misma referencia con off; Mesas/Cocina no acumulan ese listener tras navegar y desuscribirse. Las pruebas de concurrencia simulan el lock; no verifican una instancia PostgreSQL real ni ejecutan migraciones.
 
 ## Casos de uso actuales
+SDD-025: ADMIN abre constructor en Ajustes, agrega filtrados stock<=guardia+margen o manuales, edita presentacion/cantidad y guarda. Igualdad del umbral sugiere minimo una unidad; paquetes ceil(faltante/factor). Exportacion persiste primero y usa folio/snapshots para Excel o ventana imprimible con casillas/campos de compra real; no interpreta HTML de insumos. TODO o parcial/extras suma bajo transaccion y audita folio; falso/cero no suma. Parcial cierra toda la lista. RECIBIDA/CANCELADA devuelve 409 sin nuevas entradas; fallo intermedio revierte lista/items/stock. Cancelar pendiente no modifica existencias. Mocks cubren filtros, guardado reutilizado, XLSX/DOM y rollback; entrega/impresion real no certificadas.
 
 Revision [SDD-099](SDD-099-cierre-integral-arquitectura-y-modulos.md): division informa aportacion por persona pero el cierre requiere total neto completo; cero tras descuento valido no bloquea Caja. Corte calcula resumen SQL serializado y evita duplicado sin pagos; error de carga bloquea envio. CRUD promos/combos atomico publica catalogo; Dashboard HOY envia ambos limites locales y busqueda libre por folio/cliente no fuerza hoy ni es pisada por stats.
 

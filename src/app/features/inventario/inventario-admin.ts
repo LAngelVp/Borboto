@@ -6,9 +6,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription, forkJoin } from 'rxjs';
 import { InventarioService, Insumo, ModoCaptura, MovimientoInventario, AjusteInventario, errorInventario } from '../../core/services/inventario.service';
 import { SocketService } from '../../core/services/socket.service';
+import { ResurtidoComponent } from './resurtido';
 
 @Component({
-  selector: 'app-inventario-admin', imports: [ReactiveFormsModule, DatePipe, DecimalPipe, MatIconModule],
+  selector: 'app-inventario-admin', imports: [ReactiveFormsModule, DatePipe, DecimalPipe, MatIconModule, ResurtidoComponent],
   templateUrl: './inventario-admin.html', styleUrl: './inventario-admin.scss', changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class InventarioAdminComponent implements OnInit {

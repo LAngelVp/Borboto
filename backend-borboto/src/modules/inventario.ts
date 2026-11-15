@@ -1,6 +1,7 @@
 import type { Express, RequestHandler, Response } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { verificarSesion } from '../session';
+import { registrarResurtido } from './resurtido';
 
 type Datos = Record<string, unknown>;
 export interface Insumo extends Datos {
@@ -119,6 +120,8 @@ export function registrarInventario(app: Express, pool: Pool, emitirCambioGlobal
     if (rows.length !== ids.length || rows.some(insumo => !insumo.activo)) throw new InventarioError(404, 'Insumo no encontrado o inactivo');
     return rows;
   }
+  registrarResurtido(app, { pool, requireAuth, admin, transaccion, bloquear, movimiento, conversion, numero, texto, objeto, idValido, exigir,
+    error: (status, mensaje) => new InventarioError(status, mensaje), responder, enriquecer: enriquecerInsumo });
   app.get(`${ruta}/insumos`, requireAuth, lectura, async (req, res) => {
     try {
       const todos = req.query['incluirInactivos'] === 'true';

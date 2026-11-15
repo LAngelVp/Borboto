@@ -27,6 +27,15 @@ export interface MovimientoInventario {
   usuario_nombre: string | null; fecha: string;
 }
 export interface ItemSalida { insumoId: number; modoCaptura: ModoCaptura; cantidad: number }
+export interface ItemListaResurtido {
+  id: number; insumo_id: number; modo_captura: ModoCaptura; cantidad_sugerida: number; cantidad_comprada: number | null;
+  comprado: boolean; stock_actual_snapshot: number; stock_minimo_snapshot: number; insumo: Insumo;
+}
+export interface ListaResurtido {
+  id: number; folio: string; nombre: string; margen_guardia: number; estado: 'PENDIENTE' | 'RECIBIDA' | 'CANCELADA';
+  notas: string | null; creada_en: string; recibida_en: string | null; usuario_nombre: string | null; items: ItemListaResurtido[];
+}
+export interface CompraRecibida { insumoId: number; comprado: boolean; modoCaptura: ModoCaptura; cantidadComprada: number }
 export type AjusteInventario = { tipoMovimiento: 'ENTRADA_COMPRA'; modoCaptura: ModoCaptura; cantidad: number; notas?: string }
   | { tipoMovimiento: 'REINVENTARIO_AJUSTE'; nuevoStockFisico: number; notas?: string }
   | { tipoMovimiento: 'REINVENTARIO_AJUSTE'; paquetesContados: number; unidadesSueltasContadas: number; notas?: string };
@@ -69,6 +78,11 @@ export class InventarioService {
     });
   }
   listarTodos() { return this.http.get<Insumo[]>(`${this.url}/insumos?incluirInactivos=true`); }
+  listasResurtido() { return this.http.get<ListaResurtido[]>(`${this.url}/listas-resurtido`); }
+  detalleResurtido(id: number) { return this.http.get<ListaResurtido>(`${this.url}/listas-resurtido/${id}`); }
+  guardarResurtido(body: { nombre: string; margenGuardia: number; notas: string; items: { insumoId: number; modoCaptura: ModoCaptura; cantidadSugerida: number }[] }) { return this.http.post<ListaResurtido>(`${this.url}/listas-resurtido`, body); }
+  recibirResurtido(id: number, body: { modo: 'TODO' | 'PARCIAL'; notas?: string; items?: CompraRecibida[] }) { return this.http.post<{ ok: boolean }>(`${this.url}/listas-resurtido/${id}/recibir`, body); }
+  cancelarResurtido(id: number) { return this.http.post<{ ok: boolean }>(`${this.url}/listas-resurtido/${id}/cancelar`, {}); }
   guardar(config: ConfiguracionInsumo & { stock_inicial?: number }, id?: number) {
     return id ? this.http.put<Insumo>(`${this.url}/insumos/${id}`, config) : this.http.post<Insumo>(`${this.url}/insumos`, config);
   }

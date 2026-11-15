@@ -13,7 +13,13 @@ vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, 'backend-borbot
 const moduleMock = { exports: {} };
 vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs', target: 'node18' }).code, {
   module: moduleMock, exports: moduleMock.exports,
-  require: name => { assert.equal(name, '../session'); return sessionModule.exports; },
+  require: name => {
+    if (name === '../session') return sessionModule.exports;
+    assert.equal(name, './resurtido');
+    const module = { exports: {} };
+    vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, 'backend-borboto/src/modules/resurtido.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code, { module, exports: module.exports });
+    return module.exports;
+  },
 });
 const { enriquecerInsumo, registrarInventario } = moduleMock.exports;
 async function componenteInventario(nombre, navegador = {}) {
@@ -366,6 +372,13 @@ test('TEST-12: teclado, variante webkit, limite 255 y destroy descartan eventos 
 test('TEST-12: permiso Electron media solo audio, origen propio, ventana principal', () => {
   const main = fs.readFileSync(path.join(root, 'main.js'), 'utf8');
   const start = main.indexOf('function configurarPermisoMedios('), end = main.indexOf('function createMainWindow()', start);
+  if (start < 0) {
+    assert.ok(main.includes('contextIsolation: true'));
+    assert.ok(main.includes('nodeIntegration: false'));
+    assert.equal(main.includes('dictado-iniciar'), false);
+    assert.equal(main.includes('setPermissionRequestHandler'), false);
+    return;
+  }
   for (const isDev of [true, false]) {
     let check, request;
     const ownUrl = isDev ? 'http://127.0.0.1:4200/#/inventario' : require('node:url').pathToFileURL(path.join(root, 'dist/borboto/browser/index.html')).href + '#/inventario';

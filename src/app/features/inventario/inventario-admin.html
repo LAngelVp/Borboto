@@ -8,6 +8,7 @@
   <p role="status" aria-live="polite">{{ mensaje() }}</p>
   @if (cargando()) { <p role="status">Cargando inventario e historial...</p> }
   @if (inventario.error()) { <p role="alert">{{ inventario.error() }}</p> }
+  <app-resurtido [insumos]="insumos()" />
   <div class="configuracion">
     <section aria-labelledby="config-titulo">
       <h3 id="config-titulo">{{ editando() ? 'Editar insumo' : 'Alta de insumo' }}</h3>
