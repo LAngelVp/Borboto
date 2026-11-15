@@ -46,6 +46,8 @@ export interface DatosNegocio {
   visitas_requeridas_frecuente?: number;
   puntos_por_cada_diez_pesos?: number;
   pesos_por_punto?: number;
+  logo_url?: string | null;
+  imprimir_logo?: boolean;
 }
 
 export interface DatosTransferencia {
@@ -188,6 +190,16 @@ export class AjustesService {
 
   guardarDatosNegocio(datos: DatosNegocio): Observable<DatosNegocio> {
     return this.http.post<DatosNegocio>(`${this.apiUrl}/ajustes/negocio`, datos);
+  }
+
+  subirLogoNegocio(archivo: File): Observable<{ ok: boolean; logo_url: string }> {
+    const formData = new FormData();
+    formData.append('logo', archivo);
+    return this.http.post<{ ok: boolean; logo_url: string }>(`${this.apiUrl}/ajustes/negocio/logo`, formData);
+  }
+
+  eliminarLogoNegocio(): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${this.apiUrl}/ajustes/negocio/logo`);
   }
 
   // Datos de Transferencia

@@ -2,6 +2,7 @@
 
 export type AnchoPapel = '58mm' | '80mm';
 export type TipoCorte = 'NINGUNO' | 'PARCIAL' | 'TOTAL';
+export type TipoFuenteProduccion = 'NORMAL' | 'DOBLE_ALTO' | 'DOBLE_ANCHO' | 'DOBLE';
 
 export interface DatosEmpresaTicket {
   nombre?: string;
@@ -13,6 +14,8 @@ export interface DatosEmpresaTicket {
   regimenFiscal?: string;
   codigoPostal?: string;
   mensajeRecibo?: string;
+  logoUrl?: string;
+  imprimirLogo?: boolean;
 }
 
 export interface DatosComandaProduccion {
@@ -138,13 +141,19 @@ function agregarRemateFinal(lineas: string[], ancho: number): void {
   }
 }
 
+function anchoColumnasProduccion(anchoPapel: AnchoPapel, fontSize: TipoFuenteProduccion): number {
+  const base = anchoPapel === '58mm' ? 30 : 42;
+  return fontSize === 'DOBLE_ANCHO' || fontSize === 'DOBLE' ? Math.floor(base / 2) : base;
+}
+
 // ─── 1. TEMPLATE DE PRODUCCIÓN (COCINA / BARRA) ───────────────────────────
 export function generarTemplateProduccion(
   datos: DatosComandaProduccion,
   area: 'COCINA' | 'BARRA',
   anchoPapel: AnchoPapel = '80mm',
+  fontSize: TipoFuenteProduccion = 'NORMAL',
 ): string {
-  const maxW = anchoPapel === '58mm' ? 30 : 42;
+  const maxW = anchoColumnasProduccion(anchoPapel, fontSize);
   const separador = '-'.repeat(maxW);
   const origen = obtenerEtiquetaOrigen(datos.mesa, datos.folioOrigen);
 

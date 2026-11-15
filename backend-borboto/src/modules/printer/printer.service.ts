@@ -5,6 +5,7 @@ import net from 'net';
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
+import { Jimp } from 'jimp';
 import { print } from 'pdf-to-printer';
 
 import {
@@ -18,6 +19,7 @@ import {
   type ItemComandaImpresion,
   type AnchoPapel,
   type TipoCorte,
+  type TipoFuenteProduccion,
 } from './templates/ticket-templates.ts';
 
 interface ImpresoraConfigurada {
@@ -31,6 +33,7 @@ interface ImpresoraConfigurada {
   ancho_papel?: AnchoPapel;
   es_termica?: boolean;
   corte_tipo?: TipoCorte;
+  tamano_fuente?: TipoFuenteProduccion;
 }
 
 export interface WindowsPrinterInfo {
@@ -55,6 +58,8 @@ export interface ElectronPendingPrintJob {
   anchoPapel?: AnchoPapel;
   esTermica?: boolean;
   corteTipo?: TipoCorte;
+  fontSize?: TipoFuenteProduccion;
+  logoDataUrl?: string;
 }
 
 interface UsbRawPrintPayload {
@@ -62,6 +67,8 @@ interface UsbRawPrintPayload {
   contenido: string;
   anchoPapel?: AnchoPapel;
   corteTipo?: TipoCorte;
+  fontSize?: TipoFuenteProduccion;
+  logoDataUrl?: string;
 }
 
 export class PrecuentaError extends Error {
@@ -206,11 +213,19 @@ export class PrinterService {
     const impresionesPendientes: ElectronPendingPrintJob[] = [];
     if (!impresoras.length) textos.push(generarTemplatePrecuenta(datos));
     for (const impresora of impresoras) {
-      const contenido = generarTemplatePrecuenta(datos, impresora.ancho_papel || '80mm');
+      const ancho = impresora.ancho_papel || '80mm';
+      const contenido = generarTemplatePrecuenta(datos, ancho);
+      const logoBuffer = datos.datosEmpresa.imprimirLogo
+        ? await this.construirLogoEscPos(datos.datosEmpresa.logoUrl, ancho)
+        : null;
       if (impresora.tipo === 'USB') {
-        impresionesPendientes.push(this.crearTrabajoElectron(impresora, contenido, 'Precuenta'));
+        impresionesPendientes.push(this.crearTrabajoElectron(impresora, contenido, 'Precuenta', {
+          logoDataUrl: datos.datosEmpresa.imprimirLogo
+            ? await this.obtenerLogoDataUrl(datos.datosEmpresa.logoUrl)
+            : undefined,
+        }));
       } else {
-        const fallback = await this.enviarDirectoAImpresora(impresora, contenido);
+        const fallback = await this.enviarDirectoAImpresora(impresora, contenido, { logoBuffer });
         if (fallback) textos.push(fallback);
       }
     }
@@ -228,14 +243,18 @@ export class PrinterService {
 
   private static async execCommand(command: string): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      exec(command, { windowsHide: true, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(stderr?.trim() || error.message));
-          return;
-        }
+      exec(
+        command,
+        { windowsHide: true, maxBuffer: 1024 * 1024 * 10, timeout: 20000, killSignal: 'SIGTERM' },
+        (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(stderr?.trim() || error.message));
+            return;
+          }
 
-        resolve({ stdout, stderr });
-      });
+          resolve({ stdout, stderr });
+        },
+      );
     });
   }
 
@@ -251,6 +270,7 @@ export class PrinterService {
     impresora: ImpresoraConfigurada,
     contenido: string,
     titulo: string,
+    extra: Partial<ElectronPendingPrintJob> = {},
   ): ElectronPendingPrintJob {
     return {
       tipo: 'USB',
@@ -260,12 +280,14 @@ export class PrinterService {
       anchoPapel: impresora.ancho_papel || '80mm',
       esTermica: impresora.es_termica === true,
       corteTipo: impresora.corte_tipo || 'NINGUNO',
+      fontSize: impresora.tamano_fuente || 'NORMAL',
+      ...extra,
     };
   }
 
   private static async obtenerDatosEmpresaTicket(): Promise<DatosEmpresaTicket> {
     const negocioRes = await pool.query(
-      'SELECT nombre, rfc, telefono, direccion, email, mensaje_recibo FROM datos_negocio WHERE id = 1 LIMIT 1',
+      'SELECT nombre, rfc, telefono, direccion, email, mensaje_recibo, logo_url, imprimir_logo FROM datos_negocio WHERE id = 1 LIMIT 1',
     );
     const facturacionRes = await pool.query(
       'SELECT razon_social, rfc_emisor, regimen_fiscal, codigo_postal FROM configuracion_facturacion WHERE id = 1 LIMIT 1',
@@ -284,7 +306,89 @@ export class PrinterService {
       regimenFiscal: facturacion.regimen_fiscal || undefined,
       codigoPostal: facturacion.codigo_postal || undefined,
       mensajeRecibo: negocio.mensaje_recibo || undefined,
+      logoUrl: negocio.logo_url || undefined,
+      imprimirLogo: negocio.imprimir_logo === true,
     };
+  }
+
+  // ─── LOGOTIPO PARA TICKETS TÉRMICOS ───────────────────────────────────────
+  private static resolverRutaLogo(logoUrl?: string): string | null {
+    if (!logoUrl) return null;
+    const limpio = logoUrl.replace(/^\/?uploads\//, '').replace(/^\/+/, '');
+    if (!limpio || limpio.includes('..')) return null;
+    const root = process.env.BORBOTO_UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+    const ruta = path.join(root, limpio);
+    return fs.existsSync(ruta) ? ruta : null;
+  }
+
+  static async construirLogoEscPos(logoUrl?: string, anchoPapel: AnchoPapel = '80mm'): Promise<Buffer | null> {
+    const ruta = this.resolverRutaLogo(logoUrl);
+    if (!ruta) return null;
+
+    try {
+      const image = await Jimp.read(ruta);
+      return this.generarRasterLogo(image, anchoPapel);
+    } catch (error: any) {
+      console.error('No se pudo preparar el logo para impresión térmica:', error.message);
+      return null;
+    }
+  }
+
+  private static async construirLogoDesdeDataUrl(
+    dataUrl?: string,
+    anchoPapel: AnchoPapel = '80mm',
+  ): Promise<Buffer | null> {
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) return null;
+    try {
+      const base64 = dataUrl.split(',')[1];
+      if (!base64) return null;
+      const image = await Jimp.read(Buffer.from(base64, 'base64'));
+      return this.generarRasterLogo(image, anchoPapel);
+    } catch {
+      return null;
+    }
+  }
+
+  private static generarRasterLogo(image: any, anchoPapel: AnchoPapel): Buffer {
+    const anchoObjetivo = anchoPapel === '58mm' ? 384 : 576;
+    if (image.bitmap.width > anchoObjetivo) {
+      const alto = Math.max(1, Math.round((image.bitmap.height * anchoObjetivo) / image.bitmap.width));
+      image.resize({ w: anchoObjetivo, h: Math.min(alto, 320) });
+    }
+    image.greyscale();
+    const { width, height, data } = image.bitmap;
+    const widthBytes = Math.ceil(width / 8);
+    const raster = Buffer.alloc(widthBytes * height, 0);
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const offset = (y * width + x) * 4;
+        const luminancia = data[offset] * 0.299 + data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
+        if (luminancia < 160) {
+          const byteIndex = y * widthBytes + Math.floor(x / 8);
+          raster[byteIndex] = (raster[byteIndex] ?? 0) | (0x80 >> (x % 8));
+        }
+      }
+    }
+
+    const header = Buffer.from([
+      0x1d, 0x76, 0x30, 0x00,
+      widthBytes & 0xff, (widthBytes >> 8) & 0xff,
+      height & 0xff, (height >> 8) & 0xff,
+    ]);
+    return Buffer.concat([Buffer.from([0x1b, 0x61, 0x01]), header, raster, Buffer.from([0x0a, 0x1b, 0x61, 0x00])]);
+  }
+
+  static async obtenerLogoDataUrl(logoUrl?: string): Promise<string | undefined> {
+    const ruta = this.resolverRutaLogo(logoUrl);
+    if (!ruta) return undefined;
+    try {
+      const extension = path.extname(ruta).toLowerCase();
+      const mime = extension === '.jpg' || extension === '.jpeg' ? 'image/jpeg' : 'image/png';
+      return `data:${mime};base64,${fs.readFileSync(ruta).toString('base64')}`;
+    } catch {
+      return undefined;
+    }
   }
 
   private static inferirTipoCola(printer: {
@@ -388,9 +492,18 @@ export class PrinterService {
     contenido: string,
     anchoPapel: AnchoPapel = '80mm',
     corteTipo: TipoCorte = 'NINGUNO',
+    opciones: { fontSize?: TipoFuenteProduccion; logoBuffer?: Buffer | null } = {},
   ): Buffer {
     const initialize = Buffer.from([0x1b, 0x40]);
     const lineSpacing = Buffer.from([0x1b, 0x33, 0x00]);
+    const fontValue: Record<TipoFuenteProduccion, number> = {
+      NORMAL: 0x00,
+      DOBLE_ALTO: 0x10,
+      DOBLE_ANCHO: 0x20,
+      DOBLE: 0x30,
+    };
+    const fontCommand = Buffer.from([0x1d, 0x21, fontValue[opciones.fontSize || 'NORMAL']]);
+    const logo = opciones.logoBuffer || Buffer.alloc(0);
     const text = Buffer.from(contenido.replace(/\r?\n/g, '\r\n'), 'latin1');
     // Refuerzo físico para térmicas: después de las líneas en blanco del template,
     // este feed adicional fuerza expulsión visible de papel aun sin corte automático.
@@ -403,7 +516,7 @@ export class PrinterService {
         : corteTipo === 'PARCIAL'
           ? Buffer.from([0x1d, 0x56, 0x01])
           : Buffer.alloc(0);
-    return Buffer.concat([initialize, lineSpacing, Buffer.from([0x0a]), text, feed, cut]);
+    return Buffer.concat([initialize, lineSpacing, fontCommand, logo, Buffer.from([0x0a]), text, feed, cut]);
   }
 
   private static async imprimirUsbWindowsRaw(
@@ -411,9 +524,10 @@ export class PrinterService {
     contenido: string,
     anchoPapel: AnchoPapel = '80mm',
     corteTipo: TipoCorte = 'NINGUNO',
+    opciones: { fontSize?: TipoFuenteProduccion; logoBuffer?: Buffer | null } = {},
   ): Promise<void> {
     const rawPath = path.join(process.cwd(), `temp_ticket_${Date.now()}.bin`);
-    fs.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel, corteTipo));
+    fs.writeFileSync(rawPath, this.construirBufferTermico(contenido, anchoPapel, corteTipo, opciones));
 
     try {
       const escapedPath = this.escapePowerShell(rawPath);
@@ -505,6 +619,7 @@ public static class RawPrinterHelper {
   static async enviarDirectoAImpresora(
     impresora: ImpresoraConfigurada,
     contenido: string,
+    opciones: { fontSize?: TipoFuenteProduccion; logoBuffer?: Buffer | null; logoDataUrl?: string } = {},
   ): Promise<string | null> {
     if (!impresora.activa) {
       console.log(`⚠️ Impresora "${impresora.nombre}" (${impresora.destino}) está desactivada.`);
@@ -513,40 +628,61 @@ public static class RawPrinterHelper {
 
     // 1. MODO RED (TCP/IP directo a comanderas térmicas de Cocina / Barra)
     if (impresora.tipo === 'RED') {
-      return new Promise((resolve) => {
-        const client = new net.Socket();
-        const puerto = impresora.puerto_tcp || 9100;
+      const intentarRed = (intento: number): Promise<string | null> =>
+        new Promise((resolve) => {
+          const client = new net.Socket();
+          const puerto = impresora.puerto_tcp || 9100;
+          let finalizado = false;
+          const terminar = (resultado: string | null) => {
+            if (finalizado) return;
+            finalizado = true;
+            client.destroy();
+            resolve(resultado);
+          };
 
-        client.setTimeout(3000);
+          client.setTimeout(3000);
 
-        client.connect(puerto, impresora.ip_o_puerto, () => {
-          const bufferSalida =
-            impresora.es_termica === true
-              ? this.construirBufferTermico(
-                  contenido,
-                  impresora.ancho_papel || '80mm',
-                  impresora.corte_tipo || 'NINGUNO',
-                )
-              : Buffer.from(contenido, 'utf8');
+          client.connect(puerto, impresora.ip_o_puerto, () => {
+            const bufferSalida =
+              impresora.es_termica === true
+                ? this.construirBufferTermico(
+                    contenido,
+                    impresora.ancho_papel || '80mm',
+                    impresora.corte_tipo || 'NINGUNO',
+                    { fontSize: opciones.fontSize, logoBuffer: opciones.logoBuffer },
+                  )
+                : Buffer.from(contenido, 'utf8');
 
-          client.write(bufferSalida, () => {
-            client.end();
-            resolve(null);
+            client.write(bufferSalida, () => {
+              client.end();
+              terminar(null);
+            });
+          });
+
+          client.on('error', (err) => {
+            console.error(`❌ Error de conexión TCP/IP con ${impresora.nombre}:`, err.message);
+            if (intento < 2) {
+              finalizado = true;
+              client.destroy();
+              setTimeout(() => { void intentarRed(intento + 1).then(resolve); }, 250);
+              return;
+            }
+            terminar(contenido);
+          });
+
+          client.on('timeout', () => {
+            console.error(`⏰ Timeout conectando a impresora de red ${impresora.nombre}`);
+            if (intento < 2) {
+              finalizado = true;
+              client.destroy();
+              setTimeout(() => { void intentarRed(intento + 1).then(resolve); }, 250);
+              return;
+            }
+            terminar(contenido);
           });
         });
 
-        client.on('error', (err) => {
-          console.error(`❌ Error de conexión TCP/IP con ${impresora.nombre}:`, err.message);
-          client.destroy();
-          resolve(contenido);
-        });
-
-        client.on('timeout', () => {
-          console.error(`⏰ Timeout conectando a impresora de red ${impresora.nombre}`);
-          client.destroy();
-          resolve(contenido);
-        });
-      });
+      return intentarRed(1);
     }
 
     // 2. MODO USB / SISTEMA OPERATIVO (Impresora física en Máquina Madre)
@@ -565,14 +701,16 @@ public static class RawPrinterHelper {
             contenido,
             impresora.ancho_papel || '80mm',
             impresora.corte_tipo || 'NINGUNO',
+            { fontSize: opciones.fontSize, logoBuffer: opciones.logoBuffer },
           );
         } else {
           const tempPath = path.join(process.cwd(), `temp_ticket_${Date.now()}.txt`);
           fs.writeFileSync(tempPath, contenido, 'utf8');
 
-          await print(tempPath, {
-            printer: impresora.ip_o_puerto,
-          });
+          await Promise.race([
+            print(tempPath, { printer: impresora.ip_o_puerto }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de impresión USB')), 15000)),
+          ]);
 
           if (fs.existsSync(tempPath)) {
             fs.unlinkSync(tempPath);
@@ -687,6 +825,10 @@ public static class RawPrinterHelper {
       payload.contenido,
       payload.anchoPapel || '80mm',
       payload.corteTipo || 'NINGUNO',
+      {
+        fontSize: payload.fontSize,
+        logoBuffer: await this.construirLogoDesdeDataUrl(payload.logoDataUrl, payload.anchoPapel || '80mm'),
+      },
     );
 
     return { ok: true };
@@ -801,7 +943,12 @@ public static class RawPrinterHelper {
 
         for (const imp of impresoras) {
           const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
-          const ticketText = generarTemplateProduccion(datos, destino, anchoConfigurado);
+          const ticketText = generarTemplateProduccion(
+            datos,
+            destino,
+            anchoConfigurado,
+            imp.tamano_fuente || 'NORMAL',
+          );
           const itemIds = idsPorDestino(destino);
 
           if (imp.tipo === 'USB') {
@@ -814,7 +961,9 @@ public static class RawPrinterHelper {
             continue;
           }
 
-          const resText = await this.enviarDirectoAImpresora(imp, ticketText);
+          const resText = await this.enviarDirectoAImpresora(imp, ticketText, {
+            fontSize: imp.tamano_fuente || 'NORMAL',
+          });
           if (imp.tipo === 'SIMULACION') {
             if (resText) textoTicketsAcumulado += resText + '\n\n';
             destinosSimulados.add(destino);
@@ -830,7 +979,12 @@ public static class RawPrinterHelper {
         }
 
         if (impresoras.length === 0) {
-          textoTicketsAcumulado += generarTemplateProduccion(datos, destino, '80mm');
+          textoTicketsAcumulado += generarTemplateProduccion(
+            datos,
+            destino,
+            '80mm',
+            impresoras[0]?.tamano_fuente || 'NORMAL',
+          );
         }
       };
 
@@ -1032,15 +1186,22 @@ public static class RawPrinterHelper {
         for (const imp of impresorasCaja) {
           const anchoConfigurado: AnchoPapel = imp.ancho_papel || '80mm';
           const ticketText = generarTemplateCobro(datosCobro, anchoConfigurado);
+          const logoBuffer = datosEmpresa.imprimirLogo
+            ? await this.construirLogoEscPos(datosEmpresa.logoUrl, anchoConfigurado)
+            : null;
 
           if (imp.tipo === 'USB') {
             impresionesPendientes.push(
-              this.crearTrabajoElectron(imp, ticketText, 'Ticket de Cobro'),
+              this.crearTrabajoElectron(imp, ticketText, 'Ticket de Cobro', {
+                logoDataUrl: datosEmpresa.imprimirLogo
+                  ? await this.obtenerLogoDataUrl(datosEmpresa.logoUrl)
+                  : undefined,
+              }),
             );
             continue;
           }
 
-          const resSimulacion = await this.enviarDirectoAImpresora(imp, ticketText);
+          const resSimulacion = await this.enviarDirectoAImpresora(imp, ticketText, { logoBuffer });
           if (resSimulacion) {
             ticketSimuladoGenerado = resSimulacion;
           }

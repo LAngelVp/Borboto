@@ -109,6 +109,23 @@ const uploadImagen = multer({
 
 const uploadCSD = multer({ storage: multer.memoryStorage() });
 
+const uploadLogo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (['image/png', 'image/jpeg'].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Formato de logotipo no soportado. Usa PNG o JPG.'));
+    }
+  },
+});
+
+const logosDir = path.join(uploadsRoot, 'logos');
+if (!fs.existsSync(logosDir)) {
+  fs.mkdirSync(logosDir, { recursive: true });
+}
+
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -2123,15 +2140,22 @@ app.post('/api/ajustes/negocio', async (req, res) => {
     visitas_requeridas_frecuente,
     puntos_por_cada_diez_pesos,
     pesos_por_punto,
+    logo_url,
+    imprimir_logo,
   } = req.body;
+  const logoValido =
+    typeof logo_url === 'string' && /^\/uploads\/logos\/[A-Za-z0-9._-]+$/.test(logo_url)
+      ? logo_url
+      : null;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto)
-       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO datos_negocio (id, nombre, rfc, telefono, direccion, email, mensaje_recibo, visitas_requeridas_frecuente, puntos_por_cada_diez_pesos, pesos_por_punto, logo_url, imprimir_logo)
+       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (id) DO UPDATE SET
          nombre = EXCLUDED.nombre, rfc = EXCLUDED.rfc, telefono = EXCLUDED.telefono, direccion = EXCLUDED.direccion, email = EXCLUDED.email,
          mensaje_recibo = EXCLUDED.mensaje_recibo, visitas_requeridas_frecuente = EXCLUDED.visitas_requeridas_frecuente,
-         puntos_por_cada_diez_pesos = EXCLUDED.puntos_por_cada_diez_pesos, pesos_por_punto = EXCLUDED.pesos_por_punto RETURNING *`,
+         puntos_por_cada_diez_pesos = EXCLUDED.puntos_por_cada_diez_pesos, pesos_por_punto = EXCLUDED.pesos_por_punto,
+         logo_url = COALESCE($10, datos_negocio.logo_url), imprimir_logo = $11 RETURNING *`,
       [
         nombre,
         rfc,
@@ -2142,11 +2166,89 @@ app.post('/api/ajustes/negocio', async (req, res) => {
         Number(visitas_requeridas_frecuente) || 5,
         Number(puntos_por_cada_diez_pesos) || 1,
         Number(pesos_por_punto) || 1.0,
+        logoValido,
+        imprimir_logo === true,
       ],
     );
     res.json(rows[0]);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/ajustes/negocio/logo', uploadLogo.single('logo'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se recibió ningún logotipo.' });
+    }
+
+    const image = await Jimp.read(req.file.buffer);
+    if (!image.bitmap?.width || !image.bitmap?.height) {
+      return res.status(400).json({ error: 'La imagen del logotipo no es válida.' });
+    }
+    if (image.bitmap.width < 20 || image.bitmap.height < 20) {
+      return res.status(400).json({ error: 'El logotipo debe medir al menos 20x20 px.' });
+    }
+    if (image.bitmap.width > 4000 || image.bitmap.height > 4000) {
+      return res.status(400).json({ error: 'El logotipo no debe exceder 4000x4000 px.' });
+    }
+
+    if (image.bitmap.width > 576) {
+      const alto = Math.max(1, Math.round((image.bitmap.height * 576) / image.bitmap.width));
+      image.resize({ w: 576, h: alto });
+    }
+
+    if (!fs.existsSync(logosDir)) fs.mkdirSync(logosDir, { recursive: true });
+    const nombreArchivo = `logo-${Date.now()}-${Math.round(Math.random() * 1e6)}.png`;
+    const rutaDestino = path.join(logosDir, nombreArchivo);
+    await image.write(rutaDestino as `${string}.${string}`);
+
+    const logoUrl = `/uploads/logos/${nombreArchivo}`;
+    const anterior = await pool.query('SELECT logo_url FROM datos_negocio WHERE id = 1 LIMIT 1');
+    const actualizado = await pool.query(
+      'UPDATE datos_negocio SET logo_url = $1 WHERE id = 1 RETURNING logo_url',
+      [logoUrl],
+    );
+    if (actualizado.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO datos_negocio (id, nombre, logo_url, imprimir_logo) VALUES (1, 'BORBOTO POS', $1, FALSE)`,
+        [logoUrl],
+      );
+    }
+
+    const logoAnterior = anterior.rows[0]?.logo_url as string | undefined;
+    if (logoAnterior && logoAnterior.startsWith('/uploads/logos/')) {
+      const rutaAnterior = path.join(uploadsRoot, logoAnterior.replace(/^\/uploads\//, ''));
+      if (rutaAnterior.startsWith(logosDir) && fs.existsSync(rutaAnterior)) {
+        try { fs.unlinkSync(rutaAnterior); } catch { /* no bloquear la carga */ }
+      }
+    }
+
+    res.json({ ok: true, logo_url: logoUrl });
+  } catch (err: any) {
+    const esFormato = /unsupported|invalid|mime|format/i.test(String(err?.message || ''));
+    res.status(esFormato ? 400 : 500).json({
+      error: esFormato
+        ? 'El archivo no es una imagen PNG/JPG válida.'
+        : 'No se pudo procesar el logotipo.',
+    });
+  }
+});
+
+app.delete('/api/ajustes/negocio/logo', async (_req, res) => {
+  try {
+    const anterior = await pool.query('SELECT logo_url FROM datos_negocio WHERE id = 1 LIMIT 1');
+    const logoAnterior = anterior.rows[0]?.logo_url as string | undefined;
+    await pool.query('UPDATE datos_negocio SET logo_url = NULL, imprimir_logo = FALSE WHERE id = 1');
+    if (logoAnterior && logoAnterior.startsWith('/uploads/logos/')) {
+      const rutaAnterior = path.join(uploadsRoot, logoAnterior.replace(/^\/uploads\//, ''));
+      if (rutaAnterior.startsWith(logosDir) && fs.existsSync(rutaAnterior)) {
+        try { fs.unlinkSync(rutaAnterior); } catch { /* no bloquear */ }
+      }
+    }
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'No se pudo eliminar el logotipo.' });
   }
 });
 

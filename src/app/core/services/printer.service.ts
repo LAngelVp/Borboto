@@ -20,6 +20,7 @@ export interface Impresora {
   ancho_papel?: '58mm' | '80mm';
   es_termica?: boolean;
   corte_tipo?: 'NINGUNO' | 'PARCIAL' | 'TOTAL';
+  tamano_fuente?: 'NORMAL' | 'DOBLE_ALTO' | 'DOBLE_ANCHO' | 'DOBLE';
   activa: boolean;
 }
 
@@ -41,6 +42,8 @@ export interface ElectronPendingPrintJob {
   anchoPapel?: '58mm' | '80mm';
   esTermica?: boolean;
   corteTipo?: 'NINGUNO' | 'PARCIAL' | 'TOTAL';
+  fontSize?: 'NORMAL' | 'DOBLE_ALTO' | 'DOBLE_ANCHO' | 'DOBLE';
+  logoDataUrl?: string;
 }
 
 interface ElectronPrintPayload {
@@ -51,6 +54,8 @@ interface ElectronPrintPayload {
   tipo?: 'USB';
   ticketData?: unknown;
   empresaData?: unknown;
+  fontSize?: ElectronPendingPrintJob['fontSize'];
+  logoDataUrl?: string;
 }
 
 @Injectable({
@@ -99,6 +104,8 @@ export class PrinterService {
       contenido: job.contenido,
       anchoPapel: job.anchoPapel,
       corteTipo: job.corteTipo,
+      fontSize: job.fontSize,
+      logoDataUrl: job.logoDataUrl,
     });
   }
 
@@ -141,6 +148,8 @@ export class PrinterService {
       anchoPapel: job.anchoPapel,
       ticketData: job,
       empresaData: undefined,
+      fontSize: job.fontSize,
+      logoDataUrl: job.logoDataUrl,
     };
 
     const resultado = await ipcRenderer.invoke('print-ticket-silent', payload);

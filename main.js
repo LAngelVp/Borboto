@@ -23,8 +23,12 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-function buildTicketHtml({ content, title = 'Ticket', anchoPapel = '80mm' }) {
+function buildTicketHtml({ content, title = 'Ticket', anchoPapel = '80mm', fontSize = 'NORMAL', logoDataUrl }) {
   const width = anchoPapel === '58mm' ? 220 : 300;
+  const fontPx = fontSize === 'DOBLE_ALTO' ? 17 : fontSize === 'DOBLE_ANCHO' || fontSize === 'DOBLE' ? 16 : 12;
+  const logo = logoDataUrl
+    ? `<img class="ticket-logo" src="${escapeHtml(logoDataUrl)}" alt="logo" />`
+    : '';
   return `<!DOCTYPE html>
   <html>
     <head>
@@ -33,10 +37,12 @@ function buildTicketHtml({ content, title = 'Ticket', anchoPapel = '80mm' }) {
       <style>
         html, body { margin: 0; padding: 0; background: #fff; }
         body { font-family: Consolas, 'Courier New', monospace; }
-        .ticket { width: ${width}px; margin: 0; padding: 8px 10px; color: #000; white-space: pre-wrap; font-size: 12px; line-height: 1.2; }
+        .ticket { width: ${width}px; margin: 0; padding: 8px 10px; color: #000; white-space: pre-wrap; font-size: ${fontPx}px; line-height: 1.25; ${fontSize !== 'NORMAL' ? 'font-weight: 700;' : ''} }
+        .ticket-logo { display: block; max-width: 90%; max-height: 130px; margin: 0 auto 8px; object-fit: contain; filter: grayscale(1) contrast(1.35); }
       </style>
     </head>
     <body>
+      ${logo}
       <pre class="ticket">${escapeHtml(content)}</pre>
     </body>
   </html>`;
@@ -57,7 +63,7 @@ async function getSystemPrintersFromElectron() {
   }));
 }
 
-async function printTicketSilently({ printerName, content, title, anchoPapel }) {
+async function printTicketSilently({ printerName, content, title, anchoPapel, fontSize, logoDataUrl }) {
   const printWindow = new BrowserWindow({
     show: false,
     autoHideMenuBar: true,
@@ -69,7 +75,7 @@ async function printTicketSilently({ printerName, content, title, anchoPapel }) 
   });
 
   try {
-    const html = buildTicketHtml({ content, title, anchoPapel });
+    const html = buildTicketHtml({ content, title, anchoPapel, fontSize, logoDataUrl });
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
     await new Promise((resolve, reject) => {
@@ -318,13 +324,13 @@ ipcMain.handle('get-license-status', async () => {
 ipcMain.handle('get-system-printers', async () => getSystemPrintersFromElectron());
 
 ipcMain.handle('print-ticket-silent', async (_event, payload) => {
-  const { printerName, content, title, anchoPapel } = payload || {};
+  const { printerName, content, title, anchoPapel, fontSize, logoDataUrl } = payload || {};
 
   if (!printerName || !content) {
     throw new Error('Faltan datos para imprimir de forma silenciosa.');
   }
 
-  return printTicketSilently({ printerName, content, title, anchoPapel });
+  return printTicketSilently({ printerName, content, title, anchoPapel, fontSize, logoDataUrl });
 });
 
 function emitUiNotification(level, message) {

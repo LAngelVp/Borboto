@@ -100,6 +100,7 @@ export class AjustesComponent implements OnInit {
     ancho_papel: '80mm',
     es_termica: false,
     corte_tipo: 'NINGUNO',
+    tamano_fuente: 'NORMAL',
     activa: true,
   };
 
@@ -137,6 +138,8 @@ export class AjustesComponent implements OnInit {
     visitas_requeridas_frecuente: 5,
     puntos_por_cada_diez_pesos: 1,
     pesos_por_punto: 10,
+    logo_url: null,
+    imprimir_logo: false,
   };
 
   datosTransferencia: DatosTransferencia = {
@@ -766,6 +769,52 @@ export class AjustesComponent implements OnInit {
     });
   }
 
+  urlLogoNegocio(): string {
+    const url = this.datosNegocio.logo_url;
+    return url ? `${this.API_URL}${url}` : '';
+  }
+
+  subirLogoNegocio(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    if (!archivo) return;
+
+    if (!['image/png', 'image/jpeg'].includes(archivo.type)) {
+      this.notifications.error('El logotipo debe ser PNG o JPG.');
+      input.value = '';
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      this.notifications.error('El logotipo no debe superar 2 MB.');
+      input.value = '';
+      return;
+    }
+
+    this.ajustesService.subirLogoNegocio(archivo).subscribe({
+      next: (res) => {
+        this.datosNegocio.logo_url = res.logo_url;
+        this.datosNegocio.imprimir_logo = true;
+        this.guardarNegocio();
+        this.notifications.success('Logotipo cargado correctamente.');
+      },
+      error: (err) => {
+        this.notifications.error(err?.error?.error || 'No se pudo cargar el logotipo.');
+      },
+    });
+    input.value = '';
+  }
+
+  eliminarLogoNegocio() {
+    this.ajustesService.eliminarLogoNegocio().subscribe({
+      next: () => {
+        this.datosNegocio.logo_url = null;
+        this.datosNegocio.imprimir_logo = false;
+        this.notifications.success('Logotipo eliminado.');
+      },
+      error: () => this.notifications.error('No se pudo eliminar el logotipo.'),
+    });
+  }
+
   guardarTransferencia() {
     this.ajustesService.guardarDatosTransferencia(this.datosTransferencia).subscribe({
       next: () => {
@@ -990,6 +1039,7 @@ export class AjustesComponent implements OnInit {
           puerto_tcp: 9100,
           es_termica: false,
           corte_tipo: 'NINGUNO',
+          tamano_fuente: 'NORMAL',
           activa: true,
         };
         this.cargarImpresoras();

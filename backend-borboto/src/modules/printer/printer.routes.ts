@@ -6,6 +6,10 @@ import { PrinterService } from './printer.service.ts';
 
 const router = Router();
 
+const TAMANOS_FUENTE = ['NORMAL', 'DOBLE_ALTO', 'DOBLE_ANCHO', 'DOBLE'];
+const normalizarFuente = (value: unknown) =>
+  typeof value === 'string' && TAMANOS_FUENTE.includes(value) ? value : 'NORMAL';
+
 // Obtener todas las impresoras
 router.get('/', async (_req, res) => {
   try {
@@ -35,11 +39,12 @@ router.post('/', async (req, res) => {
     es_termica,
     corte_tipo,
     activa,
+    tamano_fuente,
   } = req.body;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO impresoras (nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, es_termica, corte_tipo, activa)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO impresoras (nombre, destino, tipo, ip_o_puerto, puerto_tcp, ancho_papel, es_termica, corte_tipo, activa, tamano_fuente)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         nombre,
@@ -51,6 +56,7 @@ router.post('/', async (req, res) => {
         es_termica === true,
         es_termica === true ? corte_tipo || 'NINGUNO' : 'NINGUNO',
         activa !== false,
+        normalizarFuente(tamano_fuente),
       ],
     );
     res.status(201).json(rows[0]);
@@ -72,12 +78,13 @@ router.put('/:id', async (req, res) => {
     es_termica,
     corte_tipo,
     activa,
+    tamano_fuente,
   } = req.body;
   try {
     const { rows } = await pool.query(
       `UPDATE impresoras
-       SET nombre = $1, destino = $2, tipo = $3, ip_o_puerto = $4, puerto_tcp = $5, ancho_papel = $6, es_termica = $7, corte_tipo = $8, activa = $9
-       WHERE id = $10
+       SET nombre = $1, destino = $2, tipo = $3, ip_o_puerto = $4, puerto_tcp = $5, ancho_papel = $6, es_termica = $7, corte_tipo = $8, activa = $9, tamano_fuente = $10
+       WHERE id = $11
        RETURNING *`,
       [
         nombre,
@@ -89,6 +96,7 @@ router.put('/:id', async (req, res) => {
         es_termica === true,
         es_termica === true ? corte_tipo || 'NINGUNO' : 'NINGUNO',
         activa,
+        normalizarFuente(tamano_fuente),
         id,
       ],
     );

@@ -779,6 +779,58 @@
               ></textarea>
             </mat-form-field>
 
+            <div class="grid-span-2" style="border-top: 1px dashed #ccc; padding-top: 16px; margin-top: 12px">
+              <h3 style="margin: 0 0 8px 0; color: #1e88e5; font-size: 1.1rem; display: flex; align-items: center; gap: 6px">
+                <mat-icon>image</mat-icon> Logotipo del Ticket de Caja
+              </h3>
+              <p style="margin: 0 0 12px 0; font-size: 0.85rem; color: #666">
+                Formatos permitidos: PNG o JPG, máximo 2 MB. La imagen se ajusta automáticamente al
+                ancho del papel térmico (58 mm u 80 mm).
+              </p>
+              <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap">
+                @if (urlLogoNegocio()) {
+                  <img
+                    [src]="urlLogoNegocio()"
+                    alt="Logotipo del negocio"
+                    style="max-width: 180px; max-height: 90px; object-fit: contain; border: 1px solid #ddd; border-radius: 8px; background: #fff; padding: 6px"
+                  />
+                } @else {
+                  <div style="width: 180px; height: 90px; display: flex; align-items: center; justify-content: center; border: 1px dashed #bbb; border-radius: 8px; color: #999">
+                    <mat-icon>hide_image</mat-icon>
+                  </div>
+                }
+                <div style="display: flex; flex-direction: column; gap: 10px">
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+                    <label mat-stroked-button class="logo-file-button">
+                      <mat-icon>upload</mat-icon> Seleccionar imagen
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        style="display: none"
+                        (change)="subirLogoNegocio($event)"
+                      />
+                    </label>
+                    @if (datosNegocio.logo_url) {
+                      <button mat-stroked-button color="warn" type="button" (click)="eliminarLogoNegocio()">
+                        <mat-icon>delete</mat-icon> Quitar logo
+                      </button>
+                    }
+                  </div>
+                  <label class="custom-checkbox">
+                    <input
+                      type="checkbox"
+                      [(ngModel)]="datosNegocio.imprimir_logo"
+                      name="negImprimirLogo"
+                    />
+                    <span>Imprimir logotipo en el ticket de caja</span>
+                  </label>
+                  <small style="color: #777">
+                    Desactívalo si tu impresora térmica no soporta gráficos ESC/POS.
+                  </small>
+                </div>
+              </div>
+            </div>
+
             <div
               class="grid-span-2"
               style="border-top: 1px dashed #ccc; padding-top: 16px; margin-top: 12px"
@@ -1879,6 +1931,16 @@
                 </mat-select>
               </mat-form-field>
 
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Tamaño de Fuente (Cocina / Barra)</mat-label>
+                <mat-select [(ngModel)]="impEdit.tamano_fuente" name="editImpFuente">
+                  <mat-option value="NORMAL">Normal</mat-option>
+                  <mat-option value="DOBLE_ALTO">Doble alto</mat-option>
+                  <mat-option value="DOBLE_ANCHO">Doble ancho</mat-option>
+                  <mat-option value="DOBLE">Doble ancho y alto</mat-option>
+                </mat-select>
+              </mat-form-field>
+
               <div class="checkbox-container">
                 <label class="custom-checkbox">
                   <input type="checkbox" [(ngModel)]="impEdit.es_termica" name="editImpTermica" />
@@ -2001,6 +2063,16 @@
                 <mat-select [(ngModel)]="nuevaImpresora.ancho_papel" name="impAncho" required>
                   <mat-option value="80mm">80 mm (Estándar Restaurante)</mat-option>
                   <mat-option value="58mm">58 mm (Compacta / Portátil)</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Tamaño de Fuente (Cocina / Barra)</mat-label>
+                <mat-select [(ngModel)]="nuevaImpresora.tamano_fuente" name="impFuente">
+                  <mat-option value="NORMAL">Normal</mat-option>
+                  <mat-option value="DOBLE_ALTO">Doble alto</mat-option>
+                  <mat-option value="DOBLE_ANCHO">Doble ancho</mat-option>
+                  <mat-option value="DOBLE">Doble ancho y alto</mat-option>
                 </mat-select>
               </mat-form-field>
 
