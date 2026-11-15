@@ -1289,8 +1289,12 @@ app.get('/api/cocina/tickets', async (_req, res) => {
     for (const ticket of tickets) {
       const itemsQuery = `
         SELECT ci.id, p.nombre, ci.cantidad, ci.notas, COALESCE(ci.completado, false) AS completado, ci.estado_kds
-        FROM comanda_items ci JOIN productos p ON ci.producto_id = p.id
-        WHERE ci.comanda_id = $1 ORDER BY ci.id ASC;
+        FROM comanda_items ci
+        JOIN productos p ON ci.producto_id = p.id
+        JOIN categorias cat ON p.categoria_id = cat.id
+        WHERE ci.comanda_id = $1
+          AND COALESCE(cat.destino_impresion::text, 'COCINA') = 'COCINA'
+        ORDER BY ci.id ASC;
       `;
       const { rows: items } = await pool.query(itemsQuery, [ticket.id]);
       if (items.length > 0) {
@@ -2557,12 +2561,15 @@ app.get('/api/dashboard/stats', async (req, res) => {
 });
 
 app.get('/api/dashboard/tickets', async (req, res) => {
-  const { fechaInicio, fechaFin, folio, cliente } = req.query;
+  const { fechaInicio, fechaFin, folio, cliente, busqueda } = req.query;
   try {
     const conditions: string[] = [];
     const params: any[] = [];
+    const textoBusqueda = String(busqueda || '').trim();
     const tieneFiltroTexto =
-      Boolean(String(folio || '').trim()) || Boolean(String(cliente || '').trim());
+      Boolean(String(folio || '').trim()) ||
+      Boolean(String(cliente || '').trim()) ||
+      Boolean(textoBusqueda);
 
     if (fechaInicio && fechaFin) {
       params.push(fechaInicio, fechaFin);
@@ -2587,6 +2594,20 @@ app.get('/api/dashboard/tickets', async (req, res) => {
     if (cliente) {
       params.push(`%${String(cliente).trim()}%`);
       conditions.push(`COALESCE(cl.nombre, '') ILIKE $${params.length}`);
+    }
+
+    if (textoBusqueda) {
+      params.push(`%${textoBusqueda}%`);
+      const idx = params.length;
+      conditions.push(`(
+        COALESCE(cl.nombre, '') ILIKE $${idx}
+        OR COALESCE(co.folio_origen, '') ILIKE $${idx}
+        OR EXISTS (
+          SELECT 1 FROM comanda_items ci_busqueda
+          JOIN productos p_busqueda ON ci_busqueda.producto_id = p_busqueda.id
+          WHERE ci_busqueda.comanda_id = co.id AND p_busqueda.nombre ILIKE $${idx}
+        )
+      )`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

@@ -168,8 +168,8 @@
           <div>
             <mat-card-title>Tickets y Reimpresión</mat-card-title>
             <mat-card-subtitle
-              >Consulta ventas por fecha, folio o cliente y reimprime usando el flujo
-              real.</mat-card-subtitle
+              >Combina los filtros de fecha, folio, cliente o producto y reimprime usando el
+              flujo real.</mat-card-subtitle
             >
           </div>
         </mat-card-header>
@@ -180,15 +180,22 @@
               <input matInput [(ngModel)]="filtroFolio" placeholder="Ej. 125" />
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="filter-field" style="width: 220px">
-              <mat-label>Cliente</mat-label>
-              <input matInput [(ngModel)]="filtroCliente" placeholder="Nombre del cliente" />
+            <mat-form-field appearance="outline" class="filter-field" style="width: 240px">
+              <mat-label>Nombre o producto</mat-label>
+              <input
+                matInput
+                [(ngModel)]="filtroBusqueda"
+                placeholder="Cliente, platillo o comanda"
+              />
             </mat-form-field>
 
             <button mat-stroked-button (click)="cargarTickets()">
               <mat-icon>search</mat-icon> Buscar Tickets
             </button>
           </div>
+          <p class="filters-hint">
+            Los filtros se combinan entre sí: puedes cruzar fecha, folio y nombre/producto.
+          </p>
 
           @if (tickets().length === 0) {
             <div class="empty-detail-state padding-large">

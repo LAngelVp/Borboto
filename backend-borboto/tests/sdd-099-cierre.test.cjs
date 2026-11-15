@@ -341,8 +341,12 @@ test('SDD-016: fechas locales y busqueda global independiente de stats', () => {
   assert.equal(dashboard.fechaInicio, '2026-11-09');
   assert.match(requests[0].url, /fechaInicio=2026-11-09&fechaFin=2026-11-09/);
   dashboard.filtroFolio = 'old';
+  dashboard.filtroBusqueda = 'cafe';
   dashboard.cargarTickets();
-  assert.equal(requests[1].url.includes('fechaInicio'), false);
+  assert.match(requests[1].url, /fechaInicio=2026-11-09/);
+  assert.match(requests[1].url, /fechaFin=2026-11-09/);
+  assert.match(requests[1].url, /folio=old/);
+  assert.match(requests[1].url, /busqueda=cafe/);
   requests[1].observer.next([{ folio: 'old' }]);
   requests[0].observer.next({ tickets: [{ folio: 'new' }] });
   assert.equal(dashboard.tickets()[0].folio, 'old');

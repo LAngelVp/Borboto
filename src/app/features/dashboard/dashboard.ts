@@ -100,7 +100,7 @@ export class DashboardComponent implements OnInit {
   fechaInicio = '';
   fechaFin = '';
   filtroFolio = '';
-  filtroCliente = '';
+  filtroBusqueda = '';
 
   ngOnInit() {
     this.establecerRangoPredeterminado();
@@ -134,7 +134,7 @@ export class DashboardComponent implements OnInit {
     this.http.get<DashboardData>(`${this.baseUrl}${paramsUrl}`).subscribe({
       next: (resp) => {
         this.data.set(resp);
-        if (!this.filtroFolio.trim() && !this.filtroCliente.trim()) this.tickets.set(resp.tickets || []);
+        if (!this.filtroFolio.trim() && !this.filtroBusqueda.trim()) this.tickets.set(resp.tickets || []);
         this.cargando.set(false);
       },
       error: (err) => {
@@ -146,12 +146,17 @@ export class DashboardComponent implements OnInit {
 
   cargarTickets() {
     const params = new URLSearchParams();
-    if (this.filtroRango === 'PERSONALIZADO' && this.fechaInicio) {
-      params.set('fechaInicio', this.fechaInicio);
+
+    // El rango de fechas se aplica siempre (también junto a folio o nombre),
+    // de modo que los filtros se combinan en lugar de excluirse.
+    if (this.filtroRango === 'PERSONALIZADO') {
+      if (this.fechaInicio) {
+        params.set('fechaInicio', this.fechaInicio);
+      }
       if (this.fechaFin) {
         params.set('fechaFin', this.fechaFin);
       }
-    } else if (this.fechaInicio && !this.filtroFolio.trim() && !this.filtroCliente.trim()) {
+    } else if (this.fechaInicio) {
       params.set('fechaInicio', this.fechaInicio);
       params.set('fechaFin', this.fechaFin || this.fechaInicio);
     }
@@ -160,8 +165,8 @@ export class DashboardComponent implements OnInit {
       params.set('folio', this.filtroFolio.trim());
     }
 
-    if (this.filtroCliente.trim()) {
-      params.set('cliente', this.filtroCliente.trim());
+    if (this.filtroBusqueda.trim()) {
+      params.set('busqueda', this.filtroBusqueda.trim());
     }
 
     const query = params.toString();
