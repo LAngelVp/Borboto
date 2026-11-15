@@ -19,6 +19,7 @@ import { realizarSincronizacionFacturas } from './src/sincronizarFacturas';
 import { enviarConteoAGoogleSheets } from './src/services/reporteFacturas.service';
 import { PrinterService, PrecuentaError } from './src/modules/printer/printer.service';
 import printerRoutes from './src/modules/printer/printer.routes';
+import { registrarInventario } from './src/modules/inventario';
 
 dotenv.config();
 
@@ -329,6 +330,7 @@ io.on('connection', (socket) => {
 
 app.use(cors());
 app.use(express.json());
+registrarInventario(app, pool, emitirCambioGlobal);
 app.use('/api', async (req, res, next) => {
   if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
   const lecturaSensible = /^\/(usuarios|admin|caja|dashboard|ajustes\/facturacion|licencia\/test-sheets)(\/|$)/.test(req.path);
@@ -1897,16 +1899,33 @@ app.post('/api/categorias', async (req, res) => {
 });
 
 app.post('/api/productos', async (req, res) => {
-  const { categoria_id, nombre, precio, disponible, imagen_url, clave_sat } = req.body;
+  const { categoria_id, nombre, precio, disponible, imagen_url, clave_sat } = req.body ?? {};
+  const categoriaId = Number(categoria_id);
+  const nombreLimpio = typeof nombre === 'string' ? nombre.trim() : '';
+  const precioNumero = Number(precio);
+  if (!Number.isInteger(categoriaId) || categoriaId <= 0) {
+    return res.status(400).json({ error: 'La categoria es obligatoria.' });
+  }
+  if (!nombreLimpio || nombreLimpio.length > 100) {
+    return res.status(400).json({ error: 'El nombre debe tener entre 1 y 100 caracteres.' });
+  }
+  if (!Number.isFinite(precioNumero) || precioNumero < 0) {
+    return res.status(400).json({ error: 'El precio debe ser un numero mayor o igual a cero.' });
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO productos (categoria_id, nombre, precio, disponible, imagen_url, clave_sat) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [Number(categoria_id), nombre, Number(precio), disponible !== false, imagen_url || null, clave_sat || null],
+      [categoriaId, nombreLimpio, precioNumero, disponible !== false, imagen_url || null, clave_sat || null],
     );
     emitirCambioGlobal('actualizar_productos');
     res.status(201).json(rows[0]);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    if (err?.code === '23503') return res.status(400).json({ error: 'La categoria seleccionada no existe.' });
+    if (err?.code === '22001') {
+      return res.status(400).json({ error: 'El nombre del producto es demasiado largo (maximo 100 caracteres).' });
+    }
+    console.error('Error al guardar producto');
+    res.status(500).json({ error: 'No se pudo guardar el producto.' });
   }
 });
 
@@ -2079,18 +2098,35 @@ app.delete('/api/categorias/:id', async (req, res) => {
 
 app.put('/api/productos/:id', async (req, res) => {
   const { id } = req.params;
-  const { categoria_id, nombre, precio, disponible, imagen_url, clave_sat } = req.body;
+  const { categoria_id, nombre, precio, disponible, imagen_url, clave_sat } = req.body ?? {};
+  const categoriaId = Number(categoria_id);
+  const nombreLimpio = typeof nombre === 'string' ? nombre.trim() : '';
+  const precioNumero = Number(precio);
+  const tieneDatos = categoria_id !== undefined || nombre !== undefined || precio !== undefined;
+  if (tieneDatos && (!Number.isInteger(categoriaId) || categoriaId <= 0)) {
+    return res.status(400).json({ error: 'La categoria es obligatoria.' });
+  }
+  if (tieneDatos && (!nombreLimpio || nombreLimpio.length > 100)) {
+    return res.status(400).json({ error: 'El nombre debe tener entre 1 y 100 caracteres.' });
+  }
+  if (tieneDatos && (!Number.isFinite(precioNumero) || precioNumero < 0)) {
+    return res.status(400).json({ error: 'El precio debe ser un numero mayor o igual a cero.' });
+  }
   try {
     const { rows } = await pool.query(
       `UPDATE productos SET categoria_id = $1, nombre = $2, precio = $3, disponible = $4, imagen_url = $5,
        clave_sat = CASE WHEN $7::boolean THEN $8::varchar ELSE clave_sat END WHERE id = $6 RETURNING *`,
-      [Number(categoria_id), nombre, Number(precio), disponible, imagen_url || null, id, clave_sat !== undefined, clave_sat || null],
+      [categoriaId, nombreLimpio, precioNumero, disponible, imagen_url || null, id, clave_sat !== undefined, clave_sat || null],
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     emitirCambioGlobal('actualizar_productos');
     emitirCambioGlobal('PRODUCTO_ACTUALIZADO', rows[0]);
     res.json(rows[0]);
   } catch (err: any) {
+    if (err?.code === '23503') return res.status(400).json({ error: 'La categoria seleccionada no existe.' });
+    if (err?.code === '22001') {
+      return res.status(400).json({ error: 'El nombre del producto es demasiado largo (maximo 100 caracteres).' });
+    }
     res.status(500).json({ error: err.message });
   }
 });

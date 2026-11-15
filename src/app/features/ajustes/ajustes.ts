@@ -334,14 +334,22 @@ export class AjustesComponent implements OnInit {
           this.nuevoProducto.categoria_id = data[0].id!;
         }
       },
-      error: (err) => console.error('Error al cargar categorías:', err),
+      error: (err) => {
+        const mensaje = err?.error?.error || 'Error al cargar las categorías.';
+        this.notifications.error(mensaje);
+        console.error('Error al cargar categorías:', err);
+      },
     });
   }
 
   private cargarProductos() {
     this.ajustesService.getAdminProductos().subscribe({
       next: (data) => this.productos.set(data),
-      error: (err) => console.error('Error al cargar productos de administración:', err),
+      error: (err) => {
+        const mensaje = err?.error?.error || 'Error al cargar los productos de administración.';
+        this.notifications.error(mensaje);
+        console.error('Error al cargar productos de administración:', err);
+      },
     });
   }
 
@@ -510,7 +518,11 @@ export class AjustesComponent implements OnInit {
         };
         this.cargarProductos();
       },
-      error: () => this.notifications.error('Error al intentar crear el producto.'),
+      error: (err) =>
+        this.notifications.error(
+          err?.error?.error || 'Error al intentar crear el producto.',
+          6000,
+        ),
     });
   }
 
@@ -532,7 +544,11 @@ export class AjustesComponent implements OnInit {
         this.productoEditando.set(null);
         this.cargarProductos();
       },
-      error: () => this.notifications.error('Error al intentar actualizar el producto.'),
+      error: (err) =>
+        this.notifications.error(
+          err?.error?.error || 'Error al intentar actualizar el producto.',
+          6000,
+        ),
     });
   }
 

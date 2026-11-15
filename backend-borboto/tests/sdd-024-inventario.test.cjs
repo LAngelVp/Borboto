@@ -287,7 +287,9 @@ test('REQ-01: esquema inicial y migracion 007 equivalentes, checks y FK persiste
   for (const check of ['stock_actual >= 0', 'stock_minimo >= 0', 'cantidad_capturada > 0', 'factor_aplicado > 0']) assert.ok(migration.includes(check));
   assert.match(migration, /\(insumo_id, fecha DESC\)/);
   const index = fs.readFileSync(path.join(root, 'backend-borboto/index.ts'), 'utf8');
-  assert.ok(index.indexOf('registrarInventario(app, pool, emitirCambioGlobal)') < index.indexOf("app.use('/api',"));
+  const registro = index.indexOf('registrarInventario(app, pool, emitirCambioGlobal)');
+  assert.ok(registro >= 0, 'index.ts debe registrar el modulo de inventario');
+  assert.ok(registro < index.indexOf("app.use('/api',"), 'el inventario debe registrarse antes del middleware /api');
 });
 test('AC-09 / TEST-12: dictado nativo conserva prefijo y reemplaza provisionales sin duplicar', async () => {
   const voice = navegadorVoz(), env = await componenteInventario('InventarioComponent', voice.window), component = env.component;

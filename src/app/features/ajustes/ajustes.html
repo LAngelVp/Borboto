@@ -58,7 +58,7 @@
             <form (submit)="guardarEdicionProducto(); $event.preventDefault()" class="ajustes-form">
               <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Nombre</mat-label>
-                <input matInput [(ngModel)]="prod.nombre" name="editProdNombre" required />
+                <input matInput [(ngModel)]="prod.nombre" name="editProdNombre" maxlength="100" required />
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">
@@ -162,6 +162,7 @@
                   [(ngModel)]="nuevoProducto.nombre"
                   name="prodNombre"
                   placeholder="Ej. Tacos de Pastor"
+                  maxlength="100"
                   required
                 />
               </mat-form-field>
@@ -187,6 +188,11 @@
                     <mat-option [value]="cat.id">{{ cat.nombre }}</mat-option>
                   }
                 </mat-select>
+                @if (categorias().length === 0) {
+                  <mat-hint class="hint-error">
+                    No hay categorías registradas. Crea una categoría antes de agregar productos.
+                  </mat-hint>
+                }
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="w-full">

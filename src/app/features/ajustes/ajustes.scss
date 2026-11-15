@@ -428,6 +428,11 @@
     background: var(--color-surface);
   }
 
+  .hint-error {
+    color: var(--status-urgente, #f87171);
+    font-size: 12px;
+  }
+
   /* Directorio de Clientes */
   .client-list {
     display: flex;
