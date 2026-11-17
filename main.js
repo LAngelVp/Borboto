@@ -1,5 +1,6 @@
 // main.js - Orquestador Principal de Electron para Borboto POS
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -13,6 +14,20 @@ let expressServer;
 let shutdownBackend;
 let cierreIniciado = false;
 let cierreCompletado = false;
+
+// ─── ESTADO DEL ACTUALIZADOR AUTOMÁTICO ──────────────────────────────────────
+const updateState = {
+  status: 'idle', // idle | checking | available | not-available | downloading | downloaded | error | unavailable
+  currentVersion: typeof app.getVersion === 'function' ? app.getVersion() : '0.0.0',
+  availableVersion: null,
+  releaseNotes: null,
+  releaseDate: null,
+  progress: null,
+  message: null,
+  detail: null,
+  errorCode: null,
+  statusCode: null,
+};
 
 function escapeHtml(value = '') {
   return value
@@ -333,6 +348,580 @@ ipcMain.handle('print-ticket-silent', async (_event, payload) => {
   return printTicketSilently({ printerName, content, title, anchoPapel, fontSize, logoDataUrl });
 });
 
+// ─── ACTUALIZACIONES AUTOMÁTICAS ─────────────────────────────────────────────
+const UPDATER_LOG_PREFIX = '[UPDATER]';
+
+function logUpdater(level, message, extra) {
+  const text = `${UPDATER_LOG_PREFIX} ${message}`;
+  const logger =
+    level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+
+  if (extra === undefined) {
+    logger(text);
+    return;
+  }
+
+  logger(text, extra);
+}
+
+function getUpdaterEnvironment() {
+  const configPath = process.resourcesPath
+    ? path.join(process.resourcesPath, 'app-update.yml')
+    : null;
+
+  return {
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    nodeEnv: process.env.NODE_ENV || null,
+    platform: process.platform,
+    configPath,
+    configExists: configPath ? fs.existsSync(configPath) : false,
+  };
+}
+
+function sendUpdateEvent(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, payload);
+  }
+}
+
+function snapshotUpdateState(extra = {}) {
+  return {
+    ...updateState,
+    progress: updateState.progress ? { ...updateState.progress } : null,
+    ...extra,
+  };
+}
+
+function setUpdateState(patch) {
+  Object.assign(updateState, patch);
+  return snapshotUpdateState();
+}
+
+function normalizeReleaseNotes(releaseNotes) {
+  if (!releaseNotes) return null;
+  if (typeof releaseNotes === 'string') return releaseNotes.slice(0, 20000);
+  if (Array.isArray(releaseNotes)) {
+    return releaseNotes
+      .map((item) => (typeof item === 'string' ? item : item?.note || ''))
+      .join('\n')
+      .slice(0, 20000);
+  }
+  return null;
+}
+
+function describeUpdaterError(error, context = 'check') {
+  const rawMessage = error?.message || (error ? String(error) : 'Error desconocido');
+  const inferredStatus = /\b(?:HTTP|HttpError:)\s*(\d{3})\b/i.exec(rawMessage);
+  const statusCode =
+    Number(error?.statusCode ?? error?.status ?? 0) ||
+    (inferredStatus ? Number(inferredStatus[1]) : null);
+  const code = error?.code || null;
+  const name = error?.name || 'Error';
+
+  let message = 'No se pudo verificar la conexión con el servidor de actualizaciones.';
+  if (statusCode === 401) {
+    message =
+      'El repositorio de actualizaciones requiere autenticación (HTTP 401). Verifica que el repositorio sea público o configura un token.';
+  } else if (statusCode === 403) {
+    message =
+      'GitHub rechazó la consulta (HTTP 403). Puede ser un límite de peticiones o un problema de permisos del repositorio.';
+  } else if (statusCode === 404) {
+    message =
+      'No se encontró la release o el archivo latest.yml en GitHub (HTTP 404). Verifica el tag publicado y el nombre del repositorio.';
+  } else if (statusCode === 429) {
+    message =
+      'GitHub limitó temporalmente las consultas (HTTP 429). Intenta de nuevo más tarde.';
+  } else if (code === 'ERR_UPDATER_INVALID_UPDATE_INFO') {
+    message = 'El archivo latest.yml publicado no tiene un formato válido.';
+  } else if (code === 'ERR_UPDATER_LATEST_VERSION_NOT_FOUND') {
+    message = 'No se encontró una versión publicada en GitHub.';
+  } else if (code === 'ERR_UPDATER_INVALID_RELEASE_FEED') {
+    message = 'No se pudo interpretar la lista de releases de GitHub.';
+  } else if (code === 'ERR_UPDATER_NO_PUBLISHED_VERSIONS') {
+    message = 'El repositorio no tiene releases publicadas.';
+  } else if (code === 'ERR_UPDATER_CHANNEL_FILE_NOT_FOUND') {
+    message = 'La release publicada no incluye el archivo latest.yml requerido.';
+  } else if (context === 'download') {
+    message = 'No se pudo descargar la actualización. Revisa la conexión a internet.';
+  } else if (context === 'install') {
+    message = 'No se pudo iniciar el instalador de la actualización.';
+  }
+
+  const detail = [
+    `contexto=${context}`,
+    `name=${name}`,
+    code ? `code=${code}` : null,
+    statusCode ? `statusCode=${statusCode}` : null,
+    `message=${rawMessage}`,
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  return { name, code, statusCode, rawMessage, message, detail };
+}
+
+function markUpdateError(error, context = 'check') {
+  // Los fallos de red se registran de forma discreta: nunca se abre un diálogo
+  // ni se interrumpe al usuario con una notificación global.
+  const description = describeUpdaterError(error, context);
+  logUpdater('error', `Fallo en actualización (${context})`, {
+    name: description.name,
+    code: description.code,
+    statusCode: description.statusCode,
+    message: description.rawMessage,
+    stack: error?.stack || null,
+  });
+
+  const state = setUpdateState({
+    status: 'error',
+    message: description.message,
+    detail: description.detail,
+    errorCode: description.code,
+    statusCode: description.statusCode,
+  });
+
+  sendUpdateEvent('update-error', {
+    message: state.message,
+    detail: state.detail,
+    code: state.errorCode,
+    statusCode: state.statusCode,
+    state,
+  });
+
+  return state;
+}
+
+function notPackagedUpdateResult() {
+  const environment = getUpdaterEnvironment();
+  const detail = `app.isPackaged=${environment.packaged} | NODE_ENV=${environment.nodeEnv || 'no definido'}`;
+  logUpdater('warn', 'Solicitud de actualización ignorada: la aplicación no está empaquetada', {
+    packaged: environment.packaged,
+    nodeEnv: environment.nodeEnv,
+  });
+
+  const state = setUpdateState({
+    status: 'unavailable',
+    message: 'Las actualizaciones solo están disponibles en la versión instalada.',
+    detail,
+    errorCode: null,
+    statusCode: null,
+  });
+
+  return {
+    ok: false,
+    reason: 'not-packaged',
+    message: state.message,
+    detail: state.detail,
+    state,
+  };
+}
+
+function applyUpdateCheckResult(result) {
+  if (!result) {
+    return null;
+  }
+
+  // Si los eventos de electron-updater ya actualizaron el estado, no se duplica.
+  if (updateState.status !== 'checking') {
+    return snapshotUpdateState();
+  }
+
+  const info = result.updateInfo;
+
+  if (result.isUpdateAvailable) {
+    const state = setUpdateState({
+      status: 'available',
+      availableVersion: info?.version || null,
+      releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
+      releaseDate: info?.releaseDate || null,
+      message: null,
+      detail: null,
+      errorCode: null,
+      statusCode: null,
+    });
+    sendUpdateEvent('update-available', {
+      version: state.availableVersion,
+      releaseNotes: state.releaseNotes,
+      releaseDate: state.releaseDate,
+      state,
+    });
+    return state;
+  }
+
+  const state = setUpdateState({
+    status: 'not-available',
+    availableVersion: null,
+    releaseNotes: null,
+    releaseDate: null,
+    progress: null,
+    message: 'La versión instalada está actualizada.',
+    detail: null,
+    errorCode: null,
+    statusCode: null,
+  });
+  sendUpdateEvent('update-not-available', {
+    version: info?.version || null,
+    state,
+  });
+  return state;
+}
+
+async function runUpdateCheck(origin) {
+  logUpdater('info', `Iniciando verificación de actualizaciones (${origin})`, {
+    currentVersion: app.getVersion(),
+    packaged: app.isPackaged,
+  });
+
+  setUpdateState({
+    status: 'checking',
+    message: null,
+    detail: null,
+    errorCode: null,
+    statusCode: null,
+  });
+
+  const result = await autoUpdater.checkForUpdates();
+
+  logUpdater('info', `Resultado de checkForUpdates (${origin})`, {
+    available: Boolean(result?.isUpdateAvailable),
+    latestVersion: result?.updateInfo?.version || null,
+    currentVersion: app.getVersion(),
+  });
+
+  if (!result) {
+    const state = setUpdateState({
+      status: 'error',
+      message: 'El actualizador no está activo en esta instalación.',
+      detail: `checkForUpdates devolvió null | app.isPackaged=${app.isPackaged}`,
+      errorCode: 'ERR_UPDATER_INACTIVE',
+      statusCode: null,
+    });
+    logUpdater('warn', 'El actualizador no está activo; no se emitió verificación', {
+      packaged: app.isPackaged,
+    });
+    sendUpdateEvent('update-error', {
+      message: state.message,
+      detail: state.detail,
+      code: state.errorCode,
+      statusCode: state.statusCode,
+      state,
+    });
+    return { ok: false, message: state.message, detail: state.detail, state };
+  }
+
+  applyUpdateCheckResult(result);
+
+  return {
+    ok: true,
+    isUpdateAvailable: Boolean(result.isUpdateAvailable),
+    version: result.updateInfo?.version || null,
+    state: snapshotUpdateState(),
+  };
+}
+
+function configureAutoUpdater() {
+  const environment = getUpdaterEnvironment();
+  logUpdater('info', 'Inicializando actualizador automático', environment);
+
+  autoUpdater.logger = {
+    info: (value) => logUpdater('info', formatConsoleArgs([value])),
+    warn: (value) => logUpdater('warn', formatConsoleArgs([value])),
+    error: (value) => logUpdater('error', formatConsoleArgs([value])),
+    debug: (value) => logUpdater('debug', formatConsoleArgs([value])),
+  };
+
+  // La disponibilidad se decide por el empaquetado real, no por NODE_ENV:
+  // una instalación puede heredar NODE_ENV=development y aun así ser actualizable.
+  if (!app.isPackaged) {
+    updateState.status = 'unavailable';
+    updateState.message = 'Las actualizaciones solo están disponibles en la versión instalada.';
+    updateState.detail = `app.isPackaged=false | NODE_ENV=${process.env.NODE_ENV || 'no definido'}`;
+    logUpdater(
+      'warn',
+      'Actualizador deshabilitado: la aplicación no está empaquetada. Ejecuta la versión instalada para probar actualizaciones.',
+      { packaged: app.isPackaged, nodeEnv: process.env.NODE_ENV || null },
+    );
+    return;
+  }
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.forceDevUpdateConfig = false;
+
+  logUpdater('info', 'Configuración del actualizador aplicada', {
+    autoDownload: autoUpdater.autoDownload,
+    autoInstallOnAppQuit: autoUpdater.autoInstallOnAppQuit,
+    allowPrerelease: autoUpdater.allowPrerelease,
+    configExists: environment.configExists,
+    configPath: environment.configPath,
+  });
+
+  let lastProgressPercent = -10;
+
+  autoUpdater.on('checking-for-update', () => {
+    logUpdater('info', 'Evento checking-for-update recibido');
+    setUpdateState({ status: 'checking', message: null, detail: null });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    logUpdater('info', 'Evento update-available recibido', {
+      version: info?.version || null,
+      releaseDate: info?.releaseDate || null,
+    });
+
+    const state = setUpdateState({
+      status: 'available',
+      availableVersion: info?.version || null,
+      releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
+      releaseDate: info?.releaseDate || null,
+      message: null,
+      detail: null,
+      errorCode: null,
+      statusCode: null,
+    });
+    sendUpdateEvent('update-available', {
+      version: state.availableVersion,
+      releaseNotes: state.releaseNotes,
+      releaseDate: state.releaseDate,
+      state,
+    });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    logUpdater('info', 'Evento update-not-available recibido', {
+      currentVersion: app.getVersion(),
+      latestVersion: info?.version || null,
+    });
+
+    const state = setUpdateState({
+      status: 'not-available',
+      availableVersion: null,
+      releaseNotes: null,
+      releaseDate: null,
+      progress: null,
+      message: 'La versión instalada está actualizada.',
+      detail: null,
+      errorCode: null,
+      statusCode: null,
+    });
+    sendUpdateEvent('update-not-available', {
+      version: info?.version || null,
+      state,
+    });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    const payload = {
+      percent: Number(progress?.percent) || 0,
+      bytesPerSecond: Number(progress?.bytesPerSecond) || 0,
+      transferred: Number(progress?.transferred) || 0,
+      total: Number(progress?.total) || 0,
+    };
+
+    if (payload.percent >= 100 || payload.percent - lastProgressPercent >= 10) {
+      lastProgressPercent = payload.percent;
+      logUpdater('info', `Progreso de descarga: ${payload.percent.toFixed(1)}%`, {
+        transferred: payload.transferred,
+        total: payload.total,
+        bytesPerSecond: payload.bytesPerSecond,
+      });
+    }
+
+    const state = setUpdateState({ status: 'downloading', progress: payload, message: null });
+    sendUpdateEvent('download-progress', { ...payload, state });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    logUpdater('info', 'Evento update-downloaded recibido', {
+      version: info?.version || null,
+    });
+
+    const state = setUpdateState({
+      status: 'downloaded',
+      availableVersion: info?.version || updateState.availableVersion,
+      releaseNotes: normalizeReleaseNotes(info?.releaseNotes) || updateState.releaseNotes,
+      releaseDate: info?.releaseDate || updateState.releaseDate,
+      progress: { percent: 100, transferred: 0, total: 0, bytesPerSecond: 0 },
+      message: 'La actualización está lista para instalarse.',
+      detail: null,
+      errorCode: null,
+      statusCode: null,
+    });
+    sendUpdateEvent('update-downloaded', {
+      version: state.availableVersion,
+      state,
+    });
+  });
+
+  autoUpdater.on('error', (error) => {
+    markUpdateError(error, 'evento');
+  });
+}
+
+let automaticUpdateCheckScheduled = false;
+
+function scheduleAutomaticUpdateCheck() {
+  if (!app.isPackaged || automaticUpdateCheckScheduled) {
+    logUpdater('info', 'Verificación automática omitida', {
+      packaged: app.isPackaged,
+      alreadyScheduled: automaticUpdateCheckScheduled,
+    });
+    return;
+  }
+
+  automaticUpdateCheckScheduled = true;
+  const delayMs = 8000;
+  logUpdater('info', `Verificación automática programada en ${delayMs} ms`);
+
+  const timer = setTimeout(async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      logUpdater('warn', 'Verificación automática cancelada: la ventana principal no está disponible');
+      return;
+    }
+
+    try {
+      await runUpdateCheck('automatica');
+    } catch (error) {
+      markUpdateError(error, 'automatica');
+    }
+  }, delayMs);
+
+  if (typeof timer.unref === 'function') {
+    timer.unref();
+  }
+}
+
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+ipcMain.handle('get-update-state', () => snapshotUpdateState());
+
+ipcMain.handle('check-for-updates', async () => {
+  if (!app.isPackaged) {
+    return notPackagedUpdateResult();
+  }
+
+  try {
+    return await runUpdateCheck('manual');
+  } catch (error) {
+    const state = markUpdateError(error, 'check');
+    return {
+      ok: false,
+      message: state.message,
+      detail: state.detail,
+      code: state.errorCode,
+      statusCode: state.statusCode,
+      state,
+    };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  if (!app.isPackaged) {
+    return notPackagedUpdateResult();
+  }
+
+  if (updateState.status !== 'available' && updateState.status !== 'downloaded') {
+    logUpdater('warn', 'Descarga rechazada: no hay una actualización disponible', {
+      status: updateState.status,
+    });
+    return {
+      ok: false,
+      message: 'No hay una actualización disponible para descargar.',
+      state: snapshotUpdateState(),
+    };
+  }
+
+  try {
+    logUpdater('info', 'Iniciando descarga de actualización', {
+      version: updateState.availableVersion,
+    });
+    setUpdateState({
+      status: 'downloading',
+      message: null,
+      detail: null,
+      errorCode: null,
+      statusCode: null,
+      progress: null,
+    });
+    await autoUpdater.downloadUpdate();
+
+    if (updateState.status === 'downloading') {
+      const state = setUpdateState({
+        status: 'downloaded',
+        progress: { percent: 100, transferred: 0, total: 0, bytesPerSecond: 0 },
+        message: 'La actualización está lista para instalarse.',
+      });
+      sendUpdateEvent('update-downloaded', {
+        version: state.availableVersion,
+        state,
+      });
+    }
+
+    logUpdater('info', 'Descarga de actualización completada', {
+      version: updateState.availableVersion,
+    });
+    return { ok: true, state: snapshotUpdateState() };
+  } catch (error) {
+    const state = markUpdateError(error, 'download');
+    return {
+      ok: false,
+      message: state.message,
+      detail: state.detail,
+      code: state.errorCode,
+      statusCode: state.statusCode,
+      state,
+    };
+  }
+});
+
+ipcMain.handle('quit-and-install', async () => {
+  if (!app.isPackaged) {
+    return notPackagedUpdateResult();
+  }
+
+  logUpdater('info', 'Solicitud de reinicio e instalación', {
+    status: updateState.status,
+    version: updateState.availableVersion,
+  });
+
+  if (updateState.status !== 'downloaded') {
+    logUpdater('warn', 'Instalación rechazada: no hay una actualización descargada', {
+      status: updateState.status,
+    });
+    return {
+      ok: false,
+      message: 'Aún no hay una actualización descargada lista para instalarse.',
+      state: snapshotUpdateState(),
+    };
+  }
+
+  try {
+    await detenerServiciosAplicacion();
+  } catch (error) {
+    logUpdater('warn', 'Cierre previo incompleto antes de actualizar', {
+      message: error?.message || String(error),
+    });
+  } finally {
+    cierreIniciado = true;
+    cierreCompletado = true;
+    setImmediate(() => {
+      try {
+        logUpdater('info', 'Ejecutando quitAndInstall');
+        autoUpdater.quitAndInstall(false, true);
+      } catch (error) {
+        logUpdater('error', 'No se pudo iniciar el instalador', {
+          message: error?.message || String(error),
+          stack: error?.stack || null,
+        });
+      }
+    });
+  }
+
+  return { ok: true };
+});
+
 function emitUiNotification(level, message) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('app-notification', { level, message });
@@ -386,7 +975,7 @@ function installMainConsoleBridge() {
 
   const forward = (level, args) => {
     const message = formatConsoleArgs(args).slice(0, 220);
-    const isDebug = message.includes('[PRINT]') || message.includes('[DEBUG]');
+    const isDebug = message.includes('[PRINT]') || message.includes('[DEBUG]') || message.includes('[UPDATER]');
     if (!shouldEmit(level, message) || isDebug || level === 'info') {
       return;
     }
@@ -544,6 +1133,11 @@ function createMainWindow() {
 
   loadApp();
 
+  // 💡 Verificación automática de actualizaciones al terminar de cargar la ventana.
+  mainWindow.webContents.once('did-finish-load', () => {
+    scheduleAutomaticUpdateCheck();
+  });
+
   // 💡 2. REDIRECCIÓN EN CASO DE ERROR DE RECARGA (EVITA PANTALLA EN BLANCO)
   mainWindow.webContents.on('did-fail-load', () => {
     console.warn('⚠️ Carga fallida detectada. Redirigiendo a la raíz index...');
@@ -586,7 +1180,24 @@ async function iniciarSistemaCompleto() {
   }
 }
 
+async function detenerServiciosAplicacion() {
+  let timer;
+  try {
+    await Promise.race([
+      typeof shutdownBackend === 'function' ? shutdownBackend() : Promise.resolve(),
+      new Promise((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Timeout de cierre')), 30000); }),
+    ]);
+  } catch (error) {
+    console.warn('Cierre incompleto del backend:', error.message);
+  } finally {
+    clearTimeout(timer);
+    stopPostgres();
+  }
+}
+
 app.whenReady().then(async () => {
+  configureAutoUpdater();
+
   let claveGuardada = fs.existsSync(licenseFilePath)
     ? fs.readFileSync(licenseFilePath, 'utf8').trim()
     : '';
@@ -608,20 +1219,9 @@ app.on('before-quit', async event => {
   event.preventDefault();
   if (cierreIniciado) return;
   cierreIniciado = true;
-  let timer;
-  try {
-    await Promise.race([
-      typeof shutdownBackend === 'function' ? shutdownBackend() : Promise.resolve(),
-      new Promise((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Timeout de cierre')), 30000); }),
-    ]);
-  } catch (error) {
-    console.warn('Cierre incompleto del backend:', error.message);
-  } finally {
-    clearTimeout(timer);
-    stopPostgres();
-    cierreCompletado = true;
-    app.quit();
-  }
+  await detenerServiciosAplicacion();
+  cierreCompletado = true;
+  app.quit();
 });
 process.on('SIGINT', () => app.quit());
 process.on('SIGTERM', () => app.quit());

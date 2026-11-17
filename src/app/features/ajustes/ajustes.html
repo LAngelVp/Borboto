@@ -2519,5 +2519,369 @@
         </div>
       </div>
     </mat-tab>
+
+    <!-- 🔹 PESTAÑA 12: ACTUALIZACIONES DEL SISTEMA -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">system_update</mat-icon>
+        <span>Actualizaciones del Sistema</span>
+      </ng-template>
+      <div class="tab-content" style="padding: 24px">
+        <div
+          class="form-card width-xl mx-auto"
+          style="
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+          "
+        >
+          <div
+            class="card-header"
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 1px solid #eee;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+              gap: 16px;
+            "
+          >
+            <div>
+              <h3
+                style="
+                  margin: 0 0 4px 0;
+                  color: #1565c0;
+                  font-size: 1.4rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                "
+              >
+                <mat-icon style="color: #1565c0">system_update</mat-icon>
+                Actualizaciones del Sistema
+              </h3>
+              <p style="margin: 0; color: #666; font-size: 0.9rem">
+                Mantén el punto de venta al día con las últimas versiones publicadas del sistema.
+              </p>
+            </div>
+            <span
+              style="
+                background-color: #eef6fc;
+                color: #1565c0;
+                border: 1px solid #bbdefb;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-weight: bold;
+                font-size: 0.9rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+              "
+            >
+              <mat-icon style="font-size: 18px; width: 18px; height: 18px">sync</mat-icon>
+              {{ etiquetaEstadoActualizacion() }}
+            </span>
+          </div>
+
+          <div
+            style="
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 24px;
+            "
+          >
+            <div
+              style="
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 16px;
+                border-radius: 8px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.8rem;
+                  color: #6c757d;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                "
+                >Versión Instalada</span
+              >
+              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem">
+                {{ updateState().currentVersion || '—' }}
+              </p>
+            </div>
+
+            <div
+              style="
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 16px;
+                border-radius: 8px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.8rem;
+                  color: #6c757d;
+                  font-weight: bold;
+                  text-transform: uppercase;
+                "
+                >Versión Disponible</span
+              >
+              <p style="margin: 4px 0 0 0; font-weight: 600; color: #212529; font-size: 1.05rem">
+                {{ etiquetaVersionDisponible() }}
+              </p>
+            </div>
+          </div>
+
+          @if (!updateDisponibleEnElectron()) {
+            <div
+              style="
+                background: #fff8e1;
+                border: 1px dashed #ffb300;
+                color: #795548;
+                padding: 16px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              "
+            >
+              <mat-icon style="color: #ff8f00">info</mat-icon>
+              <span>
+                La actualización automática solo está disponible cuando la aplicación se ejecuta
+                como programa de escritorio.
+              </span>
+            </div>
+          } @else {
+            @if (updateState().status === 'available') {
+              <div
+                style="
+                  background: #e8f5e9;
+                  border: 1px solid #c8e6c9;
+                  color: #2e7d32;
+                  padding: 16px;
+                  border-radius: 8px;
+                  margin-bottom: 20px;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                "
+              >
+                <mat-icon>new_releases</mat-icon>
+                <span>
+                  La versión {{ updateState().availableVersion }} está disponible. Descárgala para
+                  instalarla cuando lo decidas.
+                </span>
+              </div>
+            }
+
+            @if (updateState().status === 'downloading') {
+              <div style="margin-bottom: 20px">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 8px;
+                    color: #1565c0;
+                    font-weight: bold;
+                    font-size: 0.9rem;
+                  "
+                >
+                  <span>Descargando actualización...</span>
+                  <span>{{ progresoActualizacion() }}%</span>
+                </div>
+                <mat-progress-bar
+                  mode="determinate"
+                  [value]="progresoActualizacion()"
+                ></mat-progress-bar>
+                <p style="margin: 8px 0 0 0; color: #666; font-size: 0.85rem">
+                  {{ formatearTamano(updateState().progress?.transferred) }} de
+                  {{ formatearTamano(updateState().progress?.total) }}
+                </p>
+              </div>
+            }
+
+            @if (updateState().status === 'downloaded') {
+              <div
+                style="
+                  background: #e8f5e9;
+                  border: 1px solid #c8e6c9;
+                  color: #2e7d32;
+                  padding: 16px;
+                  border-radius: 8px;
+                  margin-bottom: 20px;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                "
+              >
+                <mat-icon>check_circle</mat-icon>
+                <span>
+                  La actualización {{ updateState().availableVersion }} se descargó correctamente.
+                  Reinicia la aplicación para aplicarla.
+                </span>
+              </div>
+            }
+
+            @if (updateState().status === 'not-available') {
+              <div
+                style="
+                  background: #e8f5e9;
+                  border: 1px solid #c8e6c9;
+                  color: #2e7d32;
+                  padding: 16px;
+                  border-radius: 8px;
+                  margin-bottom: 20px;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                "
+              >
+                <mat-icon>verified</mat-icon>
+                <span>La versión instalada está actualizada.</span>
+              </div>
+            }
+
+            @if (updateState().status === 'error') {
+              <div
+                style="
+                  background: #fff3e0;
+                  border: 1px solid #ffe0b2;
+                  color: #ef6c00;
+                  padding: 16px;
+                  border-radius: 8px;
+                  margin-bottom: 20px;
+                  display: flex;
+                  align-items: flex-start;
+                  gap: 10px;
+                "
+              >
+                <mat-icon style="margin-top: 2px">cloud_off</mat-icon>
+                <div style="flex: 1">
+                  <span style="display: block; font-weight: 600">
+                    {{
+                      updateState().message ||
+                        'No se pudo conectar con el servidor de actualizaciones.'
+                    }}
+                  </span>
+                  <span style="display: block; margin-top: 4px; font-size: 0.82rem; color: #8d6e63">
+                    Puedes reintentar la búsqueda cuando la conexión esté disponible.
+                  </span>
+                  @if (updateState().detail) {
+                    <details style="margin-top: 8px; font-size: 0.78rem; color: #6d4c41">
+                      <summary style="cursor: pointer">Detalle técnico</summary>
+                      <code
+                        style="
+                          display: block;
+                          margin-top: 6px;
+                          white-space: pre-wrap;
+                          word-break: break-word;
+                          font-family: monospace;
+                          background: #fffde7;
+                          border-radius: 4px;
+                          padding: 8px;
+                        "
+                        >{{ updateState().detail }}</code
+                      >
+                    </details>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (updateState().status === 'unavailable') {
+              <div
+                style="
+                  background: #eceff1;
+                  border: 1px dashed #90a4ae;
+                  color: #546e7a;
+                  padding: 16px;
+                  border-radius: 8px;
+                  margin-bottom: 20px;
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                "
+              >
+                <mat-icon>developer_mode</mat-icon>
+                <span>{{ updateState().message }}</span>
+              </div>
+            }
+
+            @if (updateState().releaseNotes) {
+              <details style="margin-bottom: 20px; color: #455a64">
+                <summary style="cursor: pointer; font-weight: bold; color: #1565c0">
+                  Notas de la versión
+                </summary>
+                <div class="release-notes" [innerHTML]="releaseNotesHtml()"></div>
+              </details>
+            }
+          }
+
+          <div
+            class="update-actions"
+            style="
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: flex-end;
+              gap: 12px;
+              margin-top: 8px;
+            "
+          >
+            <button
+              mat-stroked-button
+              color="primary"
+              type="button"
+              (click)="buscarActualizaciones()"
+              [disabled]="!canCheck()"
+            >
+              <mat-icon>{{ updateState().status === 'error' ? 'refresh' : 'search' }}</mat-icon>
+              {{
+                updateState().status === 'checking'
+                  ? 'Buscando...'
+                  : updateState().status === 'error'
+                    ? 'Reintentar Búsqueda'
+                    : 'Buscar Actualizaciones'
+              }}
+            </button>
+
+            @if (updateState().status === 'available') {
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="descargarActualizacion()"
+                [disabled]="!canDownload()"
+              >
+                <mat-icon>download</mat-icon>
+                Descargar Actualización
+              </button>
+            }
+
+            @if (updateState().status === 'downloaded') {
+              <button
+                mat-flat-button
+                color="accent"
+                type="button"
+                (click)="reiniciarYActualizar()"
+                [disabled]="!canInstall()"
+              >
+                <mat-icon>restart_alt</mat-icon>
+                Reiniciar y Actualizar
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </mat-tab>
   </mat-tab-group>
 </div>

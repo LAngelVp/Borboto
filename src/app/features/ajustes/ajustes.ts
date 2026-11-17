@@ -1,4 +1,14 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy, NgZone } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+  NgZone,
+  SecurityContext,
+} from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
 import { BillingComponent } from '../../features/billing-component/billing-component';
 import { CommonModule } from '@angular/common';
@@ -11,6 +21,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import {
   AjustesService,
@@ -28,6 +39,7 @@ import { CajaService } from '../../core/services/caja-service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PrinterService, Impresora, WindowsPrinterInfo } from '../../core/services/printer.service';
 import { RuntimeConfigService } from '../../core/services/runtime-config.service';
+import { UpdateService } from '../../core/services/update.service';
 import * as XLSX from 'xlsx';
 import { InventarioAdminComponent } from '../inventario/inventario-admin';
 
@@ -47,6 +59,7 @@ declare var window: any;
     MatFormFieldModule,
     MatSelectModule,
     MatSnackBarModule,
+    MatProgressBarModule,
     BillingComponent,
     InventarioAdminComponent,
   ],
@@ -62,6 +75,8 @@ export class AjustesComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly printerService = inject(PrinterService);
   private readonly runtimeConfig = inject(RuntimeConfigService);
+  private readonly updateService = inject(UpdateService);
+  private readonly sanitizer = inject(DomSanitizer);
   private readonly zone = inject(NgZone); // 👈 Forzar actualización fuera del evento IPC
 
   private get API_URL() {
@@ -90,6 +105,25 @@ export class AjustesComponent implements OnInit {
   readonly hardwareIdLocal = signal<string>('OBTENIENDO...');
   nuevaClaveLicencia: string = '';
   cargandoLicencia: boolean = false;
+
+  // 🔹 ESTADO DEL ACTUALIZADOR AUTOMÁTICO
+  readonly updateState = this.updateService.state;
+  readonly updateDisponibleEnElectron = this.updateService.isElectron;
+  readonly actualizacionEnProceso = this.updateService.busy;
+  readonly canCheck = this.updateService.canCheck;
+  readonly canDownload = this.updateService.canDownload;
+  readonly canInstall = this.updateService.canInstall;
+
+  // Las notas de GitHub llegan como HTML (<h3>, <ul>, <strong>, <code>...).
+  // Se sanitizan antes de exponerlas a [innerHTML] para eliminar contenido inseguro.
+  readonly releaseNotesHtml = computed<string | null>(() => {
+    const notas = this.updateState().releaseNotes;
+    if (!notas) {
+      return null;
+    }
+
+    return this.sanitizer.sanitize(SecurityContext.HTML, notas);
+  });
 
   nuevaImpresora: Impresora = {
     nombre: '',
@@ -274,6 +308,127 @@ export class AjustesComponent implements OnInit {
   copiarHardwareId() {
     navigator.clipboard.writeText(this.hardwareIdLocal());
     this.notifications.info('Hardware ID copiado al portapapeles.', 2000);
+  }
+
+  // 🔹 ACTUALIZACIONES DEL SISTEMA
+
+  async buscarActualizaciones() {
+    console.log('[UPDATER] Acción de UI: buscar actualizaciones');
+    const resultado = await this.updateService.checkForUpdates();
+    console.log('[UPDATER] Resultado de UI al buscar actualizaciones', {
+      ok: resultado.ok,
+      status: this.updateState().status,
+      message: resultado.message,
+      detail: resultado.detail,
+    });
+
+    if (resultado.ok === false) {
+      this.notifications.warning(
+        resultado.message || 'No se pudo buscar actualizaciones en este momento.',
+        5000,
+      );
+      return;
+    }
+
+    const estado = this.updateState();
+    if (estado.status === 'available') {
+      this.notifications.info(
+        `Nueva versión disponible: ${estado.availableVersion || 'desconocida'}.`,
+        5000,
+      );
+    } else if (estado.status === 'not-available') {
+      this.notifications.success('Ya tienes instalada la versión más reciente del sistema.', 4000);
+    }
+  }
+
+  async descargarActualizacion() {
+    console.log('[UPDATER] Acción de UI: descargar actualización');
+    const resultado = await this.updateService.downloadUpdate();
+    console.log('[UPDATER] Resultado de UI al descargar actualización', {
+      ok: resultado.ok,
+      status: this.updateState().status,
+      message: resultado.message,
+      detail: resultado.detail,
+    });
+
+    if (resultado.ok === false) {
+      this.notifications.warning(
+        resultado.message || 'No se pudo descargar la actualización.',
+        5000,
+      );
+      return;
+    }
+
+    if (this.updateState().status === 'downloaded') {
+      this.notifications.success('Actualización descargada y lista para instalarse.', 4000);
+    }
+  }
+
+  reiniciarYActualizar() {
+    console.log('[UPDATER] Acción de UI: reiniciar y actualizar');
+    this.notifications.confirmAction(
+      'La aplicación se cerrará para instalar la actualización. ¿Deseas continuar?',
+      'Reiniciar y actualizar',
+      () => {
+        void this.ejecutarInstalacion();
+      },
+    );
+  }
+
+  private async ejecutarInstalacion() {
+    console.log('[UPDATER] Confirmación aceptada: iniciando instalación');
+    const resultado = await this.updateService.quitAndInstall();
+    if (resultado.ok === false) {
+      console.warn('[UPDATER] No se pudo iniciar la instalación', {
+        message: resultado.message,
+        detail: resultado.detail,
+      });
+      this.notifications.error(
+        resultado.message || 'No se pudo iniciar la instalación de la actualización.',
+        5000,
+      );
+    }
+  }
+
+  progresoActualizacion(): number {
+    const progreso = this.updateState().progress;
+    return Math.min(100, Math.max(0, Math.round(progreso?.percent ?? 0)));
+  }
+
+  formatearTamano(bytes: number | undefined): string {
+    const valor = Number(bytes) || 0;
+    if (valor <= 0) return '0 MB';
+    const mb = valor / (1024 * 1024);
+    return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+  }
+
+  etiquetaVersionDisponible(): string {
+    const estado = this.updateState();
+    if (estado.availableVersion) return estado.availableVersion;
+    if (estado.status === 'not-available') return 'Sin novedades';
+    if (estado.status === 'error') return 'No disponible';
+    return 'Sin comprobar';
+  }
+
+  etiquetaEstadoActualizacion(): string {
+    switch (this.updateState().status) {
+      case 'checking':
+        return 'Buscando actualizaciones...';
+      case 'available':
+        return 'Actualización disponible';
+      case 'not-available':
+        return 'Sistema actualizado';
+      case 'downloading':
+        return 'Descargando actualización...';
+      case 'downloaded':
+        return 'Lista para instalar';
+      case 'error':
+        return 'Error de actualización';
+      case 'unavailable':
+        return 'No disponible';
+      default:
+        return 'Listo para comprobar';
+    }
   }
 
   cargarHistorialCortes() {

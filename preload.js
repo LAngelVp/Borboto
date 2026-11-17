@@ -5,8 +5,8 @@ contextBridge.exposeInMainWorld('__BORBOTO_RUNTIME_CONFIG__', Object.freeze({
   apiBaseUrl: `http://127.0.0.1:${port}/api`, socketUrl: `http://127.0.0.1:${port}`,
 }));
 
-const invokes = new Set(['get-hardware-id', 'get-license-status', 'get-system-printers', 'print-ticket-silent']);
-const events = new Set(['init-license-view', 'submit-license-key-response', 'app-notification']);
+const invokes = new Set(['get-hardware-id', 'get-license-status', 'get-system-printers', 'print-ticket-silent', 'get-app-version', 'get-update-state', 'check-for-updates', 'download-update', 'quit-and-install']);
+const events = new Set(['init-license-view', 'submit-license-key-response', 'app-notification', 'update-available', 'update-not-available', 'download-progress', 'update-downloaded', 'update-error']);
 function validPrint(payload) {
   return payload && typeof payload === 'object' && typeof payload.content === 'string' && payload.content.length <= 200000 &&
     typeof payload.printerName === 'string' && payload.printerName.length > 0 && payload.printerName.length <= 200;

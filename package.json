@@ -1,6 +1,6 @@
 {
   "name": "borboto",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Luis Angel Vallejo Perez",
     "email": "angelvallejop9610@gmail.com",
@@ -71,6 +71,11 @@
       "shortcutName": "Borboto POS",
       "deleteAppDataOnUninstall": false,
       "warningsAsErrors": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "LAngelVp",
+      "repo": "BorbotoInstaller"
     }
   },
   "private": true,
@@ -99,6 +104,7 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "electron-updater": "^6.8.11",
     "express": "^5.2.1",
     "facturapi": "^4.20.0",
     "jimp": "^1.6.1",

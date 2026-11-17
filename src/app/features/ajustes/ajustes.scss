@@ -693,3 +693,90 @@
     height: 18px;
   }
 }
+
+/* Notas de la versión: el HTML proviene de GitHub y se inserta con innerHTML. */
+.release-notes {
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  color: #37474f;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+
+  ::ng-deep {
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin: 0 0 8px;
+      color: #1565c0;
+      font-size: 1rem;
+      line-height: 1.3;
+    }
+
+    h1:not(:first-child),
+    h2:not(:first-child),
+    h3:not(:first-child),
+    h4:not(:first-child) {
+      margin-top: 14px;
+    }
+
+    p {
+      margin: 0 0 8px;
+    }
+
+    ul,
+    ol {
+      margin: 0 0 10px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    strong {
+      color: #263238;
+      font-weight: 700;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #eef1f4;
+      color: #ad1457;
+      font-family: monospace;
+      font-size: 0.84em;
+    }
+
+    a {
+      color: #1565c0;
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Botones de Actualizaciones: contraste explícito en modo oscuro. */
+:host-context(html.dark-theme) {
+  .update-actions {
+    button[mat-stroked-button] {
+      --mdc-outlined-button-label-text-color: var(--color-primary);
+      --mdc-outlined-button-outline-color: var(--color-primary);
+      --mdc-outlined-button-hover-label-text-color: var(--color-primary);
+      --mdc-outlined-button-focus-label-text-color: var(--color-primary);
+      color: var(--color-primary) !important;
+      border-color: var(--color-primary) !important;
+      background-color: transparent !important;
+    }
+
+    button[mat-flat-button] {
+      --mdc-filled-button-container-color: var(--color-primary);
+      --mdc-filled-button-label-text-color: #ffffff;
+      color: #ffffff !important;
+      background-color: var(--color-primary) !important;
+    }
+  }
+}
